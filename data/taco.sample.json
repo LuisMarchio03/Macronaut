@@ -1,0 +1,5 @@
+[
+  { "nome": "Arroz, integral, cozido", "base_qty_g": 100, "kcal": 124, "prot_g": 2.6, "carb_g": 25.8, "gord_g": 1.0 },
+  { "nome": "Feijão, carioca, cozido", "base_qty_g": 100, "kcal": 76, "prot_g": 4.8, "carb_g": 13.6, "gord_g": 0.5 },
+  { "nome": "Frango, peito, sem pele, grelhado", "base_qty_g": 100, "kcal": 159, "prot_g": 32.0, "carb_g": 0.0, "gord_g": 2.5 }
+]
