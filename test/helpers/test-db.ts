@@ -9,10 +9,10 @@ import { fileURLToPath } from "node:url";
 // vez de manter o esquema file:. Resolvemos o caminho em duas etapas para
 // evitar esse padrão e obter o caminho de arquivo real.
 const here = fileURLToPath(import.meta.url);
-const schemaPath = resolve(dirname(here), "../../src/db/schema.sql");
-const schema = readFileSync(schemaPath, "utf-8");
 
-export async function createTestDb(): Promise<Client> {
+export async function createTestDb(schemaFile = "schema.sql"): Promise<Client> {
+  const schemaPath = resolve(dirname(here), `../../src/db/${schemaFile}`);
+  const schema = readFileSync(schemaPath, "utf-8");
   const db = createClient({ url: ":memory:" });
   // A conexão :memory: é persistente, então este PRAGMA vale para todos os
   // testes de repository construídos sobre o harness, tornando reais as FKs

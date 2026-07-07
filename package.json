@@ -11,10 +11,10 @@
     "dev": "vite",
     "build": "tsc -b && tsc --noEmit -p tsconfig.node.json && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "migrate": "node --experimental-strip-types --env-file=.env.local scripts/migrate.ts",
-    "seed": "node --experimental-strip-types --env-file=.env.local scripts/seed.ts"
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
+    "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest",
+    "migrate:auth": "node --experimental-strip-types --env-file=.env.local scripts/migrate-auth.ts",
+    "create-user": "node --experimental-strip-types --env-file=.env.local scripts/create-user.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -38,6 +38,7 @@
     "@types/node": "^26.1.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@vercel/node": "^5.8.22",
     "@vitejs/plugin-react": "^6.0.3",
     "jsdom": "^29.1.1",
     "shadcn": "^4.13.0",

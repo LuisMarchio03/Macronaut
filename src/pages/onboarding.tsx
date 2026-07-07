@@ -5,6 +5,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { HudPanel } from "../components/ui/hud-panel";
 import { useProfile, useSaveProfile } from "../hooks/use-profile";
+import { useAuth } from "../lib/auth-context";
 import {
   idade, tmbMifflinStJeor, gastoEnergetico, ajustePorObjetivo, splitMacros,
 } from "../domain/nutrition";
@@ -14,6 +15,7 @@ export function Onboarding() {
   const navigate = useNavigate();
   const { data: perfil } = useProfile();
   const salvar = useSaveProfile();
+  const { logout } = useAuth();
 
   const [sexo, setSexo] = useState<Sexo>("M");
   const [nascimento, setNascimento] = useState("");
@@ -140,6 +142,10 @@ export function Onboarding() {
         <Button type="button" className="w-full" onClick={onSalvar}
           disabled={!metaKcal || salvar.isPending}>Salvar</Button>
       </HudPanel>
+
+      <Button type="button" variant="ghost" className="w-full" onClick={logout}>
+        Sair
+      </Button>
     </div>
   );
 }

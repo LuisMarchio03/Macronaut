@@ -6,6 +6,7 @@ import type { Client } from "@libsql/client";
 import { MemoryRouter } from "react-router-dom";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { AuthProvider } from "../lib/auth-context";
 import { Onboarding } from "./onboarding";
 import { getProfile } from "../repositories/profile";
 
@@ -17,7 +18,9 @@ function renderPage() {
   return render(
     <QueryClientProvider client={qc}>
       <DbProvider client={db}>
-        <MemoryRouter><Onboarding /></MemoryRouter>
+        <AuthProvider>
+          <MemoryRouter><Onboarding /></MemoryRouter>
+        </AuthProvider>
       </DbProvider>
     </QueryClientProvider>,
   );
