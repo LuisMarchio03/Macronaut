@@ -25,6 +25,19 @@ export async function listEntriesByDate(
   return rs.rows.map(mapRow);
 }
 
+export async function listEntriesByRange(
+  db: Client,
+  userId: number,
+  inicio: string,
+  fim: string,
+): Promise<FoodEntry[]> {
+  const rs = await db.execute({
+    sql: "SELECT * FROM food_entries WHERE user_id=? AND data BETWEEN ? AND ? ORDER BY data, created_at",
+    args: [userId, inicio, fim],
+  });
+  return rs.rows.map(mapRow);
+}
+
 export async function createEntry(
   db: Client,
   userId: number,

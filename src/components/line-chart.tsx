@@ -1,14 +1,16 @@
 export function LineChart({
   pontos,
   unidade = "",
+  msgVazia = "Registre mais treinos para ver a progressão.",
 }: {
   pontos: { x: string; y: number }[];
   unidade?: string;
+  msgVazia?: string;
 }) {
   if (pontos.length < 2) {
     return (
       <p className="py-8 text-center font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
-        Registre mais treinos para ver a progressão.
+        {msgVazia}
       </p>
     );
   }

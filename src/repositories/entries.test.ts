@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
-import { listEntriesByDate, createEntry, deleteEntry } from "./entries";
+import { listEntriesByDate, listEntriesByRange, createEntry, deleteEntry } from "./entries";
 
 let db: Client;
 beforeEach(async () => {
@@ -37,5 +37,18 @@ describe("entries repo", () => {
     expect(await listEntriesByDate(db, 1, "2026-07-07")).toHaveLength(1);
     await deleteEntry(db, 1, e.id);
     expect(await listEntriesByDate(db, 1, "2026-07-07")).toHaveLength(0);
+  });
+
+  it("listEntriesByRange retorna só o range e só do usuário", async () => {
+    const base = { meal_id: null, food_id: 1, qty_g: 100, label: null };
+    await createEntry(db, 1, { data: "2026-07-05", ...base }); // fora (antes)
+    await createEntry(db, 1, { data: "2026-07-06", ...base }); // limite início
+    await createEntry(db, 1, { data: "2026-07-09", ...base }); // dentro
+    await createEntry(db, 1, { data: "2026-07-12", ...base }); // limite fim
+    await createEntry(db, 1, { data: "2026-07-13", ...base }); // fora (depois)
+    await createEntry(db, 2, { data: "2026-07-09", ...base }); // outro usuário
+
+    const r = await listEntriesByRange(db, 1, "2026-07-06", "2026-07-12");
+    expect(r.map((e) => e.data)).toEqual(["2026-07-06", "2026-07-09", "2026-07-12"]);
   });
 });

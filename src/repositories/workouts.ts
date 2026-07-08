@@ -1,5 +1,6 @@
 import type { Client, Row } from "@libsql/client";
 import type { WorkoutSession, WorkoutSet } from "../domain/types";
+import type { SetAnalise } from "../domain/analise-treino";
 
 function mapSession(r: Row): WorkoutSession {
   return {
@@ -119,5 +120,41 @@ export async function setsForExercise(
     data: r.data as string,
     peso_kg: r.peso_kg as number,
     reps: r.reps as number,
+  }));
+}
+
+export async function listSessionsByRange(
+  db: Client,
+  userId: number,
+  inicio: string,
+  fim: string,
+): Promise<WorkoutSession[]> {
+  const rs = await db.execute({
+    sql: "SELECT * FROM workout_sessions WHERE user_id=? AND data BETWEEN ? AND ? ORDER BY data, created_at",
+    args: [userId, inicio, fim],
+  });
+  return rs.rows.map(mapSession);
+}
+
+export async function setsForAnalise(
+  db: Client,
+  userId: number,
+  inicio: string,
+  fim: string,
+): Promise<SetAnalise[]> {
+  const rs = await db.execute({
+    sql: `SELECT s.data AS data, ws.reps AS reps, ws.peso_kg AS peso_kg, e.grupo_muscular AS grupo
+          FROM workout_sets ws
+          JOIN workout_sessions s ON s.id = ws.session_id
+          JOIN exercises e ON e.id = ws.exercise_id
+          WHERE ws.user_id = ? AND s.data BETWEEN ? AND ?
+          ORDER BY s.data`,
+    args: [userId, inicio, fim],
+  });
+  return rs.rows.map((r) => ({
+    data: r.data as string,
+    reps: r.reps as number,
+    peso_kg: r.peso_kg as number,
+    grupo: (r.grupo as string | null) ?? null,
   }));
 }

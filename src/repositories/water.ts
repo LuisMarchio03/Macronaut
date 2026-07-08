@@ -21,3 +21,16 @@ export async function resetWater(db: Client, userId: number, data: string): Prom
     args: [userId, data],
   });
 }
+
+export async function getWaterByRange(
+  db: Client,
+  userId: number,
+  inicio: string,
+  fim: string,
+): Promise<Map<string, number>> {
+  const rs = await db.execute({
+    sql: "SELECT data, SUM(ml) AS ml FROM water_log WHERE user_id=? AND data BETWEEN ? AND ? GROUP BY data",
+    args: [userId, inicio, fim],
+  });
+  return new Map(rs.rows.map((r) => [r.data as string, r.ml as number]));
+}

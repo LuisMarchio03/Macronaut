@@ -4,6 +4,7 @@ import { createTestDb } from "../../test/helpers/test-db";
 import {
   createSession, getSessionByDate, listSessions, deleteSession,
   addSet, listSetsBySession, deleteSet, setsForExercise,
+  listSessionsByRange, setsForAnalise,
 } from "./workouts";
 
 let db: Client;
@@ -43,5 +44,23 @@ describe("workouts repo", () => {
     expect(await listSessions(db, 1)).toHaveLength(1);
     await deleteSession(db, 1, s1.id);
     expect(await listSessions(db, 1)).toHaveLength(0);
+  });
+
+  it("listSessionsByRange filtra por range e usuário", async () => {
+    await createSession(db, 1, { data: "2026-07-05", nome: null });
+    await createSession(db, 1, { data: "2026-07-06", nome: "A" });
+    await createSession(db, 1, { data: "2026-07-12", nome: "B" });
+    await createSession(db, 2, { data: "2026-07-07", nome: "X" });
+    const r = await listSessionsByRange(db, 1, "2026-07-06", "2026-07-12");
+    expect(r.map((x) => x.data)).toEqual(["2026-07-06", "2026-07-12"]);
+  });
+
+  it("setsForAnalise traz data da sessão + grupo do exercício, filtrado por range/usuário", async () => {
+    const s1 = await createSession(db, 1, { data: "2026-07-06", nome: null });
+    const sFora = await createSession(db, 1, { data: "2026-07-20", nome: null });
+    await addSet(db, 1, { session_id: s1.id, exercise_id: 1, ordem: 1, reps: 10, peso_kg: 40 });
+    await addSet(db, 1, { session_id: sFora.id, exercise_id: 1, ordem: 1, reps: 8, peso_kg: 50 });
+    const r = await setsForAnalise(db, 1, "2026-07-06", "2026-07-12");
+    expect(r).toEqual([{ data: "2026-07-06", reps: 10, peso_kg: 40, grupo: "peito" }]);
   });
 });

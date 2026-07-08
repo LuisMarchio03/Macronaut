@@ -4,6 +4,7 @@ import { createTestDb } from "../../test/helpers/test-db";
 import {
   listActivityTypes, seedActivityTypes,
   createActivitySession, listActivitySessions, deleteActivitySession,
+  listActivitySessionsByRange,
 } from "./activities";
 
 let db: Client;
@@ -33,5 +34,15 @@ describe("activities repo", () => {
     expect(await listActivitySessions(db, 1)).toHaveLength(1);
     await deleteActivitySession(db, 1, a.id);
     expect(await listActivitySessions(db, 1)).toHaveLength(0);
+  });
+
+  it("listActivitySessionsByRange filtra por range e usuário", async () => {
+    const base = { tipo: "Corrida", duracao_min: 30, kcal: 300 };
+    await createActivitySession(db, 1, { data: "2026-07-05", ...base }); // fora
+    await createActivitySession(db, 1, { data: "2026-07-06", ...base });
+    await createActivitySession(db, 1, { data: "2026-07-12", ...base });
+    await createActivitySession(db, 2, { data: "2026-07-07", ...base }); // outro usuário
+    const r = await listActivitySessionsByRange(db, 1, "2026-07-06", "2026-07-12");
+    expect(r.map((s) => s.data)).toEqual(["2026-07-06", "2026-07-12"]);
   });
 });

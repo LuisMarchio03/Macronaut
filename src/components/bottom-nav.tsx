@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
-import { House, Apple, UtensilsCrossed, Target, Dumbbell, type LucideIcon } from "lucide-react";
+import {
+  House, Apple, UtensilsCrossed, Target, Dumbbell, ChartColumn, type LucideIcon,
+} from "lucide-react";
 
 const itens: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/", label: "Hoje", icon: House },
@@ -7,6 +9,7 @@ const itens: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/refeicoes", label: "Refeições", icon: UtensilsCrossed },
   { to: "/metas", label: "Metas", icon: Target },
   { to: "/treino", label: "Treino", icon: Dumbbell },
+  { to: "/analise", label: "Análise", icon: ChartColumn },
 ];
 
 export function BottomNav() {
@@ -17,7 +20,7 @@ export function BottomNav() {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"
       />
-      <div className="mx-auto grid max-w-md grid-cols-5 pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto grid max-w-md grid-cols-6 pb-[env(safe-area-inset-bottom)]">
         {itens.map((i) => {
           const Icon = i.icon;
           return (

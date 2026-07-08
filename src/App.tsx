@@ -6,6 +6,7 @@ import { Foods } from "./pages/foods";
 import { MealsConfig } from "./pages/meals-config";
 import { Onboarding } from "./pages/onboarding";
 import { Treino } from "./pages/treino";
+import { Analise } from "./pages/analise";
 import { Login } from "./pages/login";
 
 function ProtectedLayout() {
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/refeicoes" element={<MealsConfig />} />
         <Route path="/metas" element={<Onboarding />} />
         <Route path="/treino" element={<Treino />} />
+        <Route path="/analise" element={<Analise />} />
       </Route>
     </Routes>
   );

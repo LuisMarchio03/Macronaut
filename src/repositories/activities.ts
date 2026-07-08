@@ -74,6 +74,19 @@ export async function listActivitySessions(
   return rs.rows.map(mapSession);
 }
 
+export async function listActivitySessionsByRange(
+  db: Client,
+  userId: number,
+  inicio: string,
+  fim: string,
+): Promise<ActivitySession[]> {
+  const rs = await db.execute({
+    sql: "SELECT * FROM activity_sessions WHERE user_id=? AND data BETWEEN ? AND ? ORDER BY data, created_at",
+    args: [userId, inicio, fim],
+  });
+  return rs.rows.map(mapSession);
+}
+
 export async function deleteActivitySession(db: Client, userId: number, id: number): Promise<void> {
   await db.execute({
     sql: "DELETE FROM activity_sessions WHERE id=? AND user_id=?",

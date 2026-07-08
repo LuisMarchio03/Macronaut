@@ -116,3 +116,13 @@ CREATE TABLE IF NOT EXISTS activity_sessions (
   created_at   TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_asessions_user_data ON activity_sessions (user_id, data);
+
+CREATE TABLE IF NOT EXISTS weigh_ins (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL,
+  data        TEXT NOT NULL,
+  peso_kg     REAL NOT NULL CHECK (peso_kg > 0),
+  created_at  TEXT NOT NULL,
+  UNIQUE (user_id, data)
+);
+CREATE INDEX IF NOT EXISTS idx_weighins_user_data ON weigh_ins (user_id, data);
