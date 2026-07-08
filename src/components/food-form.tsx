@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { TacoAutocomplete } from "./taco-autocomplete";
 import type { Food } from "../domain/types";
+import type { TacoItem } from "../domain/taco";
 
 type FoodInput = Omit<Food, "id" | "source" | "created_at">;
 
@@ -19,10 +21,25 @@ export function FoodForm({
 
   const valido = nome.trim() && Number(base) > 0 && kcal !== "";
 
+  function preencher(it: TacoItem) {
+    setNome(it.nome);
+    setBase(String(it.base_qty_g));
+    setKcal(String(it.kcal));
+    setProt(String(it.prot_g));
+    setCarb(String(it.carb_g));
+    setGord(String(it.gord_g));
+  }
+
   return (
     <div className="space-y-3">
       <div><Label htmlFor="nome">Nome</Label>
-        <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
+        <TacoAutocomplete
+          id="nome"
+          value={nome}
+          placeholder="Buscar na TACO ou digitar…"
+          onChange={setNome}
+          onSelecionar={preencher}
+        /></div>
       <div><Label htmlFor="marca">Marca (opcional)</Label>
         <Input id="marca" value={marca} onChange={(e) => setMarca(e.target.value)} /></div>
       <div className="grid grid-cols-2 gap-3">
