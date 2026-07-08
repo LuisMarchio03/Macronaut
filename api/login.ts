@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@libsql/client";
 import { authenticate } from "./_lib/login-core";
-import { randomBytes, scrypt, timingSafeEqual, type ScryptOptions } from "node:crypto";
+import { scrypt, timingSafeEqual, type ScryptOptions } from "node:crypto";
 
 function scryptAsync(
   senha: string,
@@ -28,8 +28,6 @@ async function verifyPassword(senha: string, stored: string): Promise<boolean> {
 
 const DUMMY_HASH =
   `scrypt$16384$8$1$${Buffer.alloc(16).toString("base64")}$${Buffer.alloc(64).toString("base64")}`;
-
-import type { Row } from "@libsql/client";
 
 async function findUserByEmail(email: string) {
   const url = process.env.DB_URL;
