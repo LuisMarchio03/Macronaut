@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@libsql/client";
-import { authenticate } from "./_lib/login-core";
-import { findUserByEmail } from "../src/repositories/users";
-import { verifyPassword, DUMMY_HASH } from "../src/domain/auth";
+import { authenticate } from "./_lib/login-core.js";
+import { findUserByEmail } from "../src/repositories/users.js";
+import { verifyPassword, DUMMY_HASH } from "../src/domain/auth.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });
