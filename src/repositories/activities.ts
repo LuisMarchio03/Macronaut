@@ -50,25 +50,33 @@ export async function seedActivityTypes(db: Client): Promise<void> {
 
 export async function createActivitySession(
   db: Client,
+  userId: number,
   a: { data: string; tipo: string; duracao_min: number; kcal: number },
 ): Promise<ActivitySession> {
   const created_at = new Date().toISOString();
   const rs = await db.execute({
-    sql: `INSERT INTO activity_sessions (data, tipo, duracao_min, kcal, created_at)
-          VALUES (?, ?, ?, ?, ?)`,
-    args: [a.data, a.tipo, a.duracao_min, a.kcal, created_at],
+    sql: `INSERT INTO activity_sessions (user_id, data, tipo, duracao_min, kcal, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [userId, a.data, a.tipo, a.duracao_min, a.kcal, created_at],
   });
   return { id: Number(rs.lastInsertRowid), created_at, ...a };
 }
 
-export async function listActivitySessions(db: Client, limite = 30): Promise<ActivitySession[]> {
+export async function listActivitySessions(
+  db: Client,
+  userId: number,
+  limite = 30,
+): Promise<ActivitySession[]> {
   const rs = await db.execute({
-    sql: "SELECT * FROM activity_sessions ORDER BY data DESC, created_at DESC LIMIT ?",
-    args: [limite],
+    sql: "SELECT * FROM activity_sessions WHERE user_id=? ORDER BY data DESC, created_at DESC LIMIT ?",
+    args: [userId, limite],
   });
   return rs.rows.map(mapSession);
 }
 
-export async function deleteActivitySession(db: Client, id: number): Promise<void> {
-  await db.execute({ sql: "DELETE FROM activity_sessions WHERE id=?", args: [id] });
+export async function deleteActivitySession(db: Client, userId: number, id: number): Promise<void> {
+  await db.execute({
+    sql: "DELETE FROM activity_sessions WHERE id=? AND user_id=?",
+    args: [id, userId],
+  });
 }

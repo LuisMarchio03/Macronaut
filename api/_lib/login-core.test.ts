@@ -1,45 +1,49 @@
-import { it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { authenticate, type LoginDeps, type StoredUser } from "./login-core";
 
-const user: StoredUser = {
-  email: "ana@exemplo.com",
-  password_hash: "hash-da-ana",
-  db_name: "macro-ana",
-  db_url: "libsql://macro-ana-org.turso.io",
+const user: StoredUser = { id: 7, email: "a@x.com", password_hash: "HASH" };
+const base: LoginDeps = {
+  findUser: async (e) => (e === "a@x.com" ? user : null),
+  verify: async (_senha, hash) => hash === "HASH",
+  dummyHash: "DUMMY",
+  session: { dbUrl: "libsql://compartilhado", token: "shared-token" },
 };
 
-function deps(over: Partial<LoginDeps> = {}): LoginDeps {
-  return {
-    findUser: async (e) => (e === "ana@exemplo.com" ? user : null),
-    verify: async (_senha, hash) => hash === "hash-da-ana",
-    mintToken: async () => ({ token: "tok", exp: 111 }),
-    dummyHash: "dummy",
-    ...over,
-  };
-}
-
-it("normaliza o e-mail (trim + lowercase) antes de buscar", async () => {
-  const findUser = vi.fn(deps().findUser);
-  await authenticate(deps({ findUser }), { email: "  ANA@Exemplo.com ", senha: "x" });
-  expect(findUser).toHaveBeenCalledWith("ana@exemplo.com");
-});
-
-it("credencial válida devolve token + dbUrl do usuário", async () => {
-  const r = await authenticate(deps(), { email: "ana@exemplo.com", senha: "ok" });
-  expect(r).toEqual({
-    ok: true, user: { email: "ana@exemplo.com" },
-    dbUrl: "libsql://macro-ana-org.turso.io", token: "tok", exp: 111,
+describe("authenticate (banco único)", () => {
+  it("credencial válida devolve user.id + dbUrl + token compartilhado", async () => {
+    const r = await authenticate(base, { email: "a@x.com", senha: "ok" });
+    expect(r).toEqual({
+      ok: true,
+      user: { id: 7, email: "a@x.com" },
+      dbUrl: "libsql://compartilhado",
+      token: "shared-token",
+    });
   });
-});
 
-it("senha errada devolve ok:false", async () => {
-  const r = await authenticate(deps({ verify: async () => false }), { email: "ana@exemplo.com", senha: "x" });
-  expect(r).toEqual({ ok: false });
-});
+  it("e-mail inexistente → { ok: false }", async () => {
+    const r = await authenticate(base, { email: "nao@existe.com", senha: "x" });
+    expect(r).toEqual({ ok: false });
+  });
 
-it("e-mail inexistente devolve ok:false E ainda chama verify (anti-timing)", async () => {
-  const verify = vi.fn(async () => false);
-  const r = await authenticate(deps({ verify }), { email: "ninguem@exemplo.com", senha: "x" });
-  expect(r).toEqual({ ok: false });
-  expect(verify).toHaveBeenCalledWith("x", "dummy");
+  it("senha errada → { ok: false }", async () => {
+    const deps = { ...base, verify: async () => false };
+    const r = await authenticate(deps, { email: "a@x.com", senha: "errada" });
+    expect(r).toEqual({ ok: false });
+  });
+
+  it("normaliza e-mail (trim + lowercase) antes de buscar", async () => {
+    const r = await authenticate(base, { email: "  A@X.com  ", senha: "ok" });
+    expect(r.ok).toBe(true);
+  });
+
+  it("roda verify mesmo sem usuário (anti-timing), com dummyHash", async () => {
+    let usouDummy = false;
+    const deps: LoginDeps = {
+      ...base,
+      findUser: async () => null,
+      verify: async (_s, hash) => { if (hash === "DUMMY") usouDummy = true; return false; },
+    };
+    await authenticate(deps, { email: "nao@existe.com", senha: "x" });
+    expect(usouDummy).toBe(true);
+  });
 });

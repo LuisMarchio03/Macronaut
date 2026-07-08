@@ -29,7 +29,7 @@ it("sem sessão, redireciona para /login", () => {
 });
 
 it("com sessão válida, renderiza o conteúdo protegido", () => {
-  saveSession({ email: "a@b.com", dbUrl: "libsql://x", token: "t", exp: Date.now() + 1_000_000 });
+  saveSession({ userId: 1, email: "a@b.com", dbUrl: "libsql://x", token: "t" });
   renderApp();
   expect(screen.getByText("área secreta")).toBeInTheDocument();
 });

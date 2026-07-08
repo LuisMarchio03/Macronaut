@@ -18,43 +18,57 @@ function mapRow(r: Row): Meal {
   };
 }
 
-export async function listMeals(db: Client): Promise<Meal[]> {
-  const rs = await db.execute("SELECT * FROM meals ORDER BY ordem");
+export async function listMeals(db: Client, userId: number): Promise<Meal[]> {
+  const rs = await db.execute({
+    sql: "SELECT * FROM meals WHERE user_id=? ORDER BY ordem",
+    args: [userId],
+  });
   return rs.rows.map(mapRow);
 }
 
-export async function createMeal(db: Client, m: Omit<Meal, "id">): Promise<Meal> {
+export async function createMeal(db: Client, userId: number, m: Omit<Meal, "id">): Promise<Meal> {
   const rs = await db.execute({
-    sql: "INSERT INTO meals (nome, horario, ordem) VALUES (?, ?, ?)",
-    args: [m.nome, m.horario, m.ordem],
+    sql: "INSERT INTO meals (user_id, nome, horario, ordem) VALUES (?, ?, ?, ?)",
+    args: [userId, m.nome, m.horario, m.ordem],
   });
   return { id: Number(rs.lastInsertRowid), ...m };
 }
 
-export async function updateMeal(db: Client, id: number, m: Omit<Meal, "id">): Promise<void> {
+export async function updateMeal(
+  db: Client,
+  userId: number,
+  id: number,
+  m: Omit<Meal, "id">,
+): Promise<void> {
   await db.execute({
-    sql: "UPDATE meals SET nome=?, horario=?, ordem=? WHERE id=?",
-    args: [m.nome, m.horario, m.ordem, id],
+    sql: "UPDATE meals SET nome=?, horario=?, ordem=? WHERE id=? AND user_id=?",
+    args: [m.nome, m.horario, m.ordem, id, userId],
   });
 }
 
-export async function deleteMeal(db: Client, id: number): Promise<void> {
+export async function deleteMeal(db: Client, userId: number, id: number): Promise<void> {
   await db.batch(
     [
-      { sql: "UPDATE food_entries SET meal_id = NULL WHERE meal_id = ?", args: [id] },
-      { sql: "DELETE FROM meals WHERE id = ?", args: [id] },
+      {
+        sql: "UPDATE food_entries SET meal_id = NULL WHERE meal_id = ? AND user_id = ?",
+        args: [id, userId],
+      },
+      { sql: "DELETE FROM meals WHERE id = ? AND user_id = ?", args: [id, userId] },
     ],
     "write",
   );
 }
 
-export async function seedDefaultMeals(db: Client): Promise<void> {
-  const rs = await db.execute("SELECT COUNT(*) AS n FROM meals");
+export async function seedDefaultMeals(db: Client, userId: number): Promise<void> {
+  const rs = await db.execute({
+    sql: "SELECT COUNT(*) AS n FROM meals WHERE user_id=?",
+    args: [userId],
+  });
   if ((rs.rows[0].n as number) > 0) return;
   await db.batch(
     PADRAO.map((m) => ({
-      sql: "INSERT INTO meals (nome, horario, ordem) VALUES (?, ?, ?)",
-      args: [m.nome, m.horario, m.ordem],
+      sql: "INSERT INTO meals (user_id, nome, horario, ordem) VALUES (?, ?, ?, ?)",
+      args: [userId, m.nome, m.horario, m.ordem],
     })),
     "write",
   );

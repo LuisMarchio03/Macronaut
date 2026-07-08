@@ -28,7 +28,7 @@ it("inicia treino do dia e loga uma série", async () => {
   const user = userEvent.setup();
   renderTab();
   await user.click(await screen.findByRole("button", { name: /iniciar treino/i }));
-  await waitFor(async () => expect(await getSessionByDate(db, hoje())).not.toBeNull());
+  await waitFor(async () => expect(await getSessionByDate(db, 1, hoje())).not.toBeNull());
 
   // escolher exercício, reps e peso, adicionar série
   await user.selectOptions(await screen.findByLabelText(/exerc/i), "Supino");
@@ -39,7 +39,7 @@ it("inicia treino do dia e loga uma série", async () => {
   await user.click(screen.getByRole("button", { name: /\+ s[ée]rie/i }));
 
   await waitFor(async () => {
-    const s = await getSessionByDate(db, hoje());
-    expect(await listSetsBySession(db, s!.id)).toHaveLength(1);
+    const s = await getSessionByDate(db, 1, hoje());
+    expect(await listSetsBySession(db, 1, s!.id)).toHaveLength(1);
   });
 });

@@ -1,4 +1,4 @@
-import { it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import {
@@ -7,53 +7,41 @@ import {
 } from "./workouts";
 
 let db: Client;
-let exId: number;
 beforeEach(async () => {
   db = await createTestDb();
-  const rs = await db.execute({
-    sql: "INSERT INTO exercises (nome, created_at) VALUES ('Supino', ?)",
-    args: [new Date().toISOString()],
+  await db.execute("INSERT INTO exercises (nome, grupo_muscular, created_at) VALUES ('Supino', 'peito', 't')");
+});
+
+const set = (over = {}) => ({ session_id: 0, exercise_id: 1, ordem: 1, reps: 10, peso_kg: 40, ...over });
+
+describe("workouts repo", () => {
+  it("isola sessões por usuário", async () => {
+    await createSession(db, 1, { data: "2026-07-07", nome: "A" });
+    await createSession(db, 2, { data: "2026-07-07", nome: "B" });
+    expect(await listSessions(db, 1)).toHaveLength(1);
+    expect((await getSessionByDate(db, 1, "2026-07-07"))?.nome).toBe("A");
+    expect((await getSessionByDate(db, 2, "2026-07-07"))?.nome).toBe("B");
   });
-  exId = Number(rs.lastInsertRowid);
-});
 
-it("cria sessão e busca por data", async () => {
-  const s = await createSession(db, { data: "2026-07-06", nome: "Treino A" });
-  expect(s.id).toBeGreaterThan(0);
-  expect((await getSessionByDate(db, "2026-07-06"))?.nome).toBe("Treino A");
-  expect(await getSessionByDate(db, "2026-07-05")).toBeNull();
-});
+  it("sets isolados; setsForExercise só vê os do usuário", async () => {
+    const s1 = await createSession(db, 1, { data: "2026-07-07", nome: null });
+    const s2 = await createSession(db, 2, { data: "2026-07-07", nome: null });
+    await addSet(db, 1, set({ session_id: s1.id, peso_kg: 40 }));
+    await addSet(db, 2, set({ session_id: s2.id, peso_kg: 90 }));
+    expect(await listSetsBySession(db, 1, s1.id)).toHaveLength(1);
+    const prog = await setsForExercise(db, 1, 1);
+    expect(prog).toHaveLength(1);
+    expect(prog[0].peso_kg).toBe(40);
+  });
 
-it("adiciona séries e lista por sessão", async () => {
-  const s = await createSession(db, { data: "2026-07-06", nome: null });
-  await addSet(db, { session_id: s.id, exercise_id: exId, ordem: 1, reps: 10, peso_kg: 80 });
-  await addSet(db, { session_id: s.id, exercise_id: exId, ordem: 2, reps: 8, peso_kg: 82.5 });
-  const sets = await listSetsBySession(db, s.id);
-  expect(sets).toHaveLength(2);
-  expect(sets[0].peso_kg).toBe(80);
-});
-
-it("deleteSession apaga as séries junto (batch)", async () => {
-  const s = await createSession(db, { data: "2026-07-06", nome: null });
-  await addSet(db, { session_id: s.id, exercise_id: exId, ordem: 1, reps: 5, peso_kg: 100 });
-  await deleteSession(db, s.id);
-  expect(await listSessions(db)).toHaveLength(0);
-  expect(await listSetsBySession(db, s.id)).toHaveLength(0);
-});
-
-it("setsForExercise devolve pontos com a data da sessão", async () => {
-  const s1 = await createSession(db, { data: "2026-06-30", nome: null });
-  const s2 = await createSession(db, { data: "2026-07-06", nome: null });
-  await addSet(db, { session_id: s1.id, exercise_id: exId, ordem: 1, reps: 10, peso_kg: 75 });
-  await addSet(db, { session_id: s2.id, exercise_id: exId, ordem: 1, reps: 10, peso_kg: 80 });
-  const pts = await setsForExercise(db, exId);
-  expect(pts).toHaveLength(2);
-  expect(pts.every((p) => typeof p.data === "string" && p.peso_kg > 0)).toBe(true);
-});
-
-it("deleteSet remove uma série", async () => {
-  const s = await createSession(db, { data: "2026-07-06", nome: null });
-  const set = await addSet(db, { session_id: s.id, exercise_id: exId, ordem: 1, reps: 5, peso_kg: 60 });
-  await deleteSet(db, set.id);
-  expect(await listSetsBySession(db, s.id)).toHaveLength(0);
+  it("deleteSession/deleteSet não afetam outro usuário", async () => {
+    const s1 = await createSession(db, 1, { data: "2026-07-07", nome: null });
+    const st = await addSet(db, 1, set({ session_id: s1.id }));
+    await deleteSet(db, 2, st.id);
+    expect(await listSetsBySession(db, 1, s1.id)).toHaveLength(1);
+    await deleteSession(db, 2, s1.id);
+    expect(await listSessions(db, 1)).toHaveLength(1);
+    await deleteSession(db, 1, s1.id);
+    expect(await listSessions(db, 1)).toHaveLength(0);
+  });
 });

@@ -13,27 +13,35 @@ function mapRow(r: Row): FoodEntry {
   };
 }
 
-export async function listEntriesByDate(db: Client, data: string): Promise<FoodEntry[]> {
+export async function listEntriesByDate(
+  db: Client,
+  userId: number,
+  data: string,
+): Promise<FoodEntry[]> {
   const rs = await db.execute({
-    sql: "SELECT * FROM food_entries WHERE data=? ORDER BY created_at",
-    args: [data],
+    sql: "SELECT * FROM food_entries WHERE user_id=? AND data=? ORDER BY created_at",
+    args: [userId, data],
   });
   return rs.rows.map(mapRow);
 }
 
 export async function createEntry(
   db: Client,
+  userId: number,
   e: Omit<FoodEntry, "id" | "created_at">,
 ): Promise<FoodEntry> {
   const created_at = new Date().toISOString();
   const rs = await db.execute({
-    sql: `INSERT INTO food_entries (data, meal_id, food_id, qty_g, label, created_at)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-    args: [e.data, e.meal_id, e.food_id, e.qty_g, e.label, created_at],
+    sql: `INSERT INTO food_entries (user_id, data, meal_id, food_id, qty_g, label, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    args: [userId, e.data, e.meal_id, e.food_id, e.qty_g, e.label, created_at],
   });
   return { id: Number(rs.lastInsertRowid), created_at, ...e };
 }
 
-export async function deleteEntry(db: Client, id: number): Promise<void> {
-  await db.execute({ sql: "DELETE FROM food_entries WHERE id=?", args: [id] });
+export async function deleteEntry(db: Client, userId: number, id: number): Promise<void> {
+  await db.execute({
+    sql: "DELETE FROM food_entries WHERE id=? AND user_id=?",
+    args: [id, userId],
+  });
 }

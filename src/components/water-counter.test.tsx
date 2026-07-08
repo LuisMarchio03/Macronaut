@@ -24,5 +24,5 @@ it("adiciona um copo (250ml)", async () => {
   const user = userEvent.setup();
   renderCounter();
   await user.click(await screen.findByRole("button", { name: /\+ copo/i }));
-  await waitFor(async () => expect(await getWaterTotal(db, "2026-07-06")).toBe(250));
+  await waitFor(async () => expect(await getWaterTotal(db, 1, "2026-07-06")).toBe(250));
 });

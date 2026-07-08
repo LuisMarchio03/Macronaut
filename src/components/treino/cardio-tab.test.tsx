@@ -36,7 +36,7 @@ it("registra uma atividade com kcal manual", async () => {
   await user.clear(screen.getByLabelText(/kcal/i));
   await user.type(screen.getByLabelText(/kcal/i), "340");
   await user.click(screen.getByRole("button", { name: /salvar/i }));
-  await waitFor(async () => expect(await listActivitySessions(db)).toHaveLength(1));
+  await waitFor(async () => expect(await listActivitySessions(db, 1)).toHaveLength(1));
 });
 
 it("desabilita o botão Salvar quando kcal está vazio", async () => {

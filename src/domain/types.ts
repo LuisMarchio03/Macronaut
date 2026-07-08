@@ -10,7 +10,7 @@ export interface Macros {
 }
 
 export interface Profile {
-  id: 1;
+  id: number;
   sexo: Sexo;
   data_nascimento: string; // YYYY-MM-DD
   altura_cm: number;

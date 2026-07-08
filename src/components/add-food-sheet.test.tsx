@@ -39,6 +39,6 @@ it("busca alimento, informa quantidade e registra", async () => {
   await user.click(screen.getByRole("button", { name: /adicionar/i }));
 
   await waitFor(async () =>
-    expect(await listEntriesByDate(db, "2026-07-06")).toHaveLength(1),
+    expect(await listEntriesByDate(db, 1, "2026-07-06")).toHaveLength(1),
   );
 });

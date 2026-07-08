@@ -12,5 +12,5 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   );
 
   if (!session || !client) return <Navigate to="/login" replace />;
-  return <DbProvider client={client}>{children}</DbProvider>;
+  return <DbProvider client={client} userId={session.userId}>{children}</DbProvider>;
 }

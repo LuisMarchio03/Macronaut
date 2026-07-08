@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
     "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest",
-    "migrate:auth": "node --experimental-strip-types --env-file=.env.local scripts/migrate-auth.ts",
+    "db:setup": "node --experimental-strip-types --env-file=.env.local scripts/setup-db.ts",
     "create-user": "node --experimental-strip-types --env-file=.env.local scripts/create-user.ts"
   },
   "dependencies": {

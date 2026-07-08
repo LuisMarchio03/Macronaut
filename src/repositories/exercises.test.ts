@@ -23,12 +23,12 @@ it("deleta exercício sem uso; bloqueia se em uso", async () => {
   const e2 = await createExercise(db, { nome: "Terra", grupo_muscular: "Costas" });
   const now = new Date().toISOString();
   await db.execute({
-    sql: "INSERT INTO workout_sessions (data, created_at) VALUES ('2026-07-06', ?)",
+    sql: "INSERT INTO workout_sessions (user_id, data, created_at) VALUES (1, '2026-07-06', ?)",
     args: [now],
   });
   await db.execute({
-    sql: `INSERT INTO workout_sets (session_id, exercise_id, ordem, reps, peso_kg, created_at)
-          VALUES (1, ?, 1, 5, 100, ?)`,
+    sql: `INSERT INTO workout_sets (user_id, session_id, exercise_id, ordem, reps, peso_kg, created_at)
+          VALUES (1, 1, ?, 1, 5, 100, ?)`,
     args: [e2.id, now],
   });
   const r2 = await deleteExercise(db, e2.id);

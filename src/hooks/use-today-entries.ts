@@ -1,14 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDb } from "../lib/db-context";
+import { useDb, useUserId } from "../lib/db-context";
 import { listEntriesByDate, createEntry, deleteEntry } from "../repositories/entries";
 import { getFoodsByIds } from "../repositories/foods";
 import type { FoodEntry } from "../domain/types";
 
 export function useTodayEntries(data: string) {
   const db = useDb();
+  const userId = useUserId();
   return useQuery({
     queryKey: ["entries", data],
-    queryFn: () => listEntriesByDate(db, data),
+    queryFn: () => listEntriesByDate(db, userId, data),
   });
 }
 
@@ -24,18 +25,20 @@ export function useFoodsForEntries(entries: FoodEntry[]) {
 
 export function useAddEntry() {
   const db = useDb();
+  const userId = useUserId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (e: Omit<FoodEntry, "id" | "created_at">) => createEntry(db, e),
+    mutationFn: (e: Omit<FoodEntry, "id" | "created_at">) => createEntry(db, userId, e),
     onSuccess: (_r, e) => qc.invalidateQueries({ queryKey: ["entries", e.data] }),
   });
 }
 
 export function useDeleteEntry(data: string) {
   const db = useDb();
+  const userId = useUserId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteEntry(db, id),
+    mutationFn: (id: number) => deleteEntry(db, userId, id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["entries", data] }),
   });
 }

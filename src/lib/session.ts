@@ -1,13 +1,13 @@
-export type Session = { email: string; dbUrl: string; token: string; exp: number };
+export type Session = { userId: number; email: string; dbUrl: string; token: string };
 
 const KEY = "macronaut.session";
 
-export function loadSession(now: number = Date.now()): Session | null {
+export function loadSession(): Session | null {
   const raw = localStorage.getItem(KEY);
   if (!raw) return null;
   try {
     const s = JSON.parse(raw) as Session;
-    if (!s.token || !s.dbUrl || typeof s.exp !== "number" || s.exp <= now) {
+    if (typeof s.userId !== "number" || !s.token || !s.dbUrl || !s.email) {
       localStorage.removeItem(KEY);
       return null;
     }

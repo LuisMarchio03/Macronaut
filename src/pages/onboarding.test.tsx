@@ -43,5 +43,5 @@ it("calcula a sugestão e salva o perfil", async () => {
   await waitFor(() => expect(Number(metaKcal.value)).toBeGreaterThan(0));
 
   await user.click(screen.getByRole("button", { name: /salvar/i }));
-  await waitFor(async () => expect(await getProfile(db)).not.toBeNull());
+  await waitFor(async () => expect(await getProfile(db, 1)).not.toBeNull());
 });

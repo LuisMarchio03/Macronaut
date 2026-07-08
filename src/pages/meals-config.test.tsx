@@ -28,7 +28,7 @@ describe("MealsConfig", () => {
     await user.type(screen.getByLabelText(/nome da refeição/i), "Pré-treino");
     await user.click(screen.getByRole("button", { name: /^salvar$/i }));
     await waitFor(async () =>
-      expect((await listMeals(db)).some((m) => m.nome === "Pré-treino")).toBe(true),
+      expect((await listMeals(db, 1)).some((m) => m.nome === "Pré-treino")).toBe(true),
     );
   });
 });

@@ -12,10 +12,10 @@ beforeEach(async () => {
   db = await createTestDb();
   const now = new Date().toISOString();
   await db.execute({ sql: "INSERT INTO exercises (nome, created_at) VALUES ('Supino', ?)", args: [now] });
-  await db.execute({ sql: "INSERT INTO workout_sessions (data, created_at) VALUES ('2026-06-30', ?)", args: [now] });
-  await db.execute({ sql: "INSERT INTO workout_sessions (data, created_at) VALUES ('2026-07-06', ?)", args: [now] });
-  await db.execute({ sql: "INSERT INTO workout_sets (session_id, exercise_id, ordem, reps, peso_kg, created_at) VALUES (1,1,1,10,75,?)", args: [now] });
-  await db.execute({ sql: "INSERT INTO workout_sets (session_id, exercise_id, ordem, reps, peso_kg, created_at) VALUES (2,1,1,10,80,?)", args: [now] });
+  await db.execute({ sql: "INSERT INTO workout_sessions (user_id, data, created_at) VALUES (1, '2026-06-30', ?)", args: [now] });
+  await db.execute({ sql: "INSERT INTO workout_sessions (user_id, data, created_at) VALUES (1, '2026-07-06', ?)", args: [now] });
+  await db.execute({ sql: "INSERT INTO workout_sets (user_id, session_id, exercise_id, ordem, reps, peso_kg, created_at) VALUES (1,1,1,1,10,75,?)", args: [now] });
+  await db.execute({ sql: "INSERT INTO workout_sets (user_id, session_id, exercise_id, ordem, reps, peso_kg, created_at) VALUES (1,2,1,1,10,80,?)", args: [now] });
 });
 
 function renderTab() {
