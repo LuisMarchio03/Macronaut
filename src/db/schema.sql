@@ -126,3 +126,14 @@ CREATE TABLE IF NOT EXISTS weigh_ins (
   UNIQUE (user_id, data)
 );
 CREATE INDEX IF NOT EXISTS idx_weighins_user_data ON weigh_ins (user_id, data);
+
+CREATE TABLE IF NOT EXISTS ai_messages (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL,
+  provider    TEXT NOT NULL,          -- 'gemini' | 'aloy'
+  session_id  TEXT NOT NULL,          -- gemini: uuid nosso; aloy: id devolvido pela ALOY
+  role        TEXT NOT NULL,          -- 'user' | 'assistant'
+  content     TEXT NOT NULL,
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_msg_conv ON ai_messages (user_id, provider, session_id, id);

@@ -2,6 +2,7 @@ import { createClient, type Client } from "@libsql/client";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyAdditiveColumns } from "../../scripts/lib/apply-schema";
 
 // Nota: `new URL("../../src/db/schema.sql", import.meta.url)` é interceptado
 // estaticamente pelo plugin de análise de import do Vite (tratado como
@@ -19,5 +20,6 @@ export async function createTestDb(schemaFile = "schema.sql"): Promise<Client> {
   // declaradas no schema (ex.: food_entries.meal_id ... ON DELETE SET NULL).
   await db.execute("PRAGMA foreign_keys = ON");
   await db.executeMultiple(schema);
+  await applyAdditiveColumns(db);
   return db;
 }

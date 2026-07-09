@@ -14,7 +14,9 @@
     "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
     "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest",
     "db:setup": "node --experimental-strip-types --env-file=.env.local scripts/setup-db.ts",
-    "create-user": "node --experimental-strip-types --env-file=.env.local scripts/create-user.ts"
+    "create-user": "node --experimental-strip-types --env-file=.env.local scripts/create-user.ts",
+    "ai:flags": "node --experimental-strip-types --env-file=.env.local scripts/ai-flags.ts",
+    "ai:gateway": "node --experimental-strip-types --env-file=.env.local server/ai-gateway.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

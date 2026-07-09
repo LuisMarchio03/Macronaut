@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Bot } from "lucide-react";
 import { CalorieRing } from "../components/calorie-ring";
 import { MacroBars } from "../components/macro-bars";
 import { WaterCounter } from "../components/water-counter";
@@ -11,6 +12,7 @@ import { useMeals } from "../hooks/use-meals";
 import {
   useTodayEntries, useFoodsForEntries, useDeleteEntry,
 } from "../hooks/use-today-entries";
+import { useAiConfig } from "../hooks/use-ai-config";
 import { totaisDoDia } from "../domain/nutrition";
 import { hoje, formatarData } from "../lib/date";
 import type { Macros } from "../domain/types";
@@ -22,6 +24,7 @@ export function Dashboard() {
   const { data: foods } = useFoodsForEntries(entries);
   const { data: meals = [] } = useMeals();
   const del = useDeleteEntry(data);
+  const { data: aiConfig } = useAiConfig();
   const [sheetMeal, setSheetMeal] = useState<number | null | "fechado">("fechado");
 
   if (isLoading) return <div className="p-4">Carregando…</div>;
@@ -56,6 +59,14 @@ export function Dashboard() {
           {saudacao} · painel diário
         </p>
         <h1 className="text-2xl font-semibold capitalize tracking-tight">{formatarData(data)}</h1>
+        {aiConfig && (aiConfig.aloy_enabled || aiConfig.gemini_enabled) && (
+          <Link
+            to="/ia"
+            className="mt-2 inline-flex items-center gap-1.5 font-mono text-[0.62rem] uppercase tracking-[0.16em] text-primary/80 hover:text-primary"
+          >
+            <Bot className="size-3.5" /> Falar com a IA
+          </Link>
+        )}
       </header>
 
       <HudPanel

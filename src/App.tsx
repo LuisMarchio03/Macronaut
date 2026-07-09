@@ -7,6 +7,8 @@ import { MealsConfig } from "./pages/meals-config";
 import { Onboarding } from "./pages/onboarding";
 import { Treino } from "./pages/treino";
 import { Analise } from "./pages/analise";
+import { Ajustes } from "./pages/ajustes";
+import { Ia } from "./pages/ia";
 import { Login } from "./pages/login";
 
 function ProtectedLayout() {
@@ -31,6 +33,8 @@ export default function App() {
         <Route path="/metas" element={<Onboarding />} />
         <Route path="/treino" element={<Treino />} />
         <Route path="/analise" element={<Analise />} />
+        <Route path="/ajustes" element={<Ajustes />} />
+        <Route path="/ia" element={<Ia />} />
       </Route>
     </Routes>
   );
