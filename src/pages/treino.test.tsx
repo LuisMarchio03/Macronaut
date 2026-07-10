@@ -6,6 +6,7 @@ import type { Client } from "@libsql/client";
 import { MemoryRouter } from "react-router-dom";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { DataProvider } from "../lib/data-context";
 import { Treino } from "./treino";
 
 async function renderPage() {
@@ -14,7 +15,7 @@ async function renderPage() {
   render(
     <QueryClientProvider client={qc}>
       <DbProvider client={db}>
-        <MemoryRouter><Treino /></MemoryRouter>
+        <MemoryRouter><DataProvider><Treino /></DataProvider></MemoryRouter>
       </DbProvider>
     </QueryClientProvider>,
   );

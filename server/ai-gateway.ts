@@ -20,7 +20,29 @@ function bearerOk(expected: string, authorization: string | undefined): boolean 
   return got.length === exp.length && timingSafeEqual(got, exp);
 }
 
+// O navegador (app em outra origem/porta) faz preflight CORS antes de POST com
+// Authorization; sem estes headers a chamada é bloqueada e a UI só vê "não
+// consegui conectar". Origem `*` é seguro aqui: a auth é por Bearer no header
+// (nunca cookie), então não usamos credenciais de origem.
+export const CORS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+
 export async function handleRequest(
+  deps: RequestDeps,
+  req: { method: string; path: string; query: URLSearchParams; authorization: string | undefined; body: unknown },
+): Promise<{ status: number; json: unknown; headers: Record<string, string> }> {
+  // Preflight: responde antes de exigir Bearer (o browser não manda auth no OPTIONS).
+  if (req.method === "OPTIONS") return { status: 204, json: null, headers: CORS };
+
+  const res = await route(deps, req);
+  return { ...res, headers: CORS };
+}
+
+async function route(
   deps: RequestDeps,
   req: { method: string; path: string; query: URLSearchParams; authorization: string | undefined; body: unknown },
 ): Promise<{ status: number; json: unknown }> {
@@ -93,10 +115,15 @@ function main() {
         authorization: req.headers.authorization,
         body,
       });
-      res.writeHead(out.status, { "Content-Type": "application/json" });
+      if (out.status === 204) {
+        res.writeHead(204, out.headers);
+        res.end();
+        return;
+      }
+      res.writeHead(out.status, { "Content-Type": "application/json", ...out.headers });
       res.end(JSON.stringify(out.json));
     })().catch(() => {
-      res.writeHead(500, { "Content-Type": "application/json" });
+      res.writeHead(500, { "Content-Type": "application/json", ...CORS });
       res.end(JSON.stringify({ error: "erro interno" }));
     });
   }).listen(port, () => console.log(`AI Gateway ouvindo em :${port}`));

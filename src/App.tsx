@@ -1,6 +1,7 @@
 import { Routes, Route, Outlet } from "react-router-dom";
 import { BottomNav } from "./components/bottom-nav";
 import { RequireAuth } from "./components/require-auth";
+import { DataProvider } from "./lib/data-context";
 import { Dashboard } from "./pages/dashboard";
 import { Foods } from "./pages/foods";
 import { MealsConfig } from "./pages/meals-config";
@@ -14,10 +15,12 @@ import { Login } from "./pages/login";
 function ProtectedLayout() {
   return (
     <RequireAuth>
-      <div className="mx-auto min-h-screen max-w-md pb-24">
-        <Outlet />
-        <BottomNav />
-      </div>
+      <DataProvider>
+        <div className="mx-auto min-h-screen max-w-md pb-24">
+          <Outlet />
+          <BottomNav />
+        </div>
+      </DataProvider>
     </RequireAuth>
   );
 }

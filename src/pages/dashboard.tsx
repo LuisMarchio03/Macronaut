@@ -14,11 +14,13 @@ import {
 } from "../hooks/use-today-entries";
 import { useAiConfig } from "../hooks/use-ai-config";
 import { totaisDoDia } from "../domain/nutrition";
-import { hoje, formatarData } from "../lib/date";
-import type { Macros } from "../domain/types";
+import { formatarData } from "../lib/date";
+import { useDataAtiva } from "../lib/data-context";
+import { DateNav } from "../components/date-nav";
+import type { Food, FoodEntry, Macros } from "../domain/types";
 
 export function Dashboard() {
-  const data = hoje();
+  const { data, ehHoje } = useDataAtiva();
   const { data: perfil, isLoading } = useProfile();
   const { data: entries = [] } = useTodayEntries(data);
   const { data: foods } = useFoodsForEntries(entries);
@@ -26,6 +28,7 @@ export function Dashboard() {
   const del = useDeleteEntry(data);
   const { data: aiConfig } = useAiConfig();
   const [sheetMeal, setSheetMeal] = useState<number | null | "fechado">("fechado");
+  const [editando, setEditando] = useState<{ entry: FoodEntry; food: Food } | null>(null);
 
   if (isLoading) return <div className="p-4">Carregando…</div>;
 
@@ -48,6 +51,11 @@ export function Dashboard() {
 
   const entriesDe = (mealId: number | null) => entries.filter((e) => e.meal_id === mealId);
 
+  const abrirEdicao = (e: FoodEntry) => {
+    const f = foods?.get(e.food_id);
+    if (f) setEditando({ entry: e, food: f });
+  };
+
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite";
   const pctKcal = meta.kcal > 0 ? Math.round((consumido.kcal / meta.kcal) * 100) : 0;
@@ -59,6 +67,7 @@ export function Dashboard() {
           {saudacao} · painel diário
         </p>
         <h1 className="text-2xl font-semibold capitalize tracking-tight">{formatarData(data)}</h1>
+        <div className="pt-1"><DateNav /></div>
         {aiConfig && (aiConfig.aloy_enabled || aiConfig.gemini_enabled) && (
           <Link
             to="/ia"
@@ -70,7 +79,7 @@ export function Dashboard() {
       </header>
 
       <HudPanel
-        label="Métricas · Hoje"
+        label={`Métricas · ${ehHoje ? "Hoje" : formatarData(data)}`}
         aside={`[ ${pctKcal}% ]`}
         glow
         scanlines
@@ -90,16 +99,21 @@ export function Dashboard() {
         <div className="space-y-3">
           {meals.map((m) => (
             <MealSection key={m.id} meal={m} entries={entriesDe(m.id)} foods={foods}
-              onAdd={() => setSheetMeal(m.id)} onDelete={(id) => del.mutate(id)} />
+              onAdd={() => setSheetMeal(m.id)} onDelete={(id) => del.mutate(id)} onEdit={abrirEdicao} />
           ))}
           <MealSection meal={null} entries={entriesDe(null)} foods={foods}
-            onAdd={() => setSheetMeal(null)} onDelete={(id) => del.mutate(id)} />
+            onAdd={() => setSheetMeal(null)} onDelete={(id) => del.mutate(id)} onEdit={abrirEdicao} />
         </div>
       </div>
 
       {sheetMeal !== "fechado" && (
         <AddFoodSheet data={data} mealId={sheetMeal} open
           onClose={() => setSheetMeal("fechado")} />
+      )}
+
+      {editando && (
+        <AddFoodSheet data={data} mealId={editando.entry.meal_id} open
+          entryEdit={editando} onClose={() => setEditando(null)} />
       )}
     </div>
   );

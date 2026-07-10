@@ -158,3 +158,21 @@ export async function setsForAnalise(
     grupo: (r.grupo as string | null) ?? null,
   }));
 }
+
+export async function updateSet(
+  db: Client,
+  userId: number,
+  id: number,
+  campos: { reps?: number; peso_kg?: number },
+): Promise<void> {
+  const sets: string[] = [];
+  const args: number[] = [];
+  if (campos.reps !== undefined) { sets.push("reps=?"); args.push(campos.reps); }
+  if (campos.peso_kg !== undefined) { sets.push("peso_kg=?"); args.push(campos.peso_kg); }
+  if (sets.length === 0) return;
+  args.push(id, userId);
+  await db.execute({
+    sql: `UPDATE workout_sets SET ${sets.join(", ")} WHERE id=? AND user_id=?`,
+    args,
+  });
+}

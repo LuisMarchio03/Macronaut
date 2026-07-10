@@ -5,6 +5,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../../test/helpers/test-db";
 import { DbProvider } from "../../lib/db-context";
+import { DataProvider } from "../../lib/data-context";
 import { CardioTab } from "./cardio-tab";
 import { seedActivityTypes, listActivitySessions } from "../../repositories/activities";
 
@@ -18,7 +19,9 @@ function renderTab() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}><CardioTab /></DbProvider>
+      <DataProvider>
+        <DbProvider client={db}><CardioTab /></DbProvider>
+      </DataProvider>
     </QueryClientProvider>,
   );
 }

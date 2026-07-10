@@ -5,13 +5,14 @@ import { macrosDoEntry } from "../domain/nutrition";
 import type { Food, FoodEntry, Meal } from "../domain/types";
 
 export function MealSection({
-  meal, entries, foods, onAdd, onDelete,
+  meal, entries, foods, onAdd, onDelete, onEdit,
 }: {
   meal: Meal | null;
   entries: FoodEntry[];
   foods: Map<number, Food> | undefined;
   onAdd: () => void;
   onDelete: (id: number) => void;
+  onEdit: (e: FoodEntry) => void;
 }) {
   const kcal = foods
     ? entries.reduce((s, e) => {
@@ -33,10 +34,14 @@ export function MealSection({
               key={e.id}
               className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/50"
             >
-              <span className="truncate">
+              <button
+                type="button"
+                onClick={() => onEdit(e)}
+                className="flex-1 truncate text-left hover:text-primary"
+              >
                 {f?.nome ?? "?"}{" "}
                 <span className="font-mono text-xs text-muted-foreground">· {e.qty_g}g</span>
-              </span>
+              </button>
               <button
                 className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
                 onClick={() => onDelete(e.id)}

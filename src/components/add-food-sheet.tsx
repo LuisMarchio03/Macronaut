@@ -6,28 +6,40 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { useFoods } from "../hooks/use-foods";
-import { useAddEntry } from "../hooks/use-today-entries";
+import { useAddEntry, useUpdateEntry } from "../hooks/use-today-entries";
 import { macrosDoEntry } from "../domain/nutrition";
-import type { Food } from "../domain/types";
+import type { Food, FoodEntry } from "../domain/types";
 
 export function AddFoodSheet({
-  data, mealId, open, onClose,
-}: { data: string; mealId: number | null; open: boolean; onClose: () => void }) {
+  data, mealId, open, onClose, entryEdit,
+}: {
+  data: string;
+  mealId: number | null;
+  open: boolean;
+  onClose: () => void;
+  entryEdit?: { entry: FoodEntry; food: Food };
+}) {
+  const editando = entryEdit != null;
   const [termo, setTermo] = useState("");
-  const [selecionado, setSelecionado] = useState<Food | null>(null);
-  const [qtd, setQtd] = useState("100");
+  const [selecionado, setSelecionado] = useState<Food | null>(entryEdit?.food ?? null);
+  const [qtd, setQtd] = useState(entryEdit ? String(entryEdit.entry.qty_g) : "100");
   const { data: resultados = [] } = useFoods(termo);
   const add = useAddEntry();
+  const upd = useUpdateEntry(data);
 
   const qtdN = Number(qtd);
   const preview = selecionado && qtdN > 0 ? macrosDoEntry(selecionado, qtdN) : null;
 
   async function registrar() {
     if (!selecionado || qtdN <= 0) return;
-    await add.mutateAsync({
-      data, meal_id: mealId, food_id: selecionado.id, qty_g: qtdN,
-      label: mealId === null ? "Avulsa" : null,
-    });
+    if (editando) {
+      await upd.mutateAsync({ id: entryEdit!.entry.id, qty_g: qtdN });
+    } else {
+      await add.mutateAsync({
+        data, meal_id: mealId, food_id: selecionado.id, qty_g: qtdN,
+        label: mealId === null ? "Avulsa" : null,
+      });
+    }
     setSelecionado(null); setTermo(""); setQtd("100");
     onClose();
   }
@@ -39,7 +51,7 @@ export function AddFoodSheet({
           <p className="font-mono text-[0.6rem] uppercase tracking-[0.28em] text-primary/70">
             Registro · alimento
           </p>
-          <SheetTitle>Adicionar alimento</SheetTitle>
+          <SheetTitle>{editando ? "Editar alimento" : "Adicionar alimento"}</SheetTitle>
           <SheetDescription>
             Busque um alimento, informe a quantidade em gramas e confirme para registrar.
           </SheetDescription>
@@ -80,9 +92,11 @@ export function AddFoodSheet({
               </p>
             )}
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setSelecionado(null)}>Voltar</Button>
+              <Button variant="secondary" onClick={() => (editando ? onClose() : setSelecionado(null))}>Voltar</Button>
               <Button className="flex-1" onClick={registrar}
-                disabled={qtdN <= 0 || add.isPending}>Adicionar</Button>
+                disabled={qtdN <= 0 || add.isPending || upd.isPending}>
+                {editando ? "Salvar" : "Adicionar"}
+              </Button>
             </div>
           </div>
         )}

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
-import { listEntriesByDate, listEntriesByRange, createEntry, deleteEntry } from "./entries";
+import { listEntriesByDate, listEntriesByRange, createEntry, deleteEntry, updateEntry } from "./entries";
 
 let db: Client;
 beforeEach(async () => {
@@ -50,5 +50,26 @@ describe("entries repo", () => {
 
     const r = await listEntriesByRange(db, 1, "2026-07-06", "2026-07-12");
     expect(r.map((e) => e.data)).toEqual(["2026-07-06", "2026-07-09", "2026-07-12"]);
+  });
+
+  it("updateEntry altera qty_g e meal_id só da linha", async () => {
+    // seed a meal for user 1
+    await db.execute(
+      "INSERT INTO meals (user_id, nome, ordem) VALUES (1, 'Almoço', 2)"
+    );
+    const mealId = 1;
+
+    const e = await createEntry(db, 1, novo({ qty_g: 100, meal_id: null }));
+    await updateEntry(db, 1, e.id, { qty_g: 250, meal_id: mealId });
+
+    const updated = (await listEntriesByDate(db, 1, "2026-07-07"))[0];
+    expect(updated.qty_g).toBe(250);
+    expect(updated.meal_id).toBe(mealId);
+  });
+
+  it("updateEntry não afeta linha de outro usuário", async () => {
+    const e = await createEntry(db, 1, novo({ qty_g: 100 }));
+    await updateEntry(db, 2, e.id, { qty_g: 999 }); // usuário 2 tenta editar do 1
+    expect((await listEntriesByDate(db, 1, "2026-07-07"))[0].qty_g).toBe(100);
   });
 });

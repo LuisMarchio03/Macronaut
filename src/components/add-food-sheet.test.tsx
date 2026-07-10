@@ -5,8 +5,10 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { DataProvider } from "../lib/data-context";
 import { AddFoodSheet } from "./add-food-sheet";
-import { listEntriesByDate } from "../repositories/entries";
+import { createEntry, listEntriesByDate } from "../repositories/entries";
+import { getFoodsByIds } from "../repositories/foods";
 
 let db: Client;
 beforeEach(async () => {
@@ -41,4 +43,31 @@ it("busca alimento, informa quantidade e registra", async () => {
   await waitFor(async () =>
     expect(await listEntriesByDate(db, 1, "2026-07-06")).toHaveLength(1),
   );
+});
+
+it("modo edição: salvar altera a quantidade do entry", async () => {
+  const entry = await createEntry(db, 1, {
+    data: "2026-07-06", meal_id: null, food_id: 1, qty_g: 100, label: null,
+  });
+  const food = (await getFoodsByIds(db, [1])).get(1)!;
+
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={qc}>
+      <DbProvider client={db}>
+        <DataProvider dataInicial="2026-07-06">
+          <AddFoodSheet data="2026-07-06" mealId={null} open onClose={() => {}} entryEdit={{ entry, food }} />
+        </DataProvider>
+      </DbProvider>
+    </QueryClientProvider>,
+  );
+
+  const input = await screen.findByLabelText(/quantidade/i);
+  await userEvent.clear(input);
+  await userEvent.type(input, "250");
+  await userEvent.click(screen.getByRole("button", { name: /salvar/i }));
+
+  await waitFor(async () => {
+    expect((await listEntriesByDate(db, 1, "2026-07-06"))[0].qty_g).toBe(250);
+  });
 });

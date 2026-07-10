@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDb, useUserId } from "../lib/db-context";
-import { listEntriesByDate, createEntry, deleteEntry } from "../repositories/entries";
+import { listEntriesByDate, createEntry, deleteEntry, updateEntry } from "../repositories/entries";
 import { getFoodsByIds } from "../repositories/foods";
 import type { FoodEntry } from "../domain/types";
 
@@ -30,6 +30,17 @@ export function useAddEntry() {
   return useMutation({
     mutationFn: (e: Omit<FoodEntry, "id" | "created_at">) => createEntry(db, userId, e),
     onSuccess: (_r, e) => qc.invalidateQueries({ queryKey: ["entries", e.data] }),
+  });
+}
+
+export function useUpdateEntry(data: string) {
+  const db = useDb();
+  const userId = useUserId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (u: { id: number; qty_g?: number; meal_id?: number | null }) =>
+      updateEntry(db, userId, u.id, { qty_g: u.qty_g, meal_id: u.meal_id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["entries", data] }),
   });
 }
 

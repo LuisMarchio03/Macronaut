@@ -4,13 +4,14 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { HudPanel } from "../ui/hud-panel";
 import { X } from "lucide-react";
-import { hoje, formatarData } from "../../lib/date";
+import { formatarData } from "../../lib/date";
+import { useDataAtiva } from "../../lib/data-context";
 import { useProfile } from "../../hooks/use-profile";
 import { useActivityTypes, useCreateActivity, useActivitySessions, useDeleteActivity } from "../../hooks/use-activities";
 import { estimativaKcal } from "../../domain/treino";
 
 export function CardioTab() {
-  const data = hoje();
+  const { data } = useDataAtiva();
   const { data: perfil } = useProfile();
   const { data: tipos = [] } = useActivityTypes();
   const criar = useCreateActivity();

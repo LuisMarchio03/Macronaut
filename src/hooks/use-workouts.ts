@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDb, useUserId } from "../lib/db-context";
 import {
   createSession, getSessionByDate, listSessions, deleteSession,
-  addSet, listSetsBySession, deleteSet, setsForExercise,
+  addSet, listSetsBySession, deleteSet, setsForExercise, updateSet,
 } from "../repositories/workouts";
 
 export function useSessionByDate(data: string) {
@@ -75,6 +75,20 @@ export function useDeleteSet(sessionId: number | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => deleteSet(db, userId, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["session-sets", sessionId] });
+      qc.invalidateQueries({ queryKey: ["sets-exercise"] });
+    },
+  });
+}
+
+export function useUpdateSet(sessionId: number | undefined) {
+  const db = useDb();
+  const userId = useUserId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (u: { id: number; reps?: number; peso_kg?: number }) =>
+      updateSet(db, userId, u.id, { reps: u.reps, peso_kg: u.peso_kg }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["session-sets", sessionId] });
       qc.invalidateQueries({ queryKey: ["sets-exercise"] });

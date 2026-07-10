@@ -3,6 +3,7 @@ import { TreinoTab } from "../components/treino/treino-tab";
 import { CardioTab } from "../components/treino/cardio-tab";
 import { ProgressaoTab } from "../components/treino/progressao-tab";
 import { ExerciciosTab } from "../components/treino/exercicios-tab";
+import { DateNav } from "../components/date-nav";
 
 const ABAS = [
   { key: "treino", label: "Treino" },
@@ -22,6 +23,7 @@ export function Treino() {
           Módulo · treino
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Treino</h1>
+        <div className="pt-1"><DateNav /></div>
       </header>
       <div
         role="tablist"

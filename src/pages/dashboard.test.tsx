@@ -5,6 +5,7 @@ import type { Client } from "@libsql/client";
 import { MemoryRouter } from "react-router-dom";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { DataProvider } from "../lib/data-context";
 import { Dashboard } from "./dashboard";
 
 let db: Client;
@@ -15,7 +16,7 @@ function renderPage() {
   return render(
     <QueryClientProvider client={qc}>
       <DbProvider client={db}>
-        <MemoryRouter><Dashboard /></MemoryRouter>
+        <MemoryRouter><DataProvider><Dashboard /></DataProvider></MemoryRouter>
       </DbProvider>
     </QueryClientProvider>,
   );

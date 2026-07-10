@@ -42,3 +42,25 @@ it("rota desconhecida → 404", async () => {
   const r = await handleRequest(deps, { method: "GET", path: "/x", query: new URLSearchParams(), authorization: auth, body: undefined });
   expect(r.status).toBe(404);
 });
+
+it("OPTIONS (preflight) → 204 com headers CORS, sem exigir Bearer", async () => {
+  const r = await handleRequest(deps, {
+    method: "OPTIONS", path: "/ai/chat", query: new URLSearchParams(), authorization: undefined, body: undefined,
+  });
+  expect(r.status).toBe(204);
+  expect(r.headers?.["Access-Control-Allow-Origin"]).toBe("*");
+  expect(r.headers?.["Access-Control-Allow-Methods"]).toMatch(/POST/);
+  expect(r.headers?.["Access-Control-Allow-Headers"]).toMatch(/authorization/i);
+});
+
+it("toda resposta carrega Access-Control-Allow-Origin (browser cross-origin)", async () => {
+  const ok = await handleRequest(deps, {
+    method: "GET", path: "/ai/health", query: new URLSearchParams("userId=1"), authorization: auth, body: undefined,
+  });
+  expect(ok.headers?.["Access-Control-Allow-Origin"]).toBe("*");
+  const naoAuth = await handleRequest(deps, {
+    method: "POST", path: "/ai/chat", query: new URLSearchParams(), authorization: "Bearer x", body: {},
+  });
+  expect(naoAuth.status).toBe(401);
+  expect(naoAuth.headers?.["Access-Control-Allow-Origin"]).toBe("*");
+});

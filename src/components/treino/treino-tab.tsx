@@ -4,27 +4,32 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { HudPanel } from "../ui/hud-panel";
 import { X } from "lucide-react";
-import { hoje, formatarData } from "../../lib/date";
+import { formatarData } from "../../lib/date";
+import { useDataAtiva } from "../../lib/data-context";
 import { useExercises } from "../../hooks/use-exercises";
 import {
   useSessionByDate, useCreateSession, useSessionSets, useAddSet, useDeleteSet,
-  useListSessions, useDeleteSession,
+  useListSessions, useDeleteSession, useUpdateSet,
 } from "../../hooks/use-workouts";
 
 export function TreinoTab() {
-  const data = hoje();
+  const { data } = useDataAtiva();
   const { data: sessao } = useSessionByDate(data);
   const criarSessao = useCreateSession();
   const { data: exercicios = [] } = useExercises();
   const { data: sets = [] } = useSessionSets(sessao?.id);
   const addSet = useAddSet(sessao?.id);
   const delSet = useDeleteSet(sessao?.id);
+  const updSet = useUpdateSet(sessao?.id);
   const { data: recentes = [] } = useListSessions();
   const delSessao = useDeleteSession();
 
   const [exId, setExId] = useState("");
   const [reps, setReps] = useState("10");
   const [peso, setPeso] = useState("");
+  const [editId, setEditId] = useState<number | null>(null);
+  const [eReps, setEReps] = useState("");
+  const [ePeso, setEPeso] = useState("");
 
   // Mantém o <select> controlado sempre apontando para uma opção existente:
   // assim que os exercícios carregam, se ainda não há seleção, usa o primeiro.
@@ -49,6 +54,15 @@ export function TreinoTab() {
   const nomeEx = (id: number) => exercicios.find((e) => e.id === id)?.nome ?? "?";
   const porExercicio = [...new Set(sets.map((s) => s.exercise_id))];
 
+  function abrirEdicao(s: { id: number; reps: number; peso_kg: number }) {
+    setEditId(s.id); setEReps(String(s.reps)); setEPeso(String(s.peso_kg));
+  }
+  async function confirmarEdicao(id: number) {
+    if (Number(eReps) <= 0) return;
+    await updSet.mutateAsync({ id, reps: Number(eReps), peso_kg: Number(ePeso) || 0 });
+    setEditId(null);
+  }
+
   return (
     <div className="space-y-4">
       <header className="font-mono text-[0.68rem] uppercase tracking-[0.14em] text-muted-foreground">
@@ -56,7 +70,7 @@ export function TreinoTab() {
       </header>
 
       {!sessao ? (
-        <Button onClick={iniciar} disabled={criarSessao.isPending}>Iniciar treino de hoje</Button>
+        <Button onClick={iniciar} disabled={criarSessao.isPending}>Iniciar treino de {formatarData(data)}</Button>
       ) : (
         <>
           <HudPanel label="Nova série" bodyClassName="space-y-2">
@@ -85,7 +99,24 @@ export function TreinoTab() {
                 <ul>
                   {setsEx.map((s) => (
                     <li key={s.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/50">
-                      <span className="font-mono text-[0.8rem] tabular-nums">{s.ordem}ª · {s.reps} reps × {s.peso_kg} kg</span>
+                      {editId === s.id ? (
+                        <div className="flex flex-1 items-center gap-1">
+                          <Input aria-label="reps" inputMode="numeric" value={eReps}
+                            onChange={(e) => setEReps(e.target.value)} className="h-7 w-14" />
+                          <span className="font-mono text-xs">×</span>
+                          <Input aria-label="peso" inputMode="decimal" value={ePeso}
+                            onChange={(e) => setEPeso(e.target.value)} className="h-7 w-16" />
+                          <Button size="sm" className="h-7" onClick={() => confirmarEdicao(s.id)}
+                            disabled={updSet.isPending}>confirmar</Button>
+                          <Button size="sm" variant="secondary" className="h-7"
+                            onClick={() => setEditId(null)}>cancelar</Button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => abrirEdicao(s)}
+                          className="flex-1 text-left font-mono text-[0.8rem] tabular-nums hover:text-primary">
+                          {s.ordem}ª · {s.reps} reps × {s.peso_kg} kg
+                        </button>
+                      )}
                       <button
                         className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
                         onClick={() => delSet.mutate(s.id)} aria-label="remover">

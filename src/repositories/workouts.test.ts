@@ -3,7 +3,7 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import {
   createSession, getSessionByDate, listSessions, deleteSession,
-  addSet, listSetsBySession, deleteSet, setsForExercise,
+  addSet, listSetsBySession, deleteSet, setsForExercise, updateSet,
   listSessionsByRange, setsForAnalise,
 } from "./workouts";
 
@@ -62,5 +62,16 @@ describe("workouts repo", () => {
     await addSet(db, 1, { session_id: sFora.id, exercise_id: 1, ordem: 1, reps: 8, peso_kg: 50 });
     const r = await setsForAnalise(db, 1, "2026-07-06", "2026-07-12");
     expect(r).toEqual([{ data: "2026-07-06", reps: 10, peso_kg: 40, grupo: "peito" }]);
+  });
+
+  it("updateSet altera reps/peso só da linha e filtra por usuário", async () => {
+    const s1 = await createSession(db, 1, { data: "2026-07-07", nome: null });
+    const st = await addSet(db, 1, set({ session_id: s1.id, reps: 10, peso_kg: 40 }));
+    await updateSet(db, 1, st.id, { reps: 8, peso_kg: 50 });
+    const depois = (await listSetsBySession(db, 1, s1.id))[0];
+    expect(depois.reps).toBe(8);
+    expect(depois.peso_kg).toBe(50);
+    await updateSet(db, 2, st.id, { reps: 1, peso_kg: 1 }); // outro usuário não altera
+    expect((await listSetsBySession(db, 1, s1.id))[0].reps).toBe(8);
   });
 });

@@ -58,3 +58,21 @@ export async function deleteEntry(db: Client, userId: number, id: number): Promi
     args: [id, userId],
   });
 }
+
+export async function updateEntry(
+  db: Client,
+  userId: number,
+  id: number,
+  campos: { qty_g?: number; meal_id?: number | null },
+): Promise<void> {
+  const sets: string[] = [];
+  const args: (number | null)[] = [];
+  if (campos.qty_g !== undefined) { sets.push("qty_g=?"); args.push(campos.qty_g); }
+  if (campos.meal_id !== undefined) { sets.push("meal_id=?"); args.push(campos.meal_id); }
+  if (sets.length === 0) return;
+  args.push(id, userId);
+  await db.execute({
+    sql: `UPDATE food_entries SET ${sets.join(", ")} WHERE id=? AND user_id=?`,
+    args,
+  });
+}
