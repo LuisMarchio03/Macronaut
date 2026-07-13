@@ -68,7 +68,7 @@ export function ChatView({
 
   return (
     <HudPanel label={`IA · ${provider}`} bodyClassName="space-y-4 p-4">
-      <AiStatusBadges health={health.data} enabled={enabled} />
+      <AiStatusBadges health={health.data} enabled={enabled} gatewayOffline={health.isError} />
       <ProviderSelector enabled={enabled} value={provider} onChange={trocar} health={health.data} />
       {semKeyGemini && (
         <p className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-destructive">
