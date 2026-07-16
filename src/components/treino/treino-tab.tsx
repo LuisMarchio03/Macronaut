@@ -1,16 +1,50 @@
-import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
 import { HudPanel } from "../ui/hud-panel";
 import { X } from "lucide-react";
 import { formatarData } from "../../lib/date";
 import { useDataAtiva } from "../../lib/data-context";
 import { useExercises } from "../../hooks/use-exercises";
 import {
-  useSessionByDate, useCreateSession, useSessionSets, useAddSet, useDeleteSet,
-  useListSessions, useDeleteSession, useUpdateSet,
+  useSessionByDate, useCreateSession, useSessionSets,
+  useListSessions, useDeleteSession, useUpdateSession,
 } from "../../hooks/use-workouts";
+import { duracaoSessaoMin } from "../../domain/treino";
+import { NovaSerieForm } from "./nova-serie-form";
+import { ListaSeriesExercicio } from "./lista-series-exercicio";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { useEffect, useState } from "react";
+
+/** Nota livre do dia. Grava no blur — sem botão salvar, que seria fricção pra um campo raro. */
+function NotaSessao({
+  sessionId, data, valor,
+}: {
+  sessionId: number;
+  data: string;
+  valor: string | null;
+}) {
+  const upd = useUpdateSession(data);
+  const [texto, setTexto] = useState(valor ?? "");
+
+  // Trocar de dia remonta com outro `valor`; sincroniza o campo.
+  useEffect(() => { setTexto(valor ?? ""); }, [valor, sessionId]);
+
+  return (
+    <div>
+      <Label htmlFor="nota-sessao">Nota do treino</Label>
+      <Input
+        id="nota-sessao"
+        value={texto}
+        placeholder="ombro incomodou, peguei leve…"
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={() => {
+          const novo = texto.trim() || null;
+          if (novo !== (valor ?? null)) upd.mutate({ id: sessionId, nota: novo });
+        }}
+      />
+    </div>
+  );
+}
 
 export function TreinoTab() {
   const { data } = useDataAtiva();
@@ -18,116 +52,36 @@ export function TreinoTab() {
   const criarSessao = useCreateSession();
   const { data: exercicios = [] } = useExercises();
   const { data: sets = [] } = useSessionSets(sessao?.id);
-  const addSet = useAddSet(sessao?.id);
-  const delSet = useDeleteSet(sessao?.id);
-  const updSet = useUpdateSet(sessao?.id);
   const { data: recentes = [] } = useListSessions();
   const delSessao = useDeleteSession();
 
-  const [exId, setExId] = useState("");
-  const [reps, setReps] = useState("10");
-  const [peso, setPeso] = useState("");
-  const [editId, setEditId] = useState<number | null>(null);
-  const [eReps, setEReps] = useState("");
-  const [ePeso, setEPeso] = useState("");
-
-  // Mantém o <select> controlado sempre apontando para uma opção existente:
-  // assim que os exercícios carregam, se ainda não há seleção, usa o primeiro.
-  useEffect(() => {
-    if (!exId && exercicios.length > 0) setExId(String(exercicios[0].id));
-  }, [exId, exercicios]);
-
-  async function iniciar() {
-    await criarSessao.mutateAsync({ data, nome: null });
-  }
-
-  async function adicionarSerie() {
-    const exercise_id = Number(exId || exercicios[0]?.id);
-    if (!sessao || !exercise_id || Number(reps) <= 0) return;
-    const ordemDoEx = sets.filter((s) => s.exercise_id === exercise_id).length + 1;
-    await addSet.mutateAsync({
-      session_id: sessao.id, exercise_id, ordem: ordemDoEx,
-      reps: Number(reps), peso_kg: Number(peso) || 0,
-    });
-  }
-
   const nomeEx = (id: number) => exercicios.find((e) => e.id === id)?.nome ?? "?";
   const porExercicio = [...new Set(sets.map((s) => s.exercise_id))];
-
-  function abrirEdicao(s: { id: number; reps: number; peso_kg: number }) {
-    setEditId(s.id); setEReps(String(s.reps)); setEPeso(String(s.peso_kg));
-  }
-  async function confirmarEdicao(id: number) {
-    if (Number(eReps) <= 0) return;
-    await updSet.mutateAsync({ id, reps: Number(eReps), peso_kg: Number(ePeso) || 0 });
-    setEditId(null);
-  }
+  const duracao = duracaoSessaoMin(sets);
 
   return (
     <div className="space-y-4">
-      <header className="font-mono text-[0.68rem] uppercase tracking-[0.14em] text-muted-foreground">
-        {formatarData(data)}
+      <header className="flex items-baseline justify-between font-mono text-[0.68rem] uppercase tracking-[0.14em] text-muted-foreground">
+        <span>{formatarData(data)}</span>
+        {sets.length > 1 && <span title="estimado, da 1ª à última série">~{duracao} min</span>}
       </header>
 
       {!sessao ? (
-        <Button onClick={iniciar} disabled={criarSessao.isPending}>Iniciar treino de {formatarData(data)}</Button>
+        <Button onClick={() => criarSessao.mutateAsync({ data, nome: null })} disabled={criarSessao.isPending}>
+          Iniciar treino de {formatarData(data)}
+        </Button>
       ) : (
         <>
-          <HudPanel label="Nova série" bodyClassName="space-y-2">
-            <div>
-              <Label htmlFor="ex">Exercício</Label>
-              <select id="ex" className="hud-select"
-                value={exId} onChange={(e) => setExId(e.target.value)}>
-                {exercicios.length === 0 && <option value="">Cadastre um exercício</option>}
-                {exercicios.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div><Label htmlFor="reps">Reps</Label>
-                <Input id="reps" inputMode="numeric" value={reps} onChange={(e) => setReps(e.target.value)} /></div>
-              <div><Label htmlFor="peso">Peso (kg)</Label>
-                <Input id="peso" inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} /></div>
-            </div>
-            <Button className="w-full" onClick={adicionarSerie}
-              disabled={exercicios.length === 0 || addSet.isPending}>+ série</Button>
-          </HudPanel>
-
-          {porExercicio.map((id) => {
-            const setsEx = sets.filter((s) => s.exercise_id === id);
-            return (
-              <HudPanel key={id} label={nomeEx(id)} aside={`${setsEx.length} séries`} bodyClassName="p-2">
-                <ul>
-                  {setsEx.map((s) => (
-                    <li key={s.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/50">
-                      {editId === s.id ? (
-                        <div className="flex flex-1 items-center gap-1">
-                          <Input aria-label="reps" inputMode="numeric" value={eReps}
-                            onChange={(e) => setEReps(e.target.value)} className="h-7 w-14" />
-                          <span className="font-mono text-xs">×</span>
-                          <Input aria-label="peso" inputMode="decimal" value={ePeso}
-                            onChange={(e) => setEPeso(e.target.value)} className="h-7 w-16" />
-                          <Button size="sm" className="h-7" onClick={() => confirmarEdicao(s.id)}
-                            disabled={updSet.isPending}>confirmar</Button>
-                          <Button size="sm" variant="secondary" className="h-7"
-                            onClick={() => setEditId(null)}>cancelar</Button>
-                        </div>
-                      ) : (
-                        <button type="button" onClick={() => abrirEdicao(s)}
-                          className="flex-1 text-left font-mono text-[0.8rem] tabular-nums hover:text-primary">
-                          {s.ordem}ª · {s.reps} reps × {s.peso_kg} kg
-                        </button>
-                      )}
-                      <button
-                        className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-                        onClick={() => delSet.mutate(s.id)} aria-label="remover">
-                        <X className="size-3.5" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </HudPanel>
-            );
-          })}
+          <NotaSessao sessionId={sessao.id} data={data} valor={sessao.nota} />
+          <NovaSerieForm sessionId={sessao.id} data={data} sets={sets} />
+          {porExercicio.map((id) => (
+            <ListaSeriesExercicio
+              key={id}
+              nome={nomeEx(id)}
+              sets={sets.filter((s) => s.exercise_id === id)}
+              sessionId={sessao.id}
+            />
+          ))}
         </>
       )}
 

@@ -37,6 +37,7 @@ export function AddFoodSheet({
     } else {
       await add.mutateAsync({
         data, meal_id: mealId, food_id: selecionado.id, qty_g: qtdN,
+        measure_id: null, measure_count: null,
         label: mealId === null ? "Avulsa" : null,
       });
     }

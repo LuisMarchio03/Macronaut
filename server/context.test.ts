@@ -2,6 +2,7 @@ import { it, expect, beforeEach } from "vitest";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../test/helpers/test-db";
 import { buildUserContext } from "./context";
+import { createSession, addSet } from "../src/repositories/workouts";
 
 let db: Client;
 beforeEach(async () => {
@@ -34,4 +35,36 @@ it("com refeição registrada: reflete o consumido", async () => {
   });
   const txt = await buildUserContext(db, 1, "2026-07-09");
   expect(txt).toContain("260");         // 130 kcal * 2 (200g)
+});
+
+it("treino do dia: aquecimento não conta como série para a IA", async () => {
+  await db.execute({
+    sql: "INSERT INTO exercises (id,nome,grupo_muscular,created_at) VALUES (1,'Supino','peito','2026-07-09')",
+    args: [],
+  });
+  const sessao = await createSession(db, 1, { data: "2026-07-09", nome: null });
+  await addSet(db, 1, {
+    session_id: sessao.id, exercise_id: 1, ordem: 1, reps: 15, peso_kg: 20,
+    tipo: "aquecimento", rir: null, nota: null,
+  });
+  await addSet(db, 1, {
+    session_id: sessao.id, exercise_id: 1, ordem: 2, reps: 15, peso_kg: 20,
+    tipo: "aquecimento", rir: null, nota: null,
+  });
+  await addSet(db, 1, {
+    session_id: sessao.id, exercise_id: 1, ordem: 3, reps: 10, peso_kg: 40,
+    tipo: "valida", rir: 2, nota: null,
+  });
+  await addSet(db, 1, {
+    session_id: sessao.id, exercise_id: 1, ordem: 4, reps: 8, peso_kg: 40,
+    tipo: "valida", rir: 1, nota: null,
+  });
+  await addSet(db, 1, {
+    session_id: sessao.id, exercise_id: 1, ordem: 5, reps: 6, peso_kg: 40,
+    tipo: "drop", rir: 0, nota: null,
+  });
+
+  const txt = await buildUserContext(db, 1, "2026-07-09");
+  expect(txt).toContain("Supino 3×");
+  expect(txt).not.toContain("Supino 5×");
 });

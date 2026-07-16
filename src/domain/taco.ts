@@ -1,3 +1,5 @@
+import { normalizar } from "./texto";
+
 export type TacoItem = {
   nome: string;
   base_qty_g: number;
@@ -7,9 +9,7 @@ export type TacoItem = {
   gord_g: number;
 };
 
-export function normalizar(s: string): string {
-  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
-}
+export { normalizar };
 
 export function buscarTaco(itens: TacoItem[], termo: string, limite = 8): TacoItem[] {
   const t = normalizar(termo);

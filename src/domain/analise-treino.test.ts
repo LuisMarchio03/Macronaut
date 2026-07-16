@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { resumoTreino, volumePorDia, volumePorGrupo, type SetAnalise } from "./analise-treino";
 
 const s = (data: string, peso_kg: number, reps: number, grupo: string | null): SetAnalise =>
-  ({ data, peso_kg, reps, grupo });
+  ({ data, peso_kg, reps, grupo, tipo: "valida", rir: null });
 
 describe("resumoTreino", () => {
   it("volumeTotal = Σ peso×reps, nSeries e nSessoes", () => {
@@ -32,5 +32,29 @@ describe("volumePorGrupo", () => {
     const m = volumePorGrupo([s("2026-07-06", 40, 10, "peito"), s("2026-07-06", 60, 5, null)]);
     expect(m.get("peito")).toBe(400);
     expect(m.get("Sem grupo")).toBe(300);
+  });
+});
+
+describe("filtragem de aquecimento", () => {
+  it("resumoTreino, volumePorDia e volumePorGrupo ignoram aquecimento", () => {
+    const sets: SetAnalise[] = [
+      { data: "2026-07-16", reps: 10, peso_kg: 20, grupo: "Peito", tipo: "aquecimento", rir: null },
+      { data: "2026-07-16", reps: 10, peso_kg: 50, grupo: "Peito", tipo: "valida", rir: 2 },
+      { data: "2026-07-16", reps: 8, peso_kg: 50, grupo: "Peito", tipo: "drop", rir: 0 },
+    ];
+
+    const r = resumoTreino(sets, 1, 7);
+    expect(r.nSeries).toBe(2); // aquecimento fora; drop conta
+    expect(r.volumeTotal).toBe(900); // 10*50 + 8*50, sem os 200 do aquecimento
+
+    expect(volumePorDia(sets).get("2026-07-16")).toBe(900);
+    expect(volumePorGrupo(sets).get("Peito")).toBe(900);
+  });
+
+  it("volumePorGrupo agrupa exercício sem grupo em 'Sem grupo'", () => {
+    const sets: SetAnalise[] = [
+      { data: "2026-07-16", reps: 10, peso_kg: 10, grupo: null, tipo: "valida", rir: null },
+    ];
+    expect(volumePorGrupo(sets).get("Sem grupo")).toBe(100);
   });
 });

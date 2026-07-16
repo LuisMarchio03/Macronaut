@@ -53,13 +53,6 @@ it("OPTIONS (preflight) → 204 com headers CORS, sem exigir Bearer", async () =
   expect(r.headers?.["Access-Control-Allow-Headers"]).toMatch(/authorization/i);
 });
 
-it("OPTIONS (preflight) → libera Private Network Access", async () => {
-  const r = await handleRequest(deps, {
-    method: "OPTIONS", path: "/ai/health", query: new URLSearchParams(), authorization: undefined, body: undefined,
-  });
-  expect(r.headers?.["Access-Control-Allow-Private-Network"]).toBe("true");
-});
-
 it("toda resposta carrega Access-Control-Allow-Origin (browser cross-origin)", async () => {
   const ok = await handleRequest(deps, {
     method: "GET", path: "/ai/health", query: new URLSearchParams("userId=1"), authorization: auth, body: undefined,

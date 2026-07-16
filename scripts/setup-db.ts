@@ -4,6 +4,9 @@ import { createClient } from "@libsql/client";
 import { applySchema } from "./lib/apply-schema.ts";
 import { importarTaco, type TacoItem } from "./seed-taco.ts";
 import { seedActivityTypes } from "../src/repositories/activities.ts";
+import { seedMuscleGroups } from "../src/repositories/muscle-groups.ts";
+import { seedExercicios, backfillGrupos, backfillUserIds } from "../src/repositories/exercises.ts";
+import { CATALOGO } from "../src/db/catalogo-exercicios.ts";
 
 const url = process.env.DB_URL;
 if (!url) throw new Error("DB_URL não definida");
@@ -16,6 +19,10 @@ await applySchema(url, token, schemaPath);
 // 2) seed dos catálogos globais (idempotentes)
 const db = createClient({ url, authToken: token });
 await seedActivityTypes(db);
+await seedMuscleGroups(db);
+await seedExercicios(db);
+const nBackfill = await backfillGrupos(db);
+const nBackfillUserIds = await backfillUserIds(db);
 
 const tacoPath = process.env.TACO_JSON ?? "data/taco.sample.json";
 let itens: TacoItem[] = [];
@@ -29,4 +36,8 @@ try {
 const n = await importarTaco(db, itens);
 db.close();
 
-console.log(`Banco pronto: schema aplicado, tipos de atividade seedados, ${n} alimentos da TACO.`);
+console.log(
+  `Banco pronto: schema aplicado, tipos de atividade e ${CATALOGO.length} exercícios seedados, ` +
+    `${nBackfill} exercícios com grupo migrado, ${nBackfillUserIds} exercícios com dono migrado, ` +
+    `${n} alimentos da TACO.`,
+);

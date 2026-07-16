@@ -8,6 +8,8 @@ function mapRow(r: Row): Food {
     source: r.source as Food["source"],
     marca: (r.marca as string | null) ?? null,
     base_qty_g: r.base_qty_g as number,
+    base_unit: r.base_unit as Food["base_unit"],
+    default_measure_id: (r.default_measure_id as number | null) ?? null,
     kcal: r.kcal as number,
     prot_g: r.prot_g as number,
     carb_g: r.carb_g as number,

@@ -4,11 +4,12 @@ import type { Food, FoodEntry, Macros } from "./types";
 
 const arroz: Food = {
   id: 1, nome: "Arroz", source: "taco", marca: null,
-  base_qty_g: 100, kcal: 100, prot_g: 2, carb_g: 20, gord_g: 1, created_at: "",
+  base_qty_g: 100, base_unit: "g", default_measure_id: null,
+  kcal: 100, prot_g: 2, carb_g: 20, gord_g: 1, created_at: "",
 };
 const foods = new Map<number, Food>([[1, arroz]]);
 const entry = (data: string, qty_g: number): FoodEntry =>
-  ({ id: 0, data, meal_id: null, food_id: 1, qty_g, label: null, created_at: "" });
+  ({ id: 0, data, meal_id: null, food_id: 1, qty_g, measure_id: null, measure_count: null, label: null, created_at: "" });
 
 describe("totaisPorDia", () => {
   it("agrupa por data e soma", () => {
@@ -55,11 +56,12 @@ describe("resumoNutricional", () => {
   it("dia só com alimento de 0 kcal ainda conta como registrado", () => {
     const agua: Food = {
       id: 2, nome: "Água", source: "taco", marca: null,
-      base_qty_g: 100, kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0, created_at: "",
+      base_qty_g: 100, base_unit: "g", default_measure_id: null,
+      kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0, created_at: "",
     };
     const foods2 = new Map<number, Food>([[2, agua]]);
     const totais = totaisPorDia(
-      [{ id: 0, data: "2026-07-06", meal_id: null, food_id: 2, qty_g: 500, label: null, created_at: "" }],
+      [{ id: 0, data: "2026-07-06", meal_id: null, food_id: 2, qty_g: 500, measure_id: null, measure_count: null, label: null, created_at: "" }],
       foods2,
     );
     expect(resumoNutricional(totais, meta, 7).diasRegistrados).toBe(1);

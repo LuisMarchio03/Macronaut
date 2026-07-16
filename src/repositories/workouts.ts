@@ -1,5 +1,5 @@
 import type { Client, Row } from "@libsql/client";
-import type { WorkoutSession, WorkoutSet } from "../domain/types";
+import type { TipoSerie, WorkoutSession, WorkoutSet } from "../domain/types";
 import type { SetAnalise } from "../domain/analise-treino";
 
 function mapSession(r: Row): WorkoutSession {
@@ -7,6 +7,7 @@ function mapSession(r: Row): WorkoutSession {
     id: r.id as number,
     data: r.data as string,
     nome: (r.nome as string | null) ?? null,
+    nota: (r.nota as string | null) ?? null,
     created_at: r.created_at as string,
   };
 }
@@ -19,6 +20,9 @@ function mapSet(r: Row): WorkoutSet {
     ordem: r.ordem as number,
     reps: r.reps as number,
     peso_kg: r.peso_kg as number,
+    tipo: r.tipo as TipoSerie,
+    rir: (r.rir as number | null) ?? null,
+    nota: (r.nota as string | null) ?? null,
     created_at: r.created_at as string,
   };
 }
@@ -33,7 +37,7 @@ export async function createSession(
     sql: "INSERT INTO workout_sessions (user_id, data, nome, created_at) VALUES (?, ?, ?, ?)",
     args: [userId, s.data, s.nome, created_at],
   });
-  return { id: Number(rs.lastInsertRowid), data: s.data, nome: s.nome, created_at };
+  return { id: Number(rs.lastInsertRowid), data: s.data, nome: s.nome, nota: null, created_at };
 }
 
 export async function getSessionByDate(
@@ -70,16 +74,24 @@ export async function deleteSession(db: Client, userId: number, id: number): Pro
   );
 }
 
-export async function addSet(
-  db: Client,
-  userId: number,
-  s: { session_id: number; exercise_id: number; ordem: number; reps: number; peso_kg: number },
-): Promise<WorkoutSet> {
+export type SetInput = {
+  session_id: number;
+  exercise_id: number;
+  ordem: number;
+  reps: number;
+  peso_kg: number;
+  tipo: TipoSerie;
+  rir: number | null;
+  nota: string | null;
+};
+
+export async function addSet(db: Client, userId: number, s: SetInput): Promise<WorkoutSet> {
   const created_at = new Date().toISOString();
   const rs = await db.execute({
-    sql: `INSERT INTO workout_sets (user_id, session_id, exercise_id, ordem, reps, peso_kg, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    args: [userId, s.session_id, s.exercise_id, s.ordem, s.reps, s.peso_kg, created_at],
+    sql: `INSERT INTO workout_sets
+            (user_id, session_id, exercise_id, ordem, reps, peso_kg, tipo, rir, nota, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [userId, s.session_id, s.exercise_id, s.ordem, s.reps, s.peso_kg, s.tipo, s.rir, s.nota, created_at],
   });
   return { id: Number(rs.lastInsertRowid), created_at, ...s };
 }
@@ -143,10 +155,12 @@ export async function setsForAnalise(
   fim: string,
 ): Promise<SetAnalise[]> {
   const rs = await db.execute({
-    sql: `SELECT s.data AS data, ws.reps AS reps, ws.peso_kg AS peso_kg, e.grupo_muscular AS grupo
+    sql: `SELECT s.data AS data, ws.reps AS reps, ws.peso_kg AS peso_kg,
+                 ws.tipo AS tipo, ws.rir AS rir, mg.nome AS grupo
           FROM workout_sets ws
           JOIN workout_sessions s ON s.id = ws.session_id
           JOIN exercises e ON e.id = ws.exercise_id
+          LEFT JOIN muscle_groups mg ON mg.id = e.grupo_id
           WHERE ws.user_id = ? AND s.data BETWEEN ? AND ?
           ORDER BY s.data`,
     args: [userId, inicio, fim],
@@ -155,6 +169,8 @@ export async function setsForAnalise(
     data: r.data as string,
     reps: r.reps as number,
     peso_kg: r.peso_kg as number,
+    tipo: r.tipo as TipoSerie,
+    rir: (r.rir as number | null) ?? null,
     grupo: (r.grupo as string | null) ?? null,
   }));
 }
@@ -163,16 +179,85 @@ export async function updateSet(
   db: Client,
   userId: number,
   id: number,
-  campos: { reps?: number; peso_kg?: number },
+  campos: { reps?: number; peso_kg?: number; tipo?: TipoSerie; rir?: number | null; nota?: string | null },
 ): Promise<void> {
   const sets: string[] = [];
-  const args: number[] = [];
+  const args: (number | string | null)[] = [];
   if (campos.reps !== undefined) { sets.push("reps=?"); args.push(campos.reps); }
   if (campos.peso_kg !== undefined) { sets.push("peso_kg=?"); args.push(campos.peso_kg); }
+  if (campos.tipo !== undefined) { sets.push("tipo=?"); args.push(campos.tipo); }
+  if (campos.rir !== undefined) { sets.push("rir=?"); args.push(campos.rir); }
+  if (campos.nota !== undefined) { sets.push("nota=?"); args.push(campos.nota); }
   if (sets.length === 0) return;
   args.push(id, userId);
   await db.execute({
     sql: `UPDATE workout_sets SET ${sets.join(", ")} WHERE id=? AND user_id=?`,
     args,
   });
+}
+
+export async function updateSession(
+  db: Client,
+  userId: number,
+  id: number,
+  campos: { nome?: string | null; nota?: string | null },
+): Promise<void> {
+  const sets: string[] = [];
+  const args: (string | number | null)[] = [];
+  if (campos.nome !== undefined) { sets.push("nome=?"); args.push(campos.nome); }
+  if (campos.nota !== undefined) { sets.push("nota=?"); args.push(campos.nota); }
+  if (sets.length === 0) return;
+  args.push(id, userId);
+  await db.execute({
+    sql: `UPDATE workout_sessions SET ${sets.join(", ")} WHERE id=? AND user_id=?`,
+    args,
+  });
+}
+
+export type UltimaVez = {
+  data: string;
+  sets: { reps: number; peso_kg: number; rir: number | null }[];
+};
+
+/**
+ * As séries efetivas do exercício na sessão mais recente **anterior** a `antesDe`.
+ * Sessão que só teve aquecimento é ignorada (o filtro de tipo está nas duas
+ * queries, de propósito). Devolve null se não há histórico.
+ */
+export async function ultimaVezExercicio(
+  db: Client,
+  userId: number,
+  exercise_id: number,
+  antesDe: string,
+): Promise<UltimaVez | null> {
+  const rs = await db.execute({
+    sql: `SELECT s.id AS session_id, s.data AS data
+          FROM workout_sets ws
+          JOIN workout_sessions s ON s.id = ws.session_id
+          WHERE ws.user_id = ? AND ws.exercise_id = ? AND s.data < ? AND ws.tipo <> 'aquecimento'
+          ORDER BY s.data DESC LIMIT 1`,
+    args: [userId, exercise_id, antesDe],
+  });
+  if (!rs.rows.length) return null;
+  const data = rs.rows[0].data as string;
+  const sessionId = rs.rows[0].session_id as number;
+
+  // Chaveado por session_id (não por data): `workout_sessions` não tem UNIQUE
+  // (user_id, data), então duas sessões no mesmo dia são possíveis (dado
+  // legado). Chavear por data fundiria as séries das duas.
+  const rs2 = await db.execute({
+    sql: `SELECT ws.reps AS reps, ws.peso_kg AS peso_kg, ws.rir AS rir
+          FROM workout_sets ws
+          WHERE ws.user_id = ? AND ws.exercise_id = ? AND ws.session_id = ? AND ws.tipo <> 'aquecimento'
+          ORDER BY ws.ordem`,
+    args: [userId, exercise_id, sessionId],
+  });
+  return {
+    data,
+    sets: rs2.rows.map((r) => ({
+      reps: r.reps as number,
+      peso_kg: r.peso_kg as number,
+      rir: (r.rir as number | null) ?? null,
+    })),
+  };
 }

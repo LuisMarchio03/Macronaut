@@ -6,6 +6,7 @@ import { getWaterTotal } from "../src/repositories/water.ts";
 import { getSessionByDate, listSetsBySession } from "../src/repositories/workouts.ts";
 import { listExercises } from "../src/repositories/exercises.ts";
 import { totaisDoDia } from "../src/domain/nutrition.ts";
+import { seriesEfetivas } from "../src/domain/treino.ts";
 
 const r0 = (n: number) => Math.round(n);
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -36,8 +37,8 @@ export async function buildUserContext(db: Client, userId: number, data: string)
 
   const sessao = await getSessionByDate(db, userId, data);
   if (sessao) {
-    const sets = await listSetsBySession(db, userId, sessao.id);
-    const nomes = new Map((await listExercises(db)).map((e) => [e.id, e.nome]));
+    const sets = seriesEfetivas(await listSetsBySession(db, userId, sessao.id));
+    const nomes = new Map((await listExercises(db, userId)).map((e) => [e.id, e.nome]));
     const porEx = new Map<number, number>();
     for (const s of sets) porEx.set(s.exercise_id, (porEx.get(s.exercise_id) ?? 0) + 1);
     const resumo = [...porEx.entries()]

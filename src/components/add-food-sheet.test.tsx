@@ -47,7 +47,8 @@ it("busca alimento, informa quantidade e registra", async () => {
 
 it("modo edição: salvar altera a quantidade do entry", async () => {
   const entry = await createEntry(db, 1, {
-    data: "2026-07-06", meal_id: null, food_id: 1, qty_g: 100, label: null,
+    data: "2026-07-06", meal_id: null, food_id: 1, qty_g: 100,
+    measure_id: null, measure_count: null, label: null,
   });
   const food = (await getFoodsByIds(db, [1])).get(1)!;
 

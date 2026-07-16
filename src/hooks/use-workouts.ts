@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDb, useUserId } from "../lib/db-context";
+import type { TipoSerie } from "../domain/types";
 import {
   createSession, getSessionByDate, listSessions, deleteSession,
   addSet, listSetsBySession, deleteSet, setsForExercise, updateSet,
+  ultimaVezExercicio, updateSession, type SetInput,
 } from "../repositories/workouts";
 
 export function useSessionByDate(data: string) {
@@ -60,11 +62,11 @@ export function useAddSet(sessionId: number | undefined) {
   const userId = useUserId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (s: { session_id: number; exercise_id: number; ordem: number; reps: number; peso_kg: number }) =>
-      addSet(db, userId, s),
+    mutationFn: (s: SetInput) => addSet(db, userId, s),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["session-sets", sessionId] });
       qc.invalidateQueries({ queryKey: ["sets-exercise"] });
+      qc.invalidateQueries({ queryKey: ["ultima-vez"] });
     },
   });
 }
@@ -78,6 +80,7 @@ export function useDeleteSet(sessionId: number | undefined) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["session-sets", sessionId] });
       qc.invalidateQueries({ queryKey: ["sets-exercise"] });
+      qc.invalidateQueries({ queryKey: ["ultima-vez"] });
     },
   });
 }
@@ -87,11 +90,16 @@ export function useUpdateSet(sessionId: number | undefined) {
   const userId = useUserId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (u: { id: number; reps?: number; peso_kg?: number }) =>
-      updateSet(db, userId, u.id, { reps: u.reps, peso_kg: u.peso_kg }),
+    mutationFn: (u: {
+      id: number; reps?: number; peso_kg?: number;
+      tipo?: TipoSerie; rir?: number | null; nota?: string | null;
+    }) => updateSet(db, userId, u.id, {
+      reps: u.reps, peso_kg: u.peso_kg, tipo: u.tipo, rir: u.rir, nota: u.nota,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["session-sets", sessionId] });
       qc.invalidateQueries({ queryKey: ["sets-exercise"] });
+      qc.invalidateQueries({ queryKey: ["ultima-vez"] });
     },
   });
 }
@@ -103,5 +111,29 @@ export function useSetsForExercise(exerciseId: number | undefined) {
     queryKey: ["sets-exercise", exerciseId],
     queryFn: () => setsForExercise(db, userId, exerciseId as number),
     enabled: exerciseId != null,
+  });
+}
+
+export function useUltimaVez(exerciseId: number | undefined, antesDe: string) {
+  const db = useDb();
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ["ultima-vez", userId, exerciseId, antesDe],
+    queryFn: () => ultimaVezExercicio(db, userId, exerciseId as number, antesDe),
+    enabled: exerciseId != null,
+  });
+}
+
+export function useUpdateSession(data: string) {
+  const db = useDb();
+  const userId = useUserId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (u: { id: number; nome?: string | null; nota?: string | null }) =>
+      updateSession(db, userId, u.id, { nome: u.nome, nota: u.nota }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["session", data] });
+      qc.invalidateQueries({ queryKey: ["sessions"] });
+    },
   });
 }

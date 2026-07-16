@@ -13,7 +13,10 @@ beforeEach(async () => {
   );
 });
 
-const novo = (over = {}) => ({ data: "2026-07-07", meal_id: null, food_id: 1, qty_g: 100, label: null, ...over });
+const novo = (over = {}) => ({
+  data: "2026-07-07", meal_id: null, food_id: 1, qty_g: 100,
+  measure_id: null, measure_count: null, label: null, ...over,
+});
 
 describe("entries repo", () => {
   it("cria e lista por data e usuário", async () => {
@@ -40,7 +43,7 @@ describe("entries repo", () => {
   });
 
   it("listEntriesByRange retorna só o range e só do usuário", async () => {
-    const base = { meal_id: null, food_id: 1, qty_g: 100, label: null };
+    const base = { meal_id: null, food_id: 1, qty_g: 100, measure_id: null, measure_count: null, label: null };
     await createEntry(db, 1, { data: "2026-07-05", ...base }); // fora (antes)
     await createEntry(db, 1, { data: "2026-07-06", ...base }); // limite início
     await createEntry(db, 1, { data: "2026-07-09", ...base }); // dentro

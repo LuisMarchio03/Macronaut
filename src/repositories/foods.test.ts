@@ -8,7 +8,10 @@ import {
 let db: Client;
 beforeEach(async () => { db = await createTestDb(); });
 
-const base = { nome: "Whey", marca: "X", base_qty_g: 30, kcal: 120, prot_g: 24, carb_g: 3, gord_g: 1.5 };
+const base = {
+  nome: "Whey", marca: "X", base_qty_g: 30, base_unit: "g" as const, default_measure_id: null,
+  kcal: 120, prot_g: 24, carb_g: 3, gord_g: 1.5,
+};
 
 it("cria alimento custom e busca por nome (case-insensitive)", async () => {
   const criado = await createFood(db, base);

@@ -35,7 +35,8 @@ it("lista entries do dia e adiciona um novo", async () => {
   expect(result.current.lista.data).toHaveLength(0);
 
   await result.current.add.mutateAsync({
-    data: "2026-07-06", meal_id: null, food_id: 1, qty_g: 100, label: null,
+    data: "2026-07-06", meal_id: null, food_id: 1, qty_g: 100,
+    measure_id: null, measure_count: null, label: null,
   });
   await waitFor(() => expect(result.current.lista.data).toHaveLength(1));
 });

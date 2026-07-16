@@ -24,14 +24,10 @@ function bearerOk(expected: string, authorization: string | undefined): boolean 
 // Authorization; sem estes headers a chamada é bloqueada e a UI só vê "não
 // consegui conectar". Origem `*` é seguro aqui: a auth é por Bearer no header
 // (nunca cookie), então não usamos credenciais de origem.
-// O gateway vive num IP do Tailnet (100.64/10), que o Chrome classifica como rede
-// privada. Sem este header o preflight vindo do app público (HTTPS na Vercel) é
-// barrado por Private Network Access antes de qualquer resposta nossa.
 export const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
-  "Access-Control-Allow-Private-Network": "true",
   "Access-Control-Max-Age": "86400",
 };
 

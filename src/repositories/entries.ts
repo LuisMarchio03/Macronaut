@@ -8,6 +8,8 @@ function mapRow(r: Row): FoodEntry {
     meal_id: (r.meal_id as number | null) ?? null,
     food_id: r.food_id as number,
     qty_g: r.qty_g as number,
+    measure_id: (r.measure_id as number | null) ?? null,
+    measure_count: (r.measure_count as number | null) ?? null,
     label: (r.label as string | null) ?? null,
     created_at: r.created_at as string,
   };

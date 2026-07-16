@@ -58,6 +58,7 @@ export function FoodForm({
         <Button variant="secondary" onClick={onCancelar}>Cancelar</Button>
         <Button className="flex-1" disabled={!valido} onClick={() => onSalvar({
           nome: nome.trim(), marca: marca.trim() || null, base_qty_g: Number(base),
+          base_unit: "g", default_measure_id: null,
           kcal: Number(kcal), prot_g: Number(prot), carb_g: Number(carb), gord_g: Number(gord),
         })}>Salvar</Button>
       </div>

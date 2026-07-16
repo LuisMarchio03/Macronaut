@@ -14,8 +14,8 @@ it("busca os entries do range e o mapa de foods", async () => {
           VALUES ('Arroz', 'taco', 100, 100, 2, 20, 1, ?)`,
     args: [new Date().toISOString()],
   });
-  await createEntry(db, 1, { data: "2026-07-06", meal_id: null, food_id: 1, qty_g: 100, label: null });
-  await createEntry(db, 1, { data: "2026-07-20", meal_id: null, food_id: 1, qty_g: 100, label: null });
+  await createEntry(db, 1, { data: "2026-07-06", meal_id: null, food_id: 1, qty_g: 100, measure_id: null, measure_count: null, label: null });
+  await createEntry(db, 1, { data: "2026-07-20", meal_id: null, food_id: 1, qty_g: 100, measure_id: null, measure_count: null, label: null });
 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (

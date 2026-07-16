@@ -4,7 +4,8 @@ import type { Food, FoodEntry } from "./types";
 
 const arroz: Food = {
   id: 1, nome: "Arroz cozido", source: "taco", marca: null,
-  base_qty_g: 100, kcal: 128, prot_g: 2.5, carb_g: 28, gord_g: 0.2,
+  base_qty_g: 100, base_unit: "g", default_measure_id: null,
+  kcal: 128, prot_g: 2.5, carb_g: 28, gord_g: 0.2,
   created_at: "2026-07-06T00:00:00Z",
 };
 
@@ -21,14 +22,14 @@ describe("totaisDoDia", () => {
   it("soma todos os entries", () => {
     const foods = new Map<number, Food>([[1, arroz]]);
     const entries: FoodEntry[] = [
-      { id: 1, data: "2026-07-06", meal_id: 1, food_id: 1, qty_g: 100, label: null, created_at: "" },
-      { id: 2, data: "2026-07-06", meal_id: 1, food_id: 1, qty_g: 100, label: null, created_at: "" },
+      { id: 1, data: "2026-07-06", meal_id: 1, food_id: 1, qty_g: 100, measure_id: null, measure_count: null, label: null, created_at: "" },
+      { id: 2, data: "2026-07-06", meal_id: 1, food_id: 1, qty_g: 100, measure_id: null, measure_count: null, label: null, created_at: "" },
     ];
     expect(totaisDoDia(entries, foods).kcal).toBeCloseTo(256, 0);
   });
   it("ignora entry cujo food sumiu do mapa", () => {
     expect(totaisDoDia(
-      [{ id: 9, data: "2026-07-06", meal_id: null, food_id: 999, qty_g: 100, label: null, created_at: "" }],
+      [{ id: 9, data: "2026-07-06", meal_id: null, food_id: 999, qty_g: 100, measure_id: null, measure_count: null, label: null, created_at: "" }],
       new Map(),
     ).kcal).toBe(0);
   });
