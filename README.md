@@ -117,6 +117,7 @@ npm run dev
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run migrate` | Apply `src/db/schema.sql` to your Turso DB |
 | `npm run seed` | Seed default meals, activity types and (optionally) the TACO food table |
+| `node --experimental-strip-types scripts/build-medidas.ts` | Generates `src/data/medidas.json` from the IBGE household measures table (POF 2008‑2009). Run by hand; see `docs/superpowers/specs/2026-07-17-registro-alimentos-unidades-design.md`. |
 
 ### ☁️ Deploy on Vercel
 
@@ -269,3 +270,8 @@ Mitigações, da mais fraca à mais forte:
 ### 📄 Licença
 
 Projeto pessoal / privado. Todos os direitos reservados até que um arquivo de licença seja adicionado.
+
+## 📚 Fontes de dados
+
+- **TACO** — Tabela Brasileira de Composição de Alimentos, 4ª ed., NEPA/UNICAMP. Macros por 100 g.
+- **IBGE / POF 2008‑2009** — *Tabela de Medidas Referidas para os Alimentos Consumidos no Brasil*. Medidas caseiras (fatia, colher, concha) e seus pesos em gramas. Dado estatístico público, reproduzido com citação da fonte.

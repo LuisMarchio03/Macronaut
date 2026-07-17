@@ -11,6 +11,14 @@ beforeEach(async () => {
     "INSERT INTO foods (nome, source, base_qty_g, kcal, prot_g, carb_g, gord_g, created_at) " +
     "VALUES ('Arroz', 'taco', 100, 130, 2.5, 28, 0.2, 't')",
   );
+  // medidas globais (FK measure_id) — id sequencia 1-7
+  for (let i = 1; i <= 7; i++) {
+    await db.execute(
+      "INSERT INTO food_measures (food_id, nome, qty_base, ordem) " +
+      "VALUES (1, ?, ?, ?)",
+      [i === 7 ? 'fatia' : `medida_${i}`, 25, i],
+    );
+  }
 });
 
 const novo = (over = {}) => ({
@@ -74,5 +82,57 @@ describe("entries repo", () => {
     const e = await createEntry(db, 1, novo({ qty_g: 100 }));
     await updateEntry(db, 2, e.id, { qty_g: 999 }); // usuário 2 tenta editar do 1
     expect((await listEntriesByDate(db, 1, "2026-07-07"))[0].qty_g).toBe(100);
+  });
+
+  it("persiste measure_id e measure_count — a intenção do usuário", async () => {
+    const e = await createEntry(db, 1, {
+      data: "2026-07-17", meal_id: null, food_id: 1, qty_g: 50,
+      measure_id: 7, measure_count: 2, label: null,
+    });
+    const lidas = await listEntriesByDate(db, 1, "2026-07-17");
+    const lida = lidas.find((x) => x.id === e.id);
+    expect(lida?.measure_id).toBe(7);
+    expect(lida?.measure_count).toBe(2);
+    expect(lida?.qty_g).toBe(50); // grama continua sendo sempre gravada
+  });
+
+  it("aceita measure_count fracionário (meia fatia)", async () => {
+    await createEntry(db, 1, {
+      data: "2026-07-17", meal_id: null, food_id: 1, qty_g: 12.5,
+      measure_id: 7, measure_count: 0.5, label: null,
+    });
+    const lidas = await listEntriesByDate(db, 1, "2026-07-17");
+    expect(lidas[0].measure_count).toBe(0.5);
+  });
+
+  it("registro em grama pura tem measure nulo", async () => {
+    await createEntry(db, 1, {
+      data: "2026-07-17", meal_id: null, food_id: 1, qty_g: 30,
+      measure_id: null, measure_count: null, label: null,
+    });
+    const lidas = await listEntriesByDate(db, 1, "2026-07-17");
+    expect(lidas[0].measure_id).toBeNull();
+  });
+
+  it("updateEntry troca a medida junto com a quantidade", async () => {
+    const e = await createEntry(db, 1, {
+      data: "2026-07-17", meal_id: null, food_id: 1, qty_g: 50,
+      measure_id: 7, measure_count: 2, label: null,
+    });
+    await updateEntry(db, 1, e.id, { qty_g: 75, measure_id: 7, measure_count: 3 });
+    const lidas = await listEntriesByDate(db, 1, "2026-07-17");
+    expect(lidas[0].qty_g).toBe(75);
+    expect(lidas[0].measure_count).toBe(3);
+  });
+
+  it("updateEntry limpa a medida ao voltar pra grama pura", async () => {
+    const e = await createEntry(db, 1, {
+      data: "2026-07-17", meal_id: null, food_id: 1, qty_g: 50,
+      measure_id: 7, measure_count: 2, label: null,
+    });
+    await updateEntry(db, 1, e.id, { qty_g: 33, measure_id: null, measure_count: null });
+    const lidas = await listEntriesByDate(db, 1, "2026-07-17");
+    expect(lidas[0].measure_id).toBeNull();
+    expect(lidas[0].measure_count).toBeNull();
   });
 });

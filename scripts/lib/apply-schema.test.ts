@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyAdditiveColumns } from "./apply-schema";
+import { createTestDb } from "../../test/helpers/test-db";
 
 const here = fileURLToPath(import.meta.url);
 const schemaPath = resolve(dirname(here), "../../src/db/schema.sql");
@@ -140,4 +141,34 @@ it("banco legado: exercises na forma antiga sobrevive ao pipeline completo (sche
   expect(row.rows[0].nome).toBe("Supino");
   expect(row.rows[0].grupo_muscular).toBe("Peito");
   expect(row.rows[0].source).toBe("custom");
+});
+
+it("adiciona nutrientes em foods e proveniência em food_measures", async () => {
+  const db = await createTestDb();
+  const foods = await db.execute("PRAGMA table_info(foods)");
+  const nomesFoods = foods.rows.map((r) => r.name as string);
+  expect(nomesFoods).toContain("fibra_g");
+  expect(nomesFoods).toContain("sodio_mg");
+  expect(nomesFoods).toContain("categoria");
+
+  const medidas = await db.execute("PRAGMA table_info(food_measures)");
+  const nomesMedidas = medidas.rows.map((r) => r.name as string);
+  expect(nomesMedidas).toContain("source");
+  expect(nomesMedidas).toContain("status");
+  expect(nomesMedidas).toContain("pof_codigo");
+});
+
+it("medida nova nasce manual e confirmada (default das colunas aditivas)", async () => {
+  const db = await createTestDb();
+  await db.execute({
+    sql: `INSERT INTO foods (nome, source, base_qty_g, kcal, prot_g, carb_g, gord_g, created_at)
+          VALUES ('Pão', 'custom', 100, 250, 8, 48, 3, ?)`,
+    args: [new Date().toISOString()],
+  });
+  await db.execute(
+    "INSERT INTO food_measures (food_id, nome, qty_base, ordem) VALUES (1, 'fatia', 25, 0)",
+  );
+  const rs = await db.execute("SELECT source, status FROM food_measures WHERE id=1");
+  expect(rs.rows[0].source).toBe("manual");
+  expect(rs.rows[0].status).toBe("confirmada");
 });

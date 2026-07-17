@@ -25,7 +25,7 @@ it("cadastra um alimento custom", async () => {
   renderPage();
   await user.click(await screen.findByRole("button", { name: /novo alimento/i }));
   await user.type(screen.getByLabelText(/nome/i), "Pão");
-  await user.type(screen.getByLabelText(/base.*g/i), "50");
+  await user.type(screen.getByLabelText(/^base$/i), "50");
   await user.type(screen.getByLabelText(/kcal/i), "135");
   await user.type(screen.getByLabelText(/proteína/i), "4");
   await user.type(screen.getByLabelText(/carbo/i), "27");

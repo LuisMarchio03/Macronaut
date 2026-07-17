@@ -12,6 +12,7 @@ import { useMeals } from "../hooks/use-meals";
 import {
   useTodayEntries, useFoodsForEntries, useDeleteEntry,
 } from "../hooks/use-today-entries";
+import { useMeasuresByFoodIds } from "../hooks/use-food-measures";
 import { useAiConfig } from "../hooks/use-ai-config";
 import { totaisDoDia } from "../domain/nutrition";
 import { formatarData } from "../lib/date";
@@ -24,6 +25,7 @@ export function Dashboard() {
   const { data: perfil, isLoading } = useProfile();
   const { data: entries = [] } = useTodayEntries(data);
   const { data: foods } = useFoodsForEntries(entries);
+  const { data: measures } = useMeasuresByFoodIds(entries.map((e) => e.food_id));
   const { data: meals = [] } = useMeals();
   const del = useDeleteEntry(data);
   const { data: aiConfig } = useAiConfig();
@@ -98,10 +100,10 @@ export function Dashboard() {
         </h2>
         <div className="space-y-3">
           {meals.map((m) => (
-            <MealSection key={m.id} meal={m} entries={entriesDe(m.id)} foods={foods}
+            <MealSection key={m.id} meal={m} entries={entriesDe(m.id)} foods={foods} measures={measures} data={data}
               onAdd={() => setSheetMeal(m.id)} onDelete={(id) => del.mutate(id)} onEdit={abrirEdicao} />
           ))}
-          <MealSection meal={null} entries={entriesDe(null)} foods={foods}
+          <MealSection meal={null} entries={entriesDe(null)} foods={foods} measures={measures} data={data}
             onAdd={() => setSheetMeal(null)} onDelete={(id) => del.mutate(id)} onEdit={abrirEdicao} />
         </div>
       </div>

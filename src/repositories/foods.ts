@@ -14,6 +14,9 @@ function mapRow(r: Row): Food {
     prot_g: r.prot_g as number,
     carb_g: r.carb_g as number,
     gord_g: r.gord_g as number,
+    fibra_g: (r.fibra_g as number | null) ?? null,
+    sodio_mg: (r.sodio_mg as number | null) ?? null,
+    categoria: (r.categoria as string | null) ?? null,
     created_at: r.created_at as string,
   };
 }
@@ -42,9 +45,13 @@ export async function createFood(
 ): Promise<Food> {
   const created_at = new Date().toISOString();
   const rs = await db.execute({
-    sql: `INSERT INTO foods (nome, source, marca, base_qty_g, kcal, prot_g, carb_g, gord_g, created_at)
-          VALUES (?, 'custom', ?, ?, ?, ?, ?, ?, ?)`,
-    args: [f.nome, f.marca, f.base_qty_g, f.kcal, f.prot_g, f.carb_g, f.gord_g, created_at],
+    sql: `INSERT INTO foods (nome, source, marca, base_qty_g, base_unit, default_measure_id,
+                             kcal, prot_g, carb_g, gord_g, fibra_g, sodio_mg, categoria, created_at)
+          VALUES (?, 'custom', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      f.nome, f.marca, f.base_qty_g, f.base_unit, f.default_measure_id,
+      f.kcal, f.prot_g, f.carb_g, f.gord_g, f.fibra_g, f.sodio_mg, f.categoria, created_at,
+    ],
   });
   return { id: Number(rs.lastInsertRowid), source: "custom", created_at, ...f };
 }
@@ -55,9 +62,13 @@ export async function updateFood(
   f: Omit<Food, "id" | "source" | "created_at">,
 ): Promise<void> {
   await db.execute({
-    sql: `UPDATE foods SET nome=?, marca=?, base_qty_g=?, kcal=?, prot_g=?, carb_g=?, gord_g=?
+    sql: `UPDATE foods SET nome=?, marca=?, base_qty_g=?, base_unit=?, default_measure_id=?,
+                           kcal=?, prot_g=?, carb_g=?, gord_g=?, fibra_g=?, sodio_mg=?, categoria=?
           WHERE id=? AND source='custom'`,
-    args: [f.nome, f.marca, f.base_qty_g, f.kcal, f.prot_g, f.carb_g, f.gord_g, id],
+    args: [
+      f.nome, f.marca, f.base_qty_g, f.base_unit, f.default_measure_id,
+      f.kcal, f.prot_g, f.carb_g, f.gord_g, f.fibra_g, f.sodio_mg, f.categoria, id,
+    ],
   });
 }
 

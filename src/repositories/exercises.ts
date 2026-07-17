@@ -1,7 +1,7 @@
 import type { Client, Row } from "@libsql/client";
 import type { Equipamento, Exercise, ExerciseSource, TipoExercicio } from "../domain/types";
-import { CATALOGO, GRUPOS } from "../db/catalogo-exercicios";
-import { normalizar } from "../domain/texto";
+import { CATALOGO, GRUPOS } from "../db/catalogo-exercicios.ts";
+import { normalizar } from "../domain/texto.ts";
 
 export type ResultadoEx = { ok: true } | { ok: false; reason: "em_uso" | "catalogo" };
 export type ExInput = { nome: string; grupo_id: number | null };

@@ -1,4 +1,4 @@
-import { normalizar } from "./texto";
+import { normalizar } from "./texto.ts";
 
 export type TacoItem = {
   nome: string;
@@ -7,6 +7,9 @@ export type TacoItem = {
   prot_g: number;
   carb_g: number;
   gord_g: number;
+  fibra_g?: number | null;
+  sodio_mg?: number | null;
+  categoria?: string;
 };
 
 export { normalizar };

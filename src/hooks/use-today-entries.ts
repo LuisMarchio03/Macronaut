@@ -38,8 +38,19 @@ export function useUpdateEntry(data: string) {
   const userId = useUserId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (u: { id: number; qty_g?: number; meal_id?: number | null }) =>
-      updateEntry(db, userId, u.id, { qty_g: u.qty_g, meal_id: u.meal_id }),
+    mutationFn: (u: {
+      id: number;
+      qty_g?: number;
+      meal_id?: number | null;
+      measure_id?: number | null;
+      measure_count?: number | null;
+    }) =>
+      updateEntry(db, userId, u.id, {
+        qty_g: u.qty_g,
+        meal_id: u.meal_id,
+        measure_id: u.measure_id,
+        measure_count: u.measure_count,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["entries", data] }),
   });
 }

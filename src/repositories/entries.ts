@@ -47,9 +47,13 @@ export async function createEntry(
 ): Promise<FoodEntry> {
   const created_at = new Date().toISOString();
   const rs = await db.execute({
-    sql: `INSERT INTO food_entries (user_id, data, meal_id, food_id, qty_g, label, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    args: [userId, e.data, e.meal_id, e.food_id, e.qty_g, e.label, created_at],
+    sql: `INSERT INTO food_entries (user_id, data, meal_id, food_id, qty_g,
+                                    measure_id, measure_count, label, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      userId, e.data, e.meal_id, e.food_id, e.qty_g,
+      e.measure_id, e.measure_count, e.label, created_at,
+    ],
   });
   return { id: Number(rs.lastInsertRowid), created_at, ...e };
 }
@@ -65,12 +69,19 @@ export async function updateEntry(
   db: Client,
   userId: number,
   id: number,
-  campos: { qty_g?: number; meal_id?: number | null },
+  campos: {
+    qty_g?: number;
+    meal_id?: number | null;
+    measure_id?: number | null;
+    measure_count?: number | null;
+  },
 ): Promise<void> {
   const sets: string[] = [];
   const args: (number | null)[] = [];
   if (campos.qty_g !== undefined) { sets.push("qty_g=?"); args.push(campos.qty_g); }
   if (campos.meal_id !== undefined) { sets.push("meal_id=?"); args.push(campos.meal_id); }
+  if (campos.measure_id !== undefined) { sets.push("measure_id=?"); args.push(campos.measure_id); }
+  if (campos.measure_count !== undefined) { sets.push("measure_count=?"); args.push(campos.measure_count); }
   if (sets.length === 0) return;
   args.push(id, userId);
   await db.execute({

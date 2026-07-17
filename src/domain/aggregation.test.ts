@@ -5,7 +5,7 @@ import type { Food, FoodEntry } from "./types";
 const arroz: Food = {
   id: 1, nome: "Arroz cozido", source: "taco", marca: null,
   base_qty_g: 100, base_unit: "g", default_measure_id: null,
-  kcal: 128, prot_g: 2.5, carb_g: 28, gord_g: 0.2,
+  kcal: 128, prot_g: 2.5, carb_g: 28, gord_g: 0.2, fibra_g: null, sodio_mg: null, categoria: null,
   created_at: "2026-07-06T00:00:00Z",
 };
 

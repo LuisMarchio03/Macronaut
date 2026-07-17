@@ -1,6 +1,6 @@
 import type { Client, Row } from "@libsql/client";
 import type { Cadeia, MuscleGroup, Regiao } from "../domain/types";
-import { GRUPOS } from "../db/catalogo-exercicios";
+import { GRUPOS } from "../db/catalogo-exercicios.ts";
 
 function mapRow(r: Row): MuscleGroup {
   return {

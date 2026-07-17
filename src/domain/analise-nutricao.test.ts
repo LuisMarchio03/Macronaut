@@ -5,7 +5,7 @@ import type { Food, FoodEntry, Macros } from "./types";
 const arroz: Food = {
   id: 1, nome: "Arroz", source: "taco", marca: null,
   base_qty_g: 100, base_unit: "g", default_measure_id: null,
-  kcal: 100, prot_g: 2, carb_g: 20, gord_g: 1, created_at: "",
+  kcal: 100, prot_g: 2, carb_g: 20, gord_g: 1, fibra_g: null, sodio_mg: null, categoria: null, created_at: "",
 };
 const foods = new Map<number, Food>([[1, arroz]]);
 const entry = (data: string, qty_g: number): FoodEntry =>
@@ -57,7 +57,7 @@ describe("resumoNutricional", () => {
     const agua: Food = {
       id: 2, nome: "Água", source: "taco", marca: null,
       base_qty_g: 100, base_unit: "g", default_measure_id: null,
-      kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0, created_at: "",
+      kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0, fibra_g: null, sodio_mg: null, categoria: null, created_at: "",
     };
     const foods2 = new Map<number, Food>([[2, agua]]);
     const totais = totaisPorDia(

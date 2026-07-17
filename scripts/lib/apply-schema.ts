@@ -7,6 +7,13 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   { table: "users", column: "gemini_api_key", ddl: "ALTER TABLE users ADD COLUMN gemini_api_key TEXT" },
   { table: "foods", column: "base_unit",          ddl: "ALTER TABLE foods ADD COLUMN base_unit TEXT NOT NULL DEFAULT 'g'" },
   { table: "foods", column: "default_measure_id", ddl: "ALTER TABLE foods ADD COLUMN default_measure_id INTEGER" },
+  { table: "foods", column: "fibra_g",   ddl: "ALTER TABLE foods ADD COLUMN fibra_g REAL" },
+  { table: "foods", column: "sodio_mg",  ddl: "ALTER TABLE foods ADD COLUMN sodio_mg REAL" },
+  { table: "foods", column: "categoria", ddl: "ALTER TABLE foods ADD COLUMN categoria TEXT" },
+  { table: "food_measures", column: "source",     ddl: "ALTER TABLE food_measures ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'" },
+  { table: "food_measures", column: "status",     ddl: "ALTER TABLE food_measures ADD COLUMN status TEXT NOT NULL DEFAULT 'confirmada'" },
+  { table: "food_measures", column: "pof_codigo", ddl: "ALTER TABLE food_measures ADD COLUMN pof_codigo TEXT" },
+  { table: "food_measures", column: "pof_descricao", ddl: "ALTER TABLE food_measures ADD COLUMN pof_descricao TEXT" },
   { table: "food_entries", column: "measure_id",    ddl: "ALTER TABLE food_entries ADD COLUMN measure_id INTEGER REFERENCES food_measures (id) ON DELETE SET NULL" },
   { table: "food_entries", column: "measure_count", ddl: "ALTER TABLE food_entries ADD COLUMN measure_count REAL" },
   { table: "exercises", column: "user_id",     ddl: "ALTER TABLE exercises ADD COLUMN user_id INTEGER" },
@@ -33,6 +40,7 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
 const ADDITIVE_INDEXES: { ddl: string }[] = [
   { ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises (user_id, nome)" },
   { ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_source_nome ON exercises (source, nome)" },
+  { ddl: "CREATE INDEX IF NOT EXISTS idx_food_measures_status ON food_measures (food_id, status)" },
 ];
 
 async function columnExists(db: Client, table: string, column: string): Promise<boolean> {

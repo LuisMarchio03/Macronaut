@@ -80,4 +80,26 @@ describe("createTestDb", () => {
     expect(st.rows[0].rir).toBeNull();
     db.close();
   });
+
+  it("cria meal_templates e meal_template_items com cascade", async () => {
+    const db = await createTestDb();
+    await db.execute({
+      sql: `INSERT INTO foods (nome, source, base_qty_g, kcal, prot_g, carb_g, gord_g, created_at)
+            VALUES ('Pão', 'custom', 100, 250, 8, 48, 3, ?)`,
+      args: [new Date().toISOString()],
+    });
+    await db.execute({
+      sql: "INSERT INTO meal_templates (user_id, nome, meal_id, created_at) VALUES (1, 'Café padrão', NULL, ?)",
+      args: [new Date().toISOString()],
+    });
+    await db.execute(
+      `INSERT INTO meal_template_items (template_id, food_id, qty_g, measure_id, measure_count, ordem)
+       VALUES (1, 1, 50, NULL, NULL, 0)`,
+    );
+
+    // ON DELETE CASCADE: apagar o template leva os itens junto.
+    await db.execute("DELETE FROM meal_templates WHERE id=1");
+    const rs = await db.execute("SELECT COUNT(*) AS n FROM meal_template_items");
+    expect(rs.rows[0].n).toBe(0);
+  });
 });

@@ -175,3 +175,35 @@ CREATE TABLE IF NOT EXISTS ai_messages (
   created_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ai_msg_conv ON ai_messages (user_id, provider, session_id, id);
+
+-- Favoritas de refeição. É o mesmo conceito que o cadastro de dietas vai usar:
+-- um conjunto nomeado de alimentos com suas medidas. Dietas referencia estas
+-- tabelas em vez de criar as suas — ver spec 2026-07-17, decisão D4.
+CREATE TABLE IF NOT EXISTS meal_templates (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL,
+  nome        TEXT NOT NULL,
+  meal_id     INTEGER,   -- refeição de origem: só define ONDE a favorita é
+                         -- sugerida no dashboard. NULL = qualquer refeição.
+                         -- Não restringe: aplicar noutra refeição é permitido.
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_meal_templates_user ON meal_templates (user_id, nome);
+
+-- Snapshot: copia qty_g E measure_id/measure_count. A favorita guarda a
+-- INTENÇÃO ("2 fatias"), não o número congelado — se a medida for corrigida
+-- de 25g para 28g, a favorita passa a registrar 56g. Ponteiro para o
+-- histórico não serviria: entries podem ser deletadas pelo usuário.
+CREATE TABLE IF NOT EXISTS meal_template_items (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  template_id    INTEGER NOT NULL,
+  food_id        INTEGER NOT NULL,
+  qty_g          REAL NOT NULL CHECK (qty_g > 0),
+  measure_id     INTEGER,
+  measure_count  REAL,
+  ordem          INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY (template_id) REFERENCES meal_templates (id) ON DELETE CASCADE,
+  FOREIGN KEY (food_id)     REFERENCES foods (id),
+  FOREIGN KEY (measure_id)  REFERENCES food_measures (id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mt_items_template ON meal_template_items (template_id, ordem);

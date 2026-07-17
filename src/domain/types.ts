@@ -37,8 +37,14 @@ export interface Food {
   prot_g: number;
   carb_g: number;
   gord_g: number;
+  fibra_g: number | null;
+  sodio_mg: number | null;
+  categoria: string | null;
   created_at: string;
 }
+
+export type SourceMedida = "pof" | "manual";
+export type StatusMedida = "confirmada" | "candidata" | "descartada";
 
 export interface FoodMeasure {
   id: number;
@@ -46,6 +52,10 @@ export interface FoodMeasure {
   nome: string;
   qty_base: number; // quanto 1 medida vale na base_unit do alimento
   ordem: number;
+  source: SourceMedida;
+  status: StatusMedida;
+  pof_codigo: string | null;
+  pof_descricao: string | null; // nome cru da POF ("FEIJAO CARIOCA · CROZIDO(A)"), p/ a desambiguação
 }
 
 export interface Meal {
@@ -135,4 +145,21 @@ export interface ProgressoPonto {
   topPeso: number;
   e1RM: number;
   volume: number;
+}
+
+export interface MealTemplate {
+  id: number;
+  nome: string;
+  meal_id: number | null;
+  created_at: string;
+}
+
+export interface MealTemplateItem {
+  id: number;
+  template_id: number;
+  food_id: number;
+  qty_g: number;
+  measure_id: number | null;
+  measure_count: number | null;
+  ordem: number;
 }

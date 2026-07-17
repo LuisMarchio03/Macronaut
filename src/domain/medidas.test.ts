@@ -7,9 +7,9 @@ import type { Food, FoodEntry, FoodMeasure } from "./types";
 const food: Food = {
   id: 1, nome: "Pão de forma", source: "custom", marca: null,
   base_qty_g: 100, base_unit: "g", default_measure_id: 10,
-  kcal: 250, prot_g: 9, carb_g: 49, gord_g: 3, created_at: "t",
+  kcal: 250, prot_g: 9, carb_g: 49, gord_g: 3, fibra_g: null, sodio_mg: null, categoria: null, created_at: "t",
 };
-const fatia: FoodMeasure = { id: 10, food_id: 1, nome: "fatia", qty_base: 25, ordem: 0 };
+const fatia: FoodMeasure = { id: 10, food_id: 1, nome: "fatia", qty_base: 25, ordem: 0, source: "manual", status: "confirmada", pof_codigo: null, pof_descricao: null };
 const entry = (over: Partial<FoodEntry> = {}): FoodEntry => ({
   id: 1, data: "2026-07-15", meal_id: null, food_id: 1,
   qty_g: 50, measure_id: 10, measure_count: 2, label: null, created_at: "t", ...over,
