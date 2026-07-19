@@ -17,20 +17,53 @@ import { useAnalisePeso, useRegistrarPeso } from "../hooks/use-analise-peso";
 import { useProfile } from "../hooks/use-profile";
 import { LineChart } from "../components/line-chart";
 import { MacroBars } from "../components/macro-bars";
-import { META_AGUA_ML } from "../components/water-counter";
-import { HudPanel } from "../components/ui/hud-panel";
+import { SectionCard } from "../components/ui/section-card";
+import { StatCard } from "../components/ui/stat-card";
+import { SkeletonCard } from "../components/ui/skeleton";
+import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { hoje, formatarData } from "../lib/date";
 import type { Macros } from "../domain/types";
 
 const META_ZERO: Macros = { kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0 };
+const META_AGUA_ML = 3000;
+
+type TabKey = "nutricao" | "peso" | "atividade";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "nutricao", label: "Nutrição" },
+  { key: "peso", label: "Peso" },
+  { key: "atividade", label: "Atividade" },
+];
+
+function TabBar({ active, onChange }: { active: TabKey; onChange: (k: TabKey) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-1 rounded-xl border border-border/50 bg-card p-1">
+      {TABS.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => onChange(t.key)}
+          className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-all ${
+            active === t.key
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function Analise() {
+  const [tab, setTab] = useState<TabKey>("nutricao");
   const [gran, setGran] = useState<Granularidade>("semana");
   const [periodo, setPeriodo] = useState<Periodo>(() => rangeDoPeriodo("semana", hoje()));
 
-  const { data } = useAnaliseNutricao(periodo.inicio, periodo.fim);
+  const { data, isLoading: loadingNutri } = useAnaliseNutricao(periodo.inicio, periodo.fim);
   const { data: aguaPorDia = new Map<string, number>() } = useAnaliseAgua(periodo.inicio, periodo.fim);
   const { data: sessions = [] } = useAnaliseAtividade(periodo.inicio, periodo.fim);
   const { data: treino = { nSessoes: 0, sets: [] } } = useAnaliseTreino(periodo.inicio, periodo.fim);
@@ -79,167 +112,199 @@ export function Analise() {
     }
   }
 
-  const vazioTudo =
-    diasComKcal === 0 && aguaPorDia.size === 0 && sessions.length === 0 &&
-    treino.nSessoes === 0 && treino.sets.length === 0;
-  const eyebrow = "font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground";
+  const vazioNutri = diasComKcal === 0 && aguaPorDia.size === 0;
+  const vazioAtividade = sessions.length === 0 && treino.nSessoes === 0 && treino.sets.length === 0;
 
   return (
     <div className="space-y-4 p-4">
-      <header className="space-y-1 pt-1">
-        <p className="font-mono text-[0.62rem] uppercase tracking-[0.28em] text-primary/70">Análise</p>
+      <header className="space-y-1 pt-2">
+        <p className="section-title">Análise</p>
         <h1 className="text-2xl font-semibold tracking-tight">Análise</h1>
       </header>
 
       <SeletorPeriodo gran={gran} periodo={periodo} onChange={(g, p) => { setGran(g); setPeriodo(p); }} />
 
-      <HudPanel label="Peso" aside={resumoPe.nRegistros > 0 ? `${resumoPe.nRegistros} pesagem(ns)` : undefined}>
-        <div className="flex gap-2">
-          <Input
-            inputMode="decimal"
-            placeholder="peso de hoje (kg)"
-            aria-label="registrar peso"
-            value={pesoInput}
-            onChange={(e) => setPesoInput(e.target.value)}
+      <TabBar active={tab} onChange={setTab} />
+
+      {/* ─── Tab: Nutrição ─── */}
+      {tab === "nutricao" && (
+        loadingNutri ? (
+          <div className="space-y-3">
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        ) : vazioNutri ? (
+          <EmptyState
+            title="Sem registros no período"
+            description="Registre alimentos e água para ver análises nutricionais."
           />
-          <Button onClick={registrar} disabled={!(pesoN > 0) || registrarPeso.isPending}>
-            Registrar
-          </Button>
-        </div>
-        {resumoPe.nRegistros > 0 ? (
-          <>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-mono text-3xl tabular-nums">{Math.round(resumoPe.atual * 10) / 10}</span>
-              <span className="text-sm text-muted-foreground">kg</span>
-              <span className="ml-auto font-mono text-sm text-muted-foreground">
-                Δ {resumoPe.variacao >= 0 ? "+" : "−"}{Math.abs(Math.round(resumoPe.variacao * 10) / 10)} kg
-              </span>
-            </div>
-            <div className="mt-1 font-mono text-[0.72rem] tabular-nums text-muted-foreground">
-              média {Math.round(resumoPe.media * 10) / 10} · min {Math.round(resumoPe.min * 10) / 10} · máx {Math.round(resumoPe.max * 10) / 10} kg
-            </div>
-            <div className="mt-3">
-              <LineChart pontos={pontosPeso} unidade="kg" msgVazia="Registre pelo menos 2 pesagens para ver a curva." />
-            </div>
-          </>
         ) : (
-          <p className={`mt-2 ${eyebrow}`}>Nenhuma pesagem neste período</p>
-        )}
-      </HudPanel>
-
-      {!data ? (
-        <HudPanel label="Análise">
-          <p className={`py-8 text-center ${eyebrow}`}>Carregando…</p>
-        </HudPanel>
-      ) : vazioTudo ? (
-        <HudPanel label="Análise">
-          <p className={`py-8 text-center ${eyebrow}`}>Sem registros neste período</p>
-        </HudPanel>
-      ) : (
-        <>
-          {diasComKcal > 0 && (
-            <>
-              <HudPanel label="Média diária" aside={`${diasComKcal} de ${resumo.diasNoPeriodo} dias`}>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-mono text-3xl tabular-nums">{Math.round(resumo.mediaKcal)}</span>
-                  <span className="text-sm text-muted-foreground">kcal / dia</span>
+          <div className="space-y-3">
+            {diasComKcal > 0 && (
+              <>
+                <SectionCard variant="gradient" header="Média diária" aside={`${diasComKcal}/${resumo.diasNoPeriodo} dias`}>
+                  <StatCard variant="flush" value={`${Math.round(resumo.mediaKcal)}`} label="kcal / dia" />
                   {meta.kcal > 0 && (
-                    <span className="ml-auto font-mono text-sm text-primary">{resumo.aderenciaKcalPct}% da meta</span>
-                  )}
-                </div>
-              </HudPanel>
-
-              <HudPanel label="kcal por dia">
-                <LineChart pontos={pontos} unidade="kcal" msgVazia="Registre alimentos para ver o gráfico." />
-              </HudPanel>
-
-              <HudPanel label="Macros médios vs meta">
-                <MacroBars consumido={media} meta={meta} />
-              </HudPanel>
-
-              <HudPanel label="Dias" bodyClassName="p-2">
-                <ul className="divide-y divide-border/40">
-                  {diasRegistrados.map(([dia, m]) => (
-                    <li key={dia} className="flex items-center justify-between px-2 py-2.5">
-                      <span className="font-mono text-sm">{formatarData(dia)}</span>
-                      <span className="font-mono text-[0.72rem] tabular-nums text-muted-foreground">
-                        {Math.round(m.kcal)} kcal · P {Math.round(m.prot_g)} · C {Math.round(m.carb_g)} · G {Math.round(m.gord_g)}
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{ width: `${Math.min(100, resumo.aderenciaKcalPct)}%` }}
+                        />
+                      </div>
+                      <span className="font-mono text-xs tabular-nums text-primary">
+                        {resumo.aderenciaKcalPct}% da meta
                       </span>
-                    </li>
-                  ))}
-                </ul>
-              </HudPanel>
-            </>
-          )}
+                    </div>
+                  )}
+                </SectionCard>
 
-          <HudPanel label="Água" aside={`${resumoAg.diasBateramMeta} dia(s) na meta`}>
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-3xl tabular-nums">{Math.round(resumoAg.mediaMl)}</span>
-              <span className="text-sm text-muted-foreground">ml / dia</span>
-              <span className="ml-auto font-mono text-sm text-muted-foreground">meta {META_AGUA_ML} ml</span>
-            </div>
-            <div className="mt-3">
-              <LineChart pontos={pontosAgua} unidade="ml" msgVazia="Registre água para ver o gráfico." />
-            </div>
-          </HudPanel>
+                <SectionCard variant="elevated" header="Calorias por dia">
+                  <LineChart pontos={pontos} unidade="kcal" msgVazia="Registre alimentos para ver o gráfico." />
+                </SectionCard>
 
-          <HudPanel label="Atividades">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div>
-                <div className="font-mono text-2xl tabular-nums">{Math.round(resumoAt.totalKcal)}</div>
-                <div className={eyebrow}>kcal</div>
-              </div>
-              <div>
-                <div className="font-mono text-2xl tabular-nums">{Math.round(resumoAt.totalMin)}</div>
-                <div className={eyebrow}>min</div>
-              </div>
-              <div>
-                <div className="font-mono text-2xl tabular-nums">{resumoAt.nSessoes}</div>
-                <div className={eyebrow}>sessões</div>
-              </div>
-            </div>
-          </HudPanel>
+                <SectionCard variant="elevated" header="Macros médios vs meta">
+                  <MacroBars consumido={media} meta={meta} />
+                </SectionCard>
 
-          <HudPanel label="Balanço energético">
-            <div className="flex items-center justify-between font-mono text-sm tabular-nums">
-              <span className="text-muted-foreground">ingerido <b className="text-foreground">{Math.round(balanco.ingerido)}</b></span>
-              <span className="text-muted-foreground">gasto <b className="text-foreground">{Math.round(balanco.gasto)}</b></span>
-              <span className={balanco.saldo >= 0 ? "text-primary" : "text-destructive"}>
-                saldo <b>{balanco.saldo >= 0 ? "+" : "−"}{Math.abs(Math.round(balanco.saldo))}</b> kcal
-              </span>
-            </div>
-          </HudPanel>
-
-          <HudPanel label="Treino">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div>
-                <div className="font-mono text-2xl tabular-nums">{resumoTr.nSessoes}</div>
-                <div className={eyebrow}>sessões</div>
-              </div>
-              <div>
-                <div className="font-mono text-2xl tabular-nums">{Math.round(resumoTr.volumeTotal)}</div>
-                <div className={eyebrow}>volume kg</div>
-              </div>
-              <div>
-                <div className="font-mono text-2xl tabular-nums">{resumoTr.nSeries}</div>
-                <div className={eyebrow}>séries</div>
-              </div>
-            </div>
-            <div className="mt-3">
-              <LineChart pontos={pontosVolume} unidade="kg" msgVazia="Registre treinos para ver o volume." />
-            </div>
-            {gruposVol.length > 0 && (
-              <ul className="mt-3 space-y-1">
-                {gruposVol.map(([g, v]) => (
-                  <li key={g} className="flex items-center justify-between font-mono text-[0.72rem] tabular-nums">
-                    <span className="text-muted-foreground">{g}</span>
-                    <span>{Math.round(v)} kg</span>
-                  </li>
-                ))}
-              </ul>
+                <SectionCard variant="elevated" header="Dias" bodyClassName="p-2">
+                  <ul className="divide-y divide-border/40">
+                    {diasRegistrados.map(([dia, m]) => (
+                      <li key={dia} className="flex items-center justify-between px-2 py-2.5">
+                        <span className="font-mono text-sm">{formatarData(dia)}</span>
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                          {Math.round(m.kcal)} kcal · P{Math.round(m.prot_g)} · C{Math.round(m.carb_g)} · G{Math.round(m.gord_g)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </SectionCard>
+              </>
             )}
-          </HudPanel>
-        </>
+
+            <SectionCard variant="elevated" header="Água" aside={`${resumoAg.diasBateramMeta} dia(s) na meta`}>
+              <div className="flex items-baseline gap-2">
+                <span className="metric-value text-3xl">{Math.round(resumoAg.mediaMl)}</span>
+                <span className="metric-label">ml / dia</span>
+                <span className="ml-auto font-mono text-xs text-muted-foreground">meta {META_AGUA_ML} ml</span>
+              </div>
+              <div className="mt-3">
+                <LineChart pontos={pontosAgua} unidade="ml" msgVazia="Registre água para ver o gráfico." />
+              </div>
+            </SectionCard>
+          </div>
+        )
+      )}
+
+      {/* ─── Tab: Peso ─── */}
+      {tab === "peso" && (
+        <div className="space-y-3">
+          <SectionCard variant="gradient" header="Registrar peso">
+            <div className="flex gap-2">
+              <Input
+                inputMode="decimal"
+                placeholder="peso (kg)"
+                aria-label="registrar peso"
+                value={pesoInput}
+                onChange={(e) => setPesoInput(e.target.value)}
+              />
+              <Button onClick={registrar} disabled={!(pesoN > 0) || registrarPeso.isPending}>
+                Salvar
+              </Button>
+            </div>
+          </SectionCard>
+
+          {resumoPe.nRegistros > 0 ? (
+            <>
+              <div className="stat-grid stat-grid-3">
+                <StatCard variant="elevated" value={`${Math.round(resumoPe.atual * 10) / 10}`} label="atual (kg)" />
+                <StatCard variant="elevated" value={`${Math.round(resumoPe.media * 10) / 10}`} label="média (kg)" />
+                <StatCard
+                  variant="elevated"
+                  value={`${resumoPe.variacao >= 0 ? "+" : ""}${Math.abs(Math.round(resumoPe.variacao * 10) / 10)}`}
+                  label="variação (kg)"
+                />
+              </div>
+
+              <SectionCard variant="elevated" header={`Evolução (${resumoPe.nRegistros} pesagens)`}>
+                <LineChart pontos={pontosPeso} unidade="kg" msgVazia="Registre pelo menos 2 pesagens para ver a curva." />
+              </SectionCard>
+            </>
+          ) : (
+            <EmptyState
+              title="Nenhuma pesagem registrada"
+              description="Registre seu peso acima para começar a acompanhar."
+            />
+          )}
+        </div>
+      )}
+
+      {/* ─── Tab: Atividade ─── */}
+      {tab === "atividade" && (
+        vazioAtividade ? (
+          <EmptyState
+            title="Sem atividades no período"
+            description="Registre treinos e cardio para ver análises."
+          />
+        ) : (
+          <div className="space-y-3">
+            <div className="stat-grid stat-grid-3">
+              <StatCard variant="elevated" value={`${Math.round(resumoAt.totalKcal)}`} label="kcal gastas" />
+              <StatCard variant="elevated" value={`${Math.round(resumoAt.totalMin)}`} label="min totais" />
+              <StatCard variant="elevated" value={`${resumoAt.nSessoes}`} label="sessões" />
+            </div>
+
+            <SectionCard variant="gradient" header="Balanço energético">
+              <div className="flex items-center justify-between font-mono text-sm tabular-nums">
+                <span className="text-muted-foreground">
+                  ingerido <b className="text-foreground">{Math.round(balanco.ingerido)}</b>
+                </span>
+                <span className="text-muted-foreground">
+                  gasto <b className="text-foreground">{Math.round(balanco.gasto)}</b>
+                </span>
+                <span className={balanco.saldo >= 0 ? "text-primary" : "text-destructive"}>
+                  saldo <b>{balanco.saldo >= 0 ? "+" : "−"}{Math.abs(Math.round(balanco.saldo))}</b>
+                </span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, (balanco.ingerido / (balanco.gasto || 1)) * 100)}%`,
+                    background: balanco.saldo >= 0 ? "var(--primary)" : "var(--destructive)",
+                  }}
+                />
+              </div>
+            </SectionCard>
+
+            {treino.sets.length > 0 && (
+              <>
+                <div className="stat-grid stat-grid-3">
+                  <StatCard variant="elevated" value={`${resumoTr.nSessoes}`} label="sessões" />
+                  <StatCard variant="elevated" value={`${Math.round(resumoTr.volumeTotal)}`} label="volume (kg)" />
+                  <StatCard variant="elevated" value={`${resumoTr.nSeries}`} label="séries" />
+                </div>
+
+                <SectionCard variant="elevated" header="Volume por dia">
+                  <LineChart pontos={pontosVolume} unidade="kg" msgVazia="Registre treinos para ver o volume." />
+                </SectionCard>
+
+                {gruposVol.length > 0 && (
+                  <SectionCard variant="elevated" header="Volume por grupo muscular">
+                    <ul className="space-y-1.5">
+                      {gruposVol.map(([g, v]) => (
+                        <li key={g} className="flex items-center justify-between font-mono text-sm tabular-nums">
+                          <span className="text-muted-foreground">{g}</span>
+                          <span className="font-medium">{Math.round(v)} kg</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </SectionCard>
+                )}
+              </>
+            )}
+          </div>
+        )
       )}
     </div>
   );

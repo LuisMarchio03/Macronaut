@@ -23,13 +23,13 @@ function renderPage() {
 it("cadastra um alimento custom", async () => {
   const user = userEvent.setup();
   renderPage();
-  await user.click(await screen.findByRole("button", { name: /novo alimento/i }));
+  await user.click(await screen.findByRole("button", { name: /novo/i }));
   await user.type(screen.getByLabelText(/nome/i), "Pão");
   await user.type(screen.getByLabelText(/^base$/i), "50");
   await user.type(screen.getByLabelText(/kcal/i), "135");
   await user.type(screen.getByLabelText(/proteína/i), "4");
   await user.type(screen.getByLabelText(/carbo/i), "27");
   await user.type(screen.getByLabelText(/gordura/i), "1");
-  await user.click(screen.getByRole("button", { name: /salvar/i }));
+  await user.click(screen.getByRole("button", { name: /^salvar$/i }));
   await waitFor(async () => expect(await listCustomFoods(db)).toHaveLength(1));
 });

@@ -1,5 +1,6 @@
 import { it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
@@ -19,7 +20,6 @@ it("mostra o total de kcal do dia registrado no período atual", async () => {
           VALUES ('Arroz', 'taco', 100, 128, 2.5, 28, 0.2, ?)`,
     args: [new Date().toISOString()],
   });
-  // entry de hoje → cai na semana atual (período default)
   await createEntry(db, 1, { data: hoje(), meal_id: null, food_id: 1, qty_g: 100, measure_id: null, measure_count: null, label: null });
 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -29,9 +29,6 @@ it("mostra o total de kcal do dia registrado no período atual", async () => {
     </QueryClientProvider>,
   );
 
-  // Regex restrita a "128 kcal · P" (linha da lista "Dias") para evitar colisão
-  // com o rótulo do eixo do LineChart, que também exibe "128 kcal" (valor
-  // máximo arredondado do período), já que só há um dia com registro.
   expect(await screen.findByText(/128 kcal · P/)).toBeInTheDocument();
 });
 
@@ -42,7 +39,7 @@ it("mostra água, atividades e balanço do período", async () => {
           VALUES ('Arroz', 'taco', 100, 128, 2.5, 28, 0.2, ?)`,
     args: [new Date().toISOString()],
   });
-  await createEntry(db, 1, { data: hoje(), meal_id: null, food_id: 1, qty_g: 100, measure_id: null, measure_count: null, label: null }); // 128 kcal
+  await createEntry(db, 1, { data: hoje(), meal_id: null, food_id: 1, qty_g: 100, measure_id: null, measure_count: null, label: null });
   await addWater(db, 1, hoje(), 1000);
   await createActivitySession(db, 1, { data: hoje(), tipo: "Corrida", duracao_min: 30, kcal: 300 });
 
@@ -53,9 +50,14 @@ it("mostra água, atividades e balanço do período", async () => {
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByText("Balanço energético")).toBeInTheDocument();
-  expect(screen.getByText("Água")).toBeInTheDocument();
-  expect(screen.getByText("Atividades")).toBeInTheDocument();
+  // Nutrição tab is default — check water is visible here
+  expect(await screen.findByText("Água")).toBeInTheDocument();
+
+  // Switch to Atividade tab
+  const ativBtn = screen.getByRole("button", { name: /atividade/i });
+  await userEvent.setup().click(ativBtn);
+
+  expect(screen.getByText("Balanço energético")).toBeInTheDocument();
   // saldo = 128 ingerido − 300 gasto = −172
   expect(screen.getByText(/172/)).toBeInTheDocument();
 });
@@ -69,7 +71,7 @@ it("mostra o painel de treino (sessões/volume/séries + grupo)", async () => {
     args: [g.rows[0].id as number],
   });
   const s = await createSession(db, 1, { data: hoje(), nome: "A" });
-  await addSet(db, 1, { session_id: s.id, exercise_id: 1, ordem: 1, reps: 10, peso_kg: 40, tipo: "valida", rir: null, nota: null }); // volume 400
+  await addSet(db, 1, { session_id: s.id, exercise_id: 1, ordem: 1, reps: 10, peso_kg: 40, tipo: "valida", rir: null, nota: null });
 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -78,9 +80,12 @@ it("mostra o painel de treino (sessões/volume/séries + grupo)", async () => {
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByText("Treino")).toBeInTheDocument();
-  expect(screen.getByText("Peito")).toBeInTheDocument();     // breakdown por grupo (via LEFT JOIN muscle_groups)
-  expect(screen.getAllByText(/400/).length).toBeGreaterThan(0); // volume 40×10
+  // Switch to Atividade tab
+  const ativBtn = await screen.findByRole("button", { name: /atividade/i });
+  await userEvent.setup().click(ativBtn);
+
+  expect(await screen.findByText("Peito")).toBeInTheDocument();
+  expect(screen.getAllByText(/400/).length).toBeGreaterThan(0);
 });
 
 it("mostra o painel de peso com o peso atual e o input de registro", async () => {
@@ -94,7 +99,10 @@ it("mostra o painel de peso com o peso atual e o input de registro", async () =>
     </QueryClientProvider>,
   );
 
-  expect(await screen.findByText("Peso")).toBeInTheDocument();
+  // Switch to Peso tab
+  const pesoBtn = await screen.findByRole("button", { name: /^peso$/i });
+  await userEvent.setup().click(pesoBtn);
+
   expect(screen.getByLabelText("registrar peso")).toBeInTheDocument();
-  expect((await screen.findAllByText(/80/)).length).toBeGreaterThan(0); // peso atual/média/min/máx
+  expect((await screen.findAllByText(/80/)).length).toBeGreaterThan(0);
 });

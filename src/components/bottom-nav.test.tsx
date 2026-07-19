@@ -11,10 +11,10 @@ function renderNav(path: string) {
   );
 }
 
-it("mostra exatamente 4 abas", () => {
+it("mostra exatamente 5 abas", () => {
   renderNav("/");
-  expect(screen.getAllByRole("link")).toHaveLength(4);
-  for (const nome of ["Hoje", "Treino", "Análise", "Ajustes"]) {
+  expect(screen.getAllByRole("link")).toHaveLength(5);
+  for (const nome of ["Hoje", "Nutrição", "Treino", "Análise", "Mais"]) {
     expect(screen.getByRole("link", { name: new RegExp(nome, "i") })).toBeInTheDocument();
   }
 });
@@ -26,8 +26,8 @@ it("não mostra as telas de config na barra", () => {
   expect(screen.queryByRole("link", { name: /^metas$/i })).toBeNull();
 });
 
-it("destaca a aba Ajustes numa rota-filha (/alimentos)", () => {
+it("destaca a aba Mais numa rota-filha (/alimentos)", () => {
   renderNav("/alimentos");
-  const ajustes = screen.getByRole("link", { name: /ajustes/i });
-  expect(ajustes.className).toContain("text-primary");
+  const mais = screen.getByRole("link", { name: /mais/i });
+  expect(mais.className).toContain("text-primary");
 });

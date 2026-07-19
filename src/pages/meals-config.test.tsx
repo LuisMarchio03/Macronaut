@@ -26,7 +26,7 @@ describe("MealsConfig", () => {
     renderPage();
     await user.click(await screen.findByRole("button", { name: /adicionar refeição/i }));
     await user.type(screen.getByLabelText(/nome da refeição/i), "Pré-treino");
-    await user.click(screen.getByRole("button", { name: /^salvar$/i }));
+    await user.click(screen.getByRole("button", { name: /^salvar/i }));
     await waitFor(async () =>
       expect((await listMeals(db, 1)).some((m) => m.nome === "Pré-treino")).toBe(true),
     );

@@ -21,10 +21,14 @@ async function renderPage() {
   );
 }
 
-it("mostra as 4 abas e troca para Exercícios", async () => {
+it("mostra as 2 abas principais e troca para Progressão", async () => {
   const user = userEvent.setup();
   await renderPage();
-  expect(screen.getByRole("tab", { name: /treino/i })).toBeInTheDocument();
-  await user.click(screen.getByRole("tab", { name: /exerc/i }));
-  expect(screen.getByRole("tab", { name: /exerc/i })).toHaveAttribute("aria-selected", "true");
+  const treinoBtn = screen.getByRole("button", { name: /^treino$/i });
+  const progBtn = screen.getByRole("button", { name: /^progressão$/i });
+  expect(treinoBtn).toBeInTheDocument();
+  expect(progBtn).toBeInTheDocument();
+  await user.click(progBtn);
+  expect(progBtn.className).toContain("bg-primary");
+  expect(treinoBtn.className).not.toContain("bg-primary");
 });

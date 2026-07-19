@@ -7,23 +7,23 @@
 
 :root {
   color-scheme: light dark;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.98 0.005 274);
+  --foreground: oklch(0.145 0.02 274);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.145 0.02 274);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.145 0.02 274);
   --primary: oklch(0.55 0.2 277);
   --primary-foreground: oklch(0.985 0.01 277);
-  --secondary: oklch(0.97 0.005 277);
+  --secondary: oklch(0.95 0.01 277);
   --secondary-foreground: oklch(0.245 0.03 277);
-  --muted: oklch(0.97 0.005 277);
-  --muted-foreground: oklch(0.52 0.02 277);
-  --accent: oklch(0.96 0.02 277);
+  --muted: oklch(0.95 0.01 274);
+  --muted-foreground: oklch(0.52 0.03 274);
+  --accent: oklch(0.94 0.03 277);
   --accent-foreground: oklch(0.245 0.03 277);
   --destructive: oklch(0.6 0.21 15);
-  --border: oklch(0.9 0.01 277);
-  --input: oklch(0.9 0.01 277);
+  --border: oklch(0.88 0.01 277);
+  --input: oklch(0.88 0.01 277);
   --ring: oklch(0.55 0.2 277);
   --chart-1: oklch(0.55 0.2 277);
   --chart-2: oklch(0.62 0.14 200);
@@ -175,19 +175,19 @@ body {
 }
 
 .dark {
-  --background: oklch(0.15 0.018 274);
+  --background: oklch(0.13 0.015 274);
   --foreground: oklch(0.93 0.012 274);
-  --card: oklch(0.205 0.022 274);
+  --card: oklch(0.185 0.018 274);
   --card-foreground: oklch(0.93 0.012 274);
-  --popover: oklch(0.215 0.024 274);
+  --popover: oklch(0.195 0.02 274);
   --popover-foreground: oklch(0.93 0.012 274);
   --primary: oklch(0.705 0.153 277);
   --primary-foreground: oklch(0.17 0.03 277);
-  --secondary: oklch(0.27 0.024 274);
+  --secondary: oklch(0.24 0.02 274);
   --secondary-foreground: oklch(0.93 0.012 274);
-  --muted: oklch(0.25 0.02 274);
-  --muted-foreground: oklch(0.68 0.028 274);
-  --accent: oklch(0.29 0.032 277);
+  --muted: oklch(0.22 0.015 274);
+  --muted-foreground: oklch(0.68 0.025 274);
+  --accent: oklch(0.26 0.03 277);
   --accent-foreground: oklch(0.93 0.012 274);
   --destructive: oklch(0.68 0.19 12);
   --border: oklch(0.75 0.05 277 / 12%);
@@ -217,5 +217,130 @@ body {
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ───────────── NOVO SISTEMA DE DESIGN ───────────── */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Card variants - substituem o HudPanel em páginas novas */
+.card-elevated {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+}
+.dark .card-elevated {
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.2), 0 1px 2px oklch(0 0 0 / 0.15);
+}
+
+.card-outlined {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+
+.card-gradient {
+  background: linear-gradient(135deg, var(--card) 0%, oklch(0.705 0.153 277 / 0.06) 100%);
+  border: 1px solid oklch(0.705 0.153 277 / 0.15);
+  border-radius: var(--radius-xl);
+}
+.dark .card-gradient {
+  background: linear-gradient(135deg, var(--card) 0%, oklch(0.705 0.153 277 / 0.08) 100%);
+}
+
+.card-flush {
+  border-radius: var(--radius-xl);
+}
+
+/* Metric display - números grandes e labels limpos */
+.metric-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+/* Skeleton loading shimmer */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    oklch(0.7 0.05 277 / 0.1) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-text {
+  height: 0.875rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-title {
+  height: 1.25rem;
+  width: 60%;
+  margin-bottom: 0.75rem;
+}
+
+/* Status dots */
+.status-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+/* Section header padrão */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.section-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--muted-foreground);
+}
+
+/* Inline stat grid */
+.stat-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.stat-grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.stat-grid-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.stat-grid-4 {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (min-width: 400px) {
+  .stat-grid-4 {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
   }
 }
