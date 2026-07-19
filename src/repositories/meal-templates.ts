@@ -1,5 +1,5 @@
 import type { Client, Row } from "@libsql/client";
-import type { FoodEntry, MealTemplate, MealTemplateItem } from "../domain/types";
+import type { FoodEntry, MealTemplate, MealTemplateItem, MealTemplateWithKcal } from "../domain/types";
 
 function mapTemplate(r: Row): MealTemplate {
   return {
@@ -46,6 +46,31 @@ export async function listTemplates(
     args: [userId, mealId],
   });
   return rs.rows.map(mapTemplate);
+}
+
+export async function listTemplatesWithKcal(
+  db: Client,
+  userId: number,
+  mealId?: number | null,
+): Promise<MealTemplateWithKcal[]> {
+  const sql = `SELECT t.id, t.nome, t.meal_id, t.created_at,
+                      COALESCE(ROUND(SUM((ti.qty_g * f.kcal) / f.base_qty_g)), 0) as total_kcal
+               FROM meal_templates t
+               LEFT JOIN meal_template_items ti ON ti.template_id = t.id
+               LEFT JOIN foods f ON f.id = ti.food_id
+               WHERE t.user_id=?${mealId !== undefined ? " AND (t.meal_id IS NULL OR t.meal_id=?)" : ""}
+               GROUP BY t.id
+               ORDER BY t.nome`;
+  const args: (number | string | null)[] = [userId];
+  if (mealId !== undefined) args.push(mealId);
+  const rs = await db.execute({ sql, args });
+  return rs.rows.map((r) => ({
+    id: r.id as number,
+    nome: r.nome as string,
+    meal_id: (r.meal_id as number | null) ?? null,
+    created_at: r.created_at as string,
+    total_kcal: r.total_kcal as number,
+  }));
 }
 
 export async function listTemplateItems(db: Client, templateId: number): Promise<MealTemplateItem[]> {

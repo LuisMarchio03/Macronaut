@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDb, useUserId } from "../lib/db-context";
 import {
-  listTemplates, criarDeEntries, aplicar, deleteTemplate,
+  listTemplates, listTemplatesWithKcal, criarDeEntries, aplicar, deleteTemplate,
 } from "../repositories/meal-templates";
 import type { FoodEntry } from "../domain/types";
 
@@ -11,6 +11,15 @@ export function useTemplates(mealId: number | null) {
   return useQuery({
     queryKey: ["templates", mealId],
     queryFn: () => listTemplates(db, userId, mealId),
+  });
+}
+
+export function useTemplatesWithKcal(mealId: number | null) {
+  const db = useDb();
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ["templates", "kcal", mealId],
+    queryFn: () => listTemplatesWithKcal(db, userId, mealId),
   });
 }
 

@@ -87,25 +87,26 @@ it("soma kcal do painel usa qty_g, não measure_count", () => {
 
 it("refeição vazia oferece favoritas e repetir a última", async () => {
   render(<MealSection {...props} entries={[]} data="2026-07-17" />, { wrapper: criarWrapper(db) });
-  expect(await screen.findByRole("button", { name: /^café padrão$/i })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /aplicar template café padrão/i })).toBeInTheDocument();
   // "repetir" vem de uma query separada (histórico) da de templates: espera
   // por ela explicitamente em vez de getByRole síncrono, para não correr na
   // frente do fetch (a mesma corrida async que já mordeu outras tasks).
   expect(await screen.findByRole("button", { name: /repetir/i })).toBeInTheDocument();
 });
 
-it("refeição preenchida não oferece nada disso — só a lista", () => {
+it("refeição preenchida ainda oferece repetir", async () => {
   render(
     <MealSection {...props} entries={[entry({})]} data="2026-07-17" measures={new Map([[1, [fatia]]])} />,
     { wrapper: criarWrapper(db) },
   );
-  expect(screen.queryByRole("button", { name: /repetir/i })).not.toBeInTheDocument();
+  expect(screen.getByText("125 kcal")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /repetir/i })).toBeInTheDocument();
 });
 
 it("tocar numa favorita registra os itens dela", async () => {
   const user = userEvent.setup();
   render(<MealSection {...props} entries={[]} data="2026-07-17" />, { wrapper: criarWrapper(db) });
-  await user.click(await screen.findByRole("button", { name: /^café padrão$/i }));
+  await user.click(await screen.findByRole("button", { name: /aplicar template café padrão/i }));
   await waitFor(async () => {
     const rs = await db.execute("SELECT COUNT(*) AS n FROM food_entries WHERE data='2026-07-17'");
     expect(rs.rows[0].n).toBe(1);

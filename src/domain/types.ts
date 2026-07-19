@@ -155,6 +155,10 @@ export interface MealTemplate {
   created_at: string;
 }
 
+export interface MealTemplateWithKcal extends MealTemplate {
+  total_kcal: number;
+}
+
 export interface MealTemplateItem {
   id: number;
   template_id: number;
