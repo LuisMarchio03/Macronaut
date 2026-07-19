@@ -1,5 +1,6 @@
 export type Sexo = "M" | "F";
 export type Objetivo = "bulk" | "cut" | "manutencao";
+export type RitmoEmagrecimento = "leve" | "moderado" | "intenso" | "agressivo";
 export type FoodSource = "taco" | "custom";
 export type FoodUnit = "g" | "ml" | "un";
 
