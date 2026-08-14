@@ -11,7 +11,6 @@ import { useMeals } from "@/hooks/use-meals";
 import { useTodayEntries, useFoodsForEntries, useDeleteEntry } from "@/hooks/use-today-entries";
 import { useMeasuresByFoodIds } from "@/hooks/use-food-measures";
 import { totaisDoDia } from "@/domain/nutrition";
-import { formatarData } from "@/lib/date";
 import { useDataAtiva } from "@/lib/data-context";
 import type { Food, FoodEntry, Macros } from "@/domain/types";
 
@@ -50,9 +49,8 @@ export function Nutricao() {
   if (perfil.isLoading) {
     return (
       <div className="space-y-4 p-4">
-        <header className="space-y-1 pt-2">
-          <p className="section-title">Nutrição</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Nutrição</h1>
+        <header className="pt-1">
+          <h1 className="t-title">Nutrição</h1>
         </header>
         <SkeletonCard />
         <SkeletonCard />
@@ -63,14 +61,11 @@ export function Nutricao() {
 
   return (
     <div className="space-y-5 p-4">
-      <header className="space-y-1 pt-2">
-        <p className="section-title">Nutrição</p>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {formatarData(data)}
-        </h1>
-        <div className="pt-1">
-          <DateNav />
-        </div>
+      {/* O seletor abaixo já diz que dia é este; repetir a data no título era
+          a mesma informação duas vezes na mesma dobra. */}
+      <header className="space-y-2 pt-1">
+        <h1 className="t-title">Nutrição</h1>
+        <DateNav />
       </header>
 
       <SectionCard variant="gradient" header="Macros do dia" aside={`${Math.round(consumido.kcal)} / ${Math.round(meta.kcal)} kcal`}>
@@ -81,7 +76,7 @@ export function Nutricao() {
 
       <div className="space-y-3">
         <div className="section-header">
-          <span className="section-title">Refeições</span>
+          <span className="t-section">Refeições</span>
         </div>
         {meals.map((m) => (
           <MealSection

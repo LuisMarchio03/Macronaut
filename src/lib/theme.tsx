@@ -4,11 +4,22 @@ type Theme = "dark" | "light";
 
 const STORAGE_KEY = "macronaut-theme";
 
+/**
+ * Sem escolha salva, segue o sistema.
+ *
+ * Antes o app abria escuro para todo mundo e ignorava a preferência do
+ * aparelho — quem usa o celular no claro precisava trocar na mão toda vez que
+ * limpava o armazenamento. A escolha explícita do usuário continua ganhando.
+ */
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark";
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "light" || stored === "dark") return stored;
-  return "dark";
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === "light" || stored === "dark") return stored;
+  } catch {
+    // localStorage bloqueado — cai na preferência do sistema.
+  }
+  return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
 const ThemeContext = createContext<{
@@ -21,9 +32,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle("dark", theme === "dark");
-    localStorage.setItem(STORAGE_KEY, theme);
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    try {
+      localStorage.setItem(STORAGE_KEY, theme);
+    } catch {
+      // Sem persistência: o tema vale só para esta sessão.
+    }
   }, [theme]);
 
   function toggle() {

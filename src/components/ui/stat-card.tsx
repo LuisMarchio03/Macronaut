@@ -1,17 +1,14 @@
-import type { ReactNode } from "react"
-import { cn } from "@/lib/utils"
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { Stat } from "./stat";
 
-type CardVariant = "elevated" | "outlined" | "gradient" | "flush"
-
-const variantStyles: Record<CardVariant, string> = {
-  elevated: "card-elevated",
-  outlined: "card-outlined",
-  gradient: "card-gradient",
-  flush: "card-flush",
-}
-
+/**
+ * ADAPTADOR — mantido enquanto as telas migram para `<Card>` + `<Stat>`.
+ *
+ * `sub` era renderizado em mono/caixa-alta e quebrava linha em telas estreitas
+ * ("META 1850" virava duas linhas); agora vai como `hint` do `Stat`, que trunca.
+ */
 export function StatCard({
-  variant = "elevated",
   icon,
   value,
   label,
@@ -21,58 +18,55 @@ export function StatCard({
   children,
   onClick,
 }: {
-  variant?: CardVariant
-  icon?: ReactNode
-  value?: ReactNode
-  label?: ReactNode
-  sub?: ReactNode
-  trend?: { value: number; positive?: "up" | "down" | "neutral" }
-  className?: string
-  children?: ReactNode
-  onClick?: () => void
+  variant?: "elevated" | "outlined" | "gradient" | "flush";
+  icon?: ReactNode;
+  value?: ReactNode;
+  label?: ReactNode;
+  sub?: ReactNode;
+  trend?: { value: number; positive?: "up" | "down" | "neutral" };
+  className?: string;
+  children?: ReactNode;
+  onClick?: () => void;
 }) {
-  const Comp = onClick ? "button" : "div"
+  const Comp = onClick ? "button" : "div";
 
   return (
     <Comp
       onClick={onClick}
       className={cn(
-        variantStyles[variant],
-        "p-4",
-        onClick && "w-full cursor-pointer text-left transition-all active:scale-[0.98]",
+        "min-w-0 rounded-xl border border-border bg-card p-3.5",
+        onClick && "w-full cursor-pointer text-left transition-colors hover:bg-muted",
         className,
       )}
     >
       {icon && (
-        <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <div className="mb-2 flex size-8 items-center justify-center rounded-lg bg-tint-primary text-primary">
           {icon}
         </div>
       )}
       {value !== undefined && (
-        <div className="metric-value text-3xl">{value}</div>
+        <Stat
+          value={value}
+          label={typeof label === "string" ? label : ""}
+          hint={typeof sub === "string" ? sub : undefined}
+        />
       )}
-      {label && (
-        <div className="metric-label mt-0.5">{label}</div>
-      )}
-      {sub && (
-        <div className="mt-1 font-mono text-[0.65rem] uppercase tracking-[0.12em] text-muted-foreground">
-          {sub}
-        </div>
-      )}
+      {value === undefined && label && <div className="t-caption">{label}</div>}
       {trend && (
-        <div className="mt-2 flex items-center gap-1 font-mono text-xs tabular-nums">
+        <div className="mt-2 flex items-center gap-1.5 text-xs tabular-nums">
           <span
             className={cn(
               "size-1.5 rounded-full",
-              trend.positive === "up" && "bg-emerald-500",
+              trend.positive === "up" && "bg-success",
               trend.positive === "down" && "bg-destructive",
               trend.positive === "neutral" && "bg-muted-foreground",
             )}
           />
-          {trend.value >= 0 ? "+" : ""}{trend.value}%
+          {trend.value >= 0 ? "+" : ""}
+          {trend.value}%
         </div>
       )}
       {children}
     </Comp>
-  )
+  );
 }

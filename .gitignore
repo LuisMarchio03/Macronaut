@@ -37,3 +37,9 @@ npm-debug.log*
 # Dev artifacts
 backups/
 scratchpad/
+
+# Banco local do sqld (turso dev)
+local.db*
+
+# Backups de env gerados por ferramentas
+.env.local.bak.*

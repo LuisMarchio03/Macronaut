@@ -1,13 +1,18 @@
-import type { ReactNode } from "react"
-import { cn } from "@/lib/utils"
+import type { ReactNode } from "react";
+import { Card, type CardTone } from "./card";
 
-type CardVariant = "elevated" | "outlined" | "gradient"
-
-const variantStyles: Record<CardVariant, string> = {
-  elevated: "card-elevated",
-  outlined: "card-outlined",
-  gradient: "card-gradient",
-}
+/**
+ * ADAPTADOR — mantido enquanto as telas migram para `<Card>`.
+ *
+ * As variantes antigas descreviam aparência (`gradient`, `outlined`); as novas
+ * descrevem intenção (`tone`). O mapeamento colapsa `outlined` em `default`
+ * porque a diferença entre elas era decorativa.
+ */
+const variantToTone: Record<string, CardTone> = {
+  elevated: "default",
+  outlined: "default",
+  gradient: "primary",
+};
 
 export function SectionCard({
   variant = "elevated",
@@ -17,26 +22,22 @@ export function SectionCard({
   bodyClassName,
   children,
 }: {
-  variant?: CardVariant
-  header?: ReactNode
-  aside?: ReactNode
-  className?: string
-  bodyClassName?: string
-  children: ReactNode
+  variant?: "elevated" | "outlined" | "gradient";
+  header?: ReactNode;
+  aside?: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  children: ReactNode;
 }) {
   return (
-    <section className={cn(variantStyles[variant], "overflow-hidden", className)}>
-      {(header || aside) && (
-        <div className="section-header border-b border-border/50 px-4 py-2.5">
-          {header && <span className="section-title">{header}</span>}
-          {aside && (
-            <span className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-primary/80 tabular-nums">
-              {aside}
-            </span>
-          )}
-        </div>
-      )}
-      <div className={cn("p-4", bodyClassName)}>{children}</div>
-    </section>
-  )
+    <Card
+      tone={variantToTone[variant] ?? "default"}
+      header={header}
+      aside={aside}
+      className={className}
+      bodyClassName={bodyClassName}
+    >
+      {children}
+    </Card>
+  );
 }

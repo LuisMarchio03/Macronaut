@@ -5,342 +5,419 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ══════════════════════════════════════════════════════════════════
+   TOKENS
+
+   Cores em oklch. Todo par texto/fundo abaixo é verificado em
+   contraste WCAG AA por `src/design/palette.test.ts` — mexer num
+   valor aqui sem atualizar lá quebra a suíte de propósito.
+   ══════════════════════════════════════════════════════════════════ */
+
 :root {
-  color-scheme: light dark;
-  --background: oklch(0.98 0.005 274);
-  --foreground: oklch(0.145 0.02 274);
+  color-scheme: light;
+
+  --background: oklch(0.985 0.002 265);
+  --foreground: oklch(0.21 0.012 265);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0.02 274);
+  --card-foreground: oklch(0.21 0.012 265);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0.02 274);
-  --primary: oklch(0.55 0.2 277);
-  --primary-foreground: oklch(0.985 0.01 277);
-  --secondary: oklch(0.95 0.01 277);
-  --secondary-foreground: oklch(0.245 0.03 277);
-  --muted: oklch(0.95 0.01 274);
-  --muted-foreground: oklch(0.52 0.03 274);
-  --accent: oklch(0.94 0.03 277);
-  --accent-foreground: oklch(0.245 0.03 277);
-  --destructive: oklch(0.6 0.21 15);
-  --border: oklch(0.88 0.01 277);
-  --input: oklch(0.88 0.01 277);
-  --ring: oklch(0.55 0.2 277);
-  --chart-1: oklch(0.55 0.2 277);
-  --chart-2: oklch(0.62 0.14 200);
-  --chart-3: oklch(0.65 0.18 350);
-  --chart-4: oklch(0.6 0.17 300);
-  --chart-5: oklch(0.6 0.12 180);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.21 0.012 265);
+  --primary: oklch(0.47 0.19 274);
+  --primary-foreground: oklch(0.99 0.004 274);
+  --secondary: oklch(0.965 0.004 265);
+  --secondary-foreground: oklch(0.21 0.012 265);
+  --muted: oklch(0.965 0.004 265);
+  --muted-foreground: oklch(0.465 0.015 265);
+  --accent: oklch(0.955 0.012 274);
+  --accent-foreground: oklch(0.3 0.09 274);
+  --border: oklch(0.9 0.006 265);
+  --input: oklch(0.88 0.008 265);
+  --ring: oklch(0.47 0.19 274);
+
+  /* Macros — usados em barra, ponto e rótulo. Contraste ≥3:1 sobre card. */
+  --macro-prot: oklch(0.5 0.19 274);
+  --macro-carb: oklch(0.5 0.086 195);
+  --macro-gord: oklch(0.53 0.153 45);
+
+  /* Estado */
+  --success: oklch(0.5 0.138 150);
+  --warning: oklch(0.52 0.11 75);
+  --destructive: oklch(0.52 0.21 25);
+  --destructive-foreground: oklch(0.99 0.004 25);
+
+  /* Superfícies derivadas — tinta de cor sobre o card, sem alfa mágico
+     espalhado pelas classes. */
+  --tint-primary: color-mix(in oklab, var(--primary) 8%, var(--card));
+  --tint-success: color-mix(in oklab, var(--success) 10%, var(--card));
+  --tint-warning: color-mix(in oklab, var(--warning) 12%, var(--card));
+  --tint-danger: color-mix(in oklab, var(--destructive) 8%, var(--card));
+
+  --radius: 1rem;
+
+  /* Elevação: uma sombra por nível, e só três níveis. */
+  --shadow-1: 0 1px 2px oklch(0.21 0.012 265 / 0.06);
+  --shadow-2: 0 4px 12px -2px oklch(0.21 0.012 265 / 0.1);
+  --shadow-3: 0 16px 40px -8px oklch(0.21 0.012 265 / 0.18);
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
-body {
-  margin: 0;
-  min-height: 100dvh;
-  font-family:
-    "Geist Variable",
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  background-image:
-    radial-gradient(
-      1100px 520px at 50% -8%,
-      oklch(0.705 0.153 277 / 0.14),
-      transparent 62%
-    ),
-    radial-gradient(
-      760px 460px at 100% 2%,
-      oklch(0.78 0.13 200 / 0.07),
-      transparent 60%
-    ),
-    repeating-linear-gradient(
-      0deg,
-      oklch(0.7 0.05 277 / 0.035) 0 1px,
-      transparent 1px 38px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      oklch(0.7 0.05 277 / 0.035) 0 1px,
-      transparent 1px 38px
-    );
-  background-attachment: fixed;
-  background-repeat: no-repeat, no-repeat, repeat, repeat;
-}
+.dark {
+  color-scheme: dark;
 
-@layer components {
-  /* Painel HUD: vidro fosco com fio de luz na borda superior */
-  .hud-panel {
-    position: relative;
-    border: 1px solid oklch(0.75 0.05 277 / 0.16);
-    background: oklch(0.205 0.022 274 / 0.5);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.045);
-  }
-  .hud-panel--glow {
-    box-shadow:
-      0 0 46px -14px var(--primary),
-      inset 0 1px 0 0 oklch(1 0 0 / 0.06);
-  }
-  /* Select nativo estilizado para combinar com os inputs */
-  .hud-select {
-    height: 2.25rem;
-    width: 100%;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--input);
-    background: oklch(0.8 0.04 277 / 0.08);
-    padding-inline: 0.6rem;
-    font-size: 0.875rem;
-    color: var(--foreground);
-    color-scheme: dark;
-    outline: none;
-    transition:
-      border-color 120ms,
-      box-shadow 120ms;
-  }
-  .hud-select:focus-visible {
-    border-color: var(--ring);
-    box-shadow: 0 0 0 3px oklch(0.705 0.153 277 / 0.4);
-  }
+  --background: oklch(0.16 0.008 265);
+  --foreground: oklch(0.96 0.004 265);
+  --card: oklch(0.205 0.01 265);
+  --card-foreground: oklch(0.96 0.004 265);
+  --popover: oklch(0.225 0.011 265);
+  --popover-foreground: oklch(0.96 0.004 265);
+  --primary: oklch(0.72 0.145 274);
+  --primary-foreground: oklch(0.17 0.03 274);
+  --secondary: oklch(0.26 0.012 265);
+  --secondary-foreground: oklch(0.96 0.004 265);
+  --muted: oklch(0.26 0.012 265);
+  --muted-foreground: oklch(0.715 0.02 265);
+  --accent: oklch(0.29 0.03 274);
+  --accent-foreground: oklch(0.92 0.03 274);
+  --border: oklch(0.31 0.014 265);
+  --input: oklch(0.34 0.016 265);
+  --ring: oklch(0.72 0.145 274);
 
-  /* Scanlines discretas sobre o painel herói */
-  .scanlines::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: repeating-linear-gradient(
-      0deg,
-      oklch(1 0 0 / 0.022) 0 1px,
-      transparent 1px 3px
-    );
-    mix-blend-mode: overlay;
-  }
+  --macro-prot: oklch(0.72 0.145 274);
+  --macro-carb: oklch(0.78 0.115 195);
+  --macro-gord: oklch(0.78 0.14 60);
+
+  --success: oklch(0.76 0.15 155);
+  --warning: oklch(0.8 0.14 80);
+  --destructive: oklch(0.7 0.18 22);
+  --destructive-foreground: oklch(0.16 0.03 22);
+
+  --tint-primary: color-mix(in oklab, var(--primary) 14%, var(--card));
+  --tint-success: color-mix(in oklab, var(--success) 14%, var(--card));
+  --tint-warning: color-mix(in oklab, var(--warning) 14%, var(--card));
+  --tint-danger: color-mix(in oklab, var(--destructive) 14%, var(--card));
+
+  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-2: 0 4px 12px -2px oklch(0 0 0 / 0.4);
+  --shadow-3: 0 16px 40px -8px oklch(0 0 0 / 0.55);
 }
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Code', Menlo, monospace;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, monospace;
 
-.dark {
-  --background: oklch(0.13 0.015 274);
-  --foreground: oklch(0.93 0.012 274);
-  --card: oklch(0.185 0.018 274);
-  --card-foreground: oklch(0.93 0.012 274);
-  --popover: oklch(0.195 0.02 274);
-  --popover-foreground: oklch(0.93 0.012 274);
-  --primary: oklch(0.705 0.153 277);
-  --primary-foreground: oklch(0.17 0.03 277);
-  --secondary: oklch(0.24 0.02 274);
-  --secondary-foreground: oklch(0.93 0.012 274);
-  --muted: oklch(0.22 0.015 274);
-  --muted-foreground: oklch(0.68 0.025 274);
-  --accent: oklch(0.26 0.03 277);
-  --accent-foreground: oklch(0.93 0.012 274);
-  --destructive: oklch(0.68 0.19 12);
-  --border: oklch(0.75 0.05 277 / 12%);
-  --input: oklch(0.8 0.04 277 / 15%);
-  --ring: oklch(0.705 0.153 277);
-  --chart-1: oklch(0.705 0.153 277);
-  --chart-2: oklch(0.78 0.13 200);
-  --chart-3: oklch(0.74 0.16 350);
-  --chart-4: oklch(0.72 0.15 300);
-  --chart-5: oklch(0.8 0.12 180);
-  --sidebar: oklch(0.185 0.02 274);
-  --sidebar-foreground: oklch(0.93 0.012 274);
-  --sidebar-primary: oklch(0.705 0.153 277);
-  --sidebar-primary-foreground: oklch(0.17 0.03 277);
-  --sidebar-accent: oklch(0.29 0.032 277);
-  --sidebar-accent-foreground: oklch(0.93 0.012 274);
-  --sidebar-border: oklch(0.75 0.05 277 / 12%);
-  --sidebar-ring: oklch(0.705 0.153 277);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-macro-prot: var(--macro-prot);
+  --color-macro-carb: var(--macro-carb);
+  --color-macro-gord: var(--macro-gord);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-tint-primary: var(--tint-primary);
+  --color-tint-success: var(--tint-success);
+  --color-tint-warning: var(--tint-warning);
+  --color-tint-danger: var(--tint-danger);
+
+  --color-chart-1: var(--macro-prot);
+  --color-chart-2: var(--macro-carb);
+  --color-chart-3: var(--macro-gord);
+  --color-chart-4: var(--success);
+  --color-chart-5: var(--warning);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.375); /* 6px  — chip, badge */
+  --radius-md: calc(var(--radius) * 0.625); /* 10px — input, botão */
+  --radius-lg: calc(var(--radius) * 0.75); /* 12px — botão grande */
+  --radius-xl: var(--radius); /* 16px — card */
+  --radius-2xl: calc(var(--radius) * 1.25); /* 20px — sheet */
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    min-height: 100dvh;
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  /* Foco visível e consistente em tudo que é interativo. O anterior só
+     existia em componentes que lembravam de aplicá-lo. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Números em coluna precisam alinhar. Texto não. */
+  .tnum,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-/* ───────────── NOVO SISTEMA DE DESIGN ───────────── */
+/* ══════════════════════════════════════════════════════════════════
+   ESCALA TIPOGRÁFICA — quatro níveis, e só.
+   ══════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .t-display {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .t-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+  }
+
+  .t-body {
+    font-size: 0.9375rem;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  .t-caption {
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+
+  /* Rótulo de seção. Sem caixa-alta e sem tracking exagerado: o peso e a
+     cor já separam do corpo, e a leitura fica ~2× mais rápida. */
+  .t-section {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+
+  /* ────────── SUPERFÍCIES ────────── */
+
+  .surface {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+  }
+
+  .surface-raised {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-1);
+  }
+
+  .surface-plain {
+    background: var(--muted);
+    border-radius: var(--radius-xl);
+  }
+
+  /* ────────── PROGRESSO ────────── */
+
+  .track {
+    position: relative;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--muted);
+  }
+
+  .track > .fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* ────────── SKELETON ────────── */
+
+  .skeleton {
+    border-radius: var(--radius-md);
+    background: linear-gradient(
+      90deg,
+      var(--muted) 25%,
+      color-mix(in oklab, var(--muted), var(--foreground) 6%) 50%,
+      var(--muted) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+
+  /* ────────── SELECT NATIVO ────────── */
+
+  .select-field {
+    height: 2.75rem;
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--input);
+    background: var(--card);
+    padding-inline: 0.75rem;
+    font-size: 0.9375rem;
+    color: var(--foreground);
+    outline: none;
+    transition: border-color 120ms;
+  }
+
+  .select-field:focus-visible {
+    border-color: var(--ring);
+  }
+}
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
-/* Card variants - substituem o HudPanel em páginas novas */
-.card-elevated {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
-}
-.dark .card-elevated {
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.2), 0 1px 2px oklch(0 0 0 / 0.15);
-}
+/* ══════════════════════════════════════════════════════════════════
+   COMPATIBILIDADE — remover ao fim da migração das telas
 
-.card-outlined {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-}
+   Classes do design anterior, reapontadas para os tokens novos. Ficam
+   só para que as telas ainda não migradas não apareçam sem estilo
+   durante a transição. Nenhum código novo deve usá-las.
+   ══════════════════════════════════════════════════════════════════ */
 
-.card-gradient {
-  background: linear-gradient(135deg, var(--card) 0%, oklch(0.705 0.153 277 / 0.06) 100%);
-  border: 1px solid oklch(0.705 0.153 277 / 0.15);
-  border-radius: var(--radius-xl);
-}
-.dark .card-gradient {
-  background: linear-gradient(135deg, var(--card) 0%, oklch(0.705 0.153 277 / 0.08) 100%);
-}
+@layer components {
+  .card-elevated,
+  .card-gradient,
+  .card-outlined,
+  .card-flush {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+  }
 
-.card-flush {
-  border-radius: var(--radius-xl);
-}
+  .section-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    text-transform: none;
+    letter-spacing: normal;
+  }
 
-/* Metric display - números grandes e labels limpos */
-.metric-value {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
 
-.metric-label {
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
-  font-weight: 500;
-}
+  .metric-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+  }
 
-/* Skeleton loading shimmer */
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--muted) 25%,
-    oklch(0.7 0.05 277 / 0.1) 50%,
-    var(--muted) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: var(--radius-md);
-}
+  .metric-label {
+    font-size: 0.8125rem;
+    color: var(--muted-foreground);
+  }
 
-.skeleton-text {
-  height: 0.875rem;
-  width: 100%;
-  margin-bottom: 0.5rem;
-}
+  .status-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+  }
 
-.skeleton-title {
-  height: 1.25rem;
-  width: 60%;
-  margin-bottom: 0.75rem;
-}
-
-/* Status dots */
-.status-dot {
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-}
-
-/* Section header padrão */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 0.25rem;
-  margin-bottom: 0.75rem;
-}
-
-.section-title {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--muted-foreground);
-}
-
-/* Inline stat grid */
-.stat-grid {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.stat-grid-2 {
-  grid-template-columns: 1fr 1fr;
-}
-
-.stat-grid-3 {
-  grid-template-columns: 1fr 1fr 1fr;
-}
-
-.stat-grid-4 {
-  grid-template-columns: 1fr 1fr;
-}
-
-@media (min-width: 400px) {
+  .stat-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .stat-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stat-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
   .stat-grid-4 {
-    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (min-width: 400px) {
+    .stat-grid-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  /* O select antigo. `.select-field` é o substituto. */
+  .hud-select {
+    height: 2.75rem;
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--input);
+    background: var(--card);
+    padding-inline: 0.75rem;
+    font-size: 0.9375rem;
+    color: var(--foreground);
+    outline: none;
+  }
+  .hud-select:focus-visible {
+    border-color: var(--ring);
   }
 }
