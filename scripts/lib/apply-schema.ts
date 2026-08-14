@@ -25,6 +25,10 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   { table: "workout_sets", column: "rir",  ddl: "ALTER TABLE workout_sets ADD COLUMN rir INTEGER" },
   { table: "workout_sets", column: "nota", ddl: "ALTER TABLE workout_sets ADD COLUMN nota TEXT" },
   { table: "workout_sessions", column: "nota", ddl: "ALTER TABLE workout_sessions ADD COLUMN nota TEXT" },
+  // Água creditada a um período do plano. Inferir o período pelo horário do
+  // `created_at` daria a resposta errada para quem registra à noite a água que
+  // bebeu de manhã — o registro é do dia, não do instante.
+  { table: "water_log", column: "block_id", ddl: "ALTER TABLE water_log ADD COLUMN block_id INTEGER" },
 ];
 
 /**

@@ -404,7 +404,8 @@ feliz.
 
 O critério de aceite do import é objetivo: **`Plano-Cutting-Completo-ATUALIZADO.xlsx`
 importa sem erro e sem edição**, produzindo 4 blocos de refeição, 4 de água, 1 de
-suplemento, 14 itens, 5 linhas de macro e 39 substituições.
+suplemento, 20 itens, 4 linhas de macro (a de total não conta) e 39
+substituições.
 
 ---
 

@@ -207,3 +207,108 @@ CREATE TABLE IF NOT EXISTS meal_template_items (
   FOREIGN KEY (measure_id)  REFERENCES food_measures (id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_mt_items_template ON meal_template_items (template_id, ordem);
+
+-- ═══════════════════════════════════════════════════════════════════
+-- PLANO ALIMENTAR
+--
+-- Um plano descreve o dia: o que comer, quando, quanta água em cada
+-- período. Ele NÃO substitui `food_entries` — o diário continua sendo o
+-- registro do que foi de fato comido. `plan_checks` liga os dois.
+-- ═══════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS diet_plans (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  nome          TEXT NOT NULL,
+  origem        TEXT NOT NULL,          -- 'xlsx' | 'csv' | 'manual'
+  kcal_min      REAL,                   -- "Meta Calórica Diária: 1700-2000"
+  kcal_max      REAL,
+  prot_alvo_g   REAL,
+  agua_ml_alvo  REAL,
+  -- Um plano ativo por usuário. Importar outro desativa o anterior em vez de
+  -- apagá-lo: o histórico de plan_checks continua fazendo sentido.
+  ativo         INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_diet_plans_user ON diet_plans (user_id, ativo);
+
+-- Os três tipos de bloco moram na mesma tabela porque a tela precisa deles
+-- como UMA linha do tempo ordenada. Em três tabelas, todo render teria que
+-- mesclar e reordenar.
+CREATE TABLE IF NOT EXISTS plan_blocks (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  plan_id      INTEGER NOT NULL,
+  tipo         TEXT NOT NULL,           -- 'refeicao' | 'agua' | 'suplemento'
+  nome         TEXT NOT NULL,
+  hora_inicio  TEXT,                    -- 'HH:MM'
+  hora_fim     TEXT,
+  ancora       TEXT,                    -- 'Após almoço', quando não há horário
+  kcal_alvo    REAL,
+  ml_alvo      REAL,
+  observacao   TEXT,
+  ordem        INTEGER NOT NULL,
+  FOREIGN KEY (plan_id) REFERENCES diet_plans (id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_plan_blocks_plan ON plan_blocks (plan_id, ordem);
+
+CREATE TABLE IF NOT EXISTS plan_items (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  block_id   INTEGER NOT NULL,
+  -- Sempre preenchido: é o que a tela mostra. food_id/qty_g são o
+  -- enriquecimento que permite o botão "Comi" gravar entries reais; sem eles
+  -- o bloco ainda marca como feito e credita kcal_alvo.
+  texto      TEXT NOT NULL,
+  categoria  TEXT,                      -- 'proteina'|'carboidrato'|'fruta'|'gordura'|'vegetal'
+  food_id    INTEGER,
+  qty_g      REAL,
+  ordem      INTEGER NOT NULL,
+  FOREIGN KEY (block_id) REFERENCES plan_blocks (id) ON DELETE CASCADE,
+  FOREIGN KEY (food_id)  REFERENCES foods (id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_plan_items_block ON plan_items (block_id, ordem);
+
+-- Referencia o bloco por NOME, não por id: nas abas Macros e Substituicoes a
+-- chave que o usuário digita é o nome da refeição. Casar por nome mantém a
+-- planilha como contrato e não exige que as três abas estejam na mesma ordem.
+CREATE TABLE IF NOT EXISTS plan_macros (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  plan_id    INTEGER NOT NULL,
+  block_nome TEXT NOT NULL,
+  prot_g     REAL NOT NULL,
+  carb_g     REAL NOT NULL,
+  gord_g     REAL NOT NULL,
+  kcal       REAL NOT NULL,
+  FOREIGN KEY (plan_id) REFERENCES diet_plans (id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_plan_macros_plan ON plan_macros (plan_id);
+
+CREATE TABLE IF NOT EXISTS plan_swaps (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  plan_id    INTEGER NOT NULL,
+  block_nome TEXT NOT NULL,
+  categoria  TEXT NOT NULL,
+  alimento   TEXT NOT NULL,
+  porcao     TEXT NOT NULL,             -- '3 unidades (150g)'
+  qty_g      REAL,                      -- extraído de porcao quando dá
+  kcal       REAL NOT NULL,
+  food_id    INTEGER,
+  FOREIGN KEY (plan_id) REFERENCES diet_plans (id) ON DELETE CASCADE,
+  FOREIGN KEY (food_id) REFERENCES foods (id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_plan_swaps_plan ON plan_swaps (plan_id, block_nome, categoria);
+
+CREATE TABLE IF NOT EXISTS plan_checks (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  plan_id    INTEGER NOT NULL,
+  data       TEXT NOT NULL,             -- 'YYYY-MM-DD'
+  block_id   INTEGER NOT NULL,
+  feito      INTEGER NOT NULL DEFAULT 1,
+  swap_id    INTEGER,
+  created_at TEXT NOT NULL,
+  -- Um bloco só pode ser marcado uma vez por dia; marcar de novo é atualizar.
+  UNIQUE (user_id, data, block_id),
+  FOREIGN KEY (block_id) REFERENCES plan_blocks (id) ON DELETE CASCADE,
+  FOREIGN KEY (swap_id)  REFERENCES plan_swaps (id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_plan_checks_dia ON plan_checks (user_id, data);

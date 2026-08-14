@@ -13,6 +13,8 @@ import { Analise } from "./pages/analise";
 import { Ajustes } from "./pages/ajustes";
 import { Ia } from "./pages/ia";
 import { Mais } from "./pages/mais";
+import { Plano } from "./pages/plano";
+import { PlanoImportar } from "./pages/plano-importar";
 import { Login } from "./pages/login";
 
 /** Telas onde registrar comida é a próxima ação provável. */
@@ -59,6 +61,8 @@ export default function App() {
         <Route path="/metas" element={<Onboarding />} />
         <Route path="/ajustes" element={<Ajustes />} />
         <Route path="/ia" element={<Ia />} />
+        <Route path="/plano" element={<Plano />} />
+        <Route path="/plano/importar" element={<PlanoImportar />} />
       </Route>
     </Routes>
   );

@@ -1,3 +1,5 @@
+import * as React from "react";
+import { Link } from "react-router-dom";
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 
@@ -63,4 +65,33 @@ function Button({
   );
 }
 
-export { Button, buttonVariants };
+/**
+ * Um link com aparência de botão — NÃO um botão.
+ *
+ * Existe porque envolver um `<Link>` no `Button` do Base UI trocaria o papel de
+ * acessibilidade para `button`, e quem usa leitor de tela espera coisas
+ * diferentes dos dois: botão executa uma ação, link navega e pode ser aberto
+ * numa aba nova. Aqui só as classes visuais são compartilhadas.
+ *
+ * `href` renderiza uma âncora comum (downloads); caso contrário, o `Link` do
+ * roteador.
+ */
+function ButtonLink({
+  className,
+  variant = "default",
+  size = "default",
+  block,
+  to,
+  href,
+  ...props
+}: Omit<React.ComponentProps<typeof Link>, "to"> &
+  VariantProps<typeof buttonVariants> & { to?: string; href?: string }) {
+  const classes = cn(buttonVariants({ variant, size, block, className }));
+
+  if (href !== undefined) {
+    return <a href={href} className={classes} {...(props as React.ComponentProps<"a">)} />;
+  }
+  return <Link to={to!} className={classes} {...props} />;
+}
+
+export { Button, ButtonLink, buttonVariants };

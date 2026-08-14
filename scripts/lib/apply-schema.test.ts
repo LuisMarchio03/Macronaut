@@ -46,6 +46,12 @@ it("adiciona as colunas de IA em users e é idempotente", async () => {
   await db.execute(
     "CREATE TABLE workout_sets (id INTEGER PRIMARY KEY, user_id INTEGER, session_id INTEGER, exercise_id INTEGER, ordem INTEGER, reps INTEGER, peso_kg REAL, created_at TEXT)",
   );
+  // Versão pré-migração de `water_log` (sem `block_id`), pelo mesmo motivo das
+  // três acima: `columnExists` usa `PRAGMA table_info`, que devolve zero linhas
+  // para tabela inexistente, e o `ALTER TABLE` seguinte é que explodiria.
+  await db.execute(
+    "CREATE TABLE water_log (id INTEGER PRIMARY KEY, user_id INTEGER, data TEXT, ml REAL, created_at TEXT)",
+  );
   // Linha pré-migração em `foods` (sem a coluna `base_unit` ainda).
   await db.execute(
     "INSERT INTO foods (id, nome, source, marca, base_qty_g, kcal, prot_g, carb_g, gord_g, created_at) VALUES (1, 'Arroz', 'manual', NULL, 100, 130, 2.7, 28, 0.3, '2026-01-01')",
