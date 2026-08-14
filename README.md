@@ -10,7 +10,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?logo=tailwindcss&logoColor=white)
 ![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?logo=turso&logoColor=black)
 ![PWA](https://img.shields.io/badge/PWA-instalável-5A0FC8?logo=pwa&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-702%20passando-3FB950)
+![Testes](https://img.shields.io/badge/testes-721%20passando-3FB950)
 
 </div>
 
