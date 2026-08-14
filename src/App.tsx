@@ -1,4 +1,5 @@
 import { Routes, Route, Outlet, useLocation } from "react-router-dom";
+import { AvisosDeFalha } from "./components/avisos-de-falha";
 import { BottomNav } from "./components/bottom-nav";
 import { QuickAdd } from "./components/quick-add";
 import { RequireAuth } from "./components/require-auth";
@@ -48,22 +49,27 @@ function ProtectedLayout() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route element={<ProtectedLayout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/nutricao" element={<Nutricao />} />
-        <Route path="/treino" element={<Treino />} />
-        <Route path="/analise" element={<Analise />} />
-        <Route path="/mais" element={<Mais />} />
-        <Route path="/alimentos" element={<Foods />} />
-        <Route path="/refeicoes" element={<MealsConfig />} />
-        <Route path="/metas" element={<Onboarding />} />
-        <Route path="/ajustes" element={<Ajustes />} />
-        <Route path="/ia" element={<Ia />} />
-        <Route path="/plano" element={<Plano />} />
-        <Route path="/plano/importar" element={<PlanoImportar />} />
-      </Route>
-    </Routes>
+    <>
+      {/* Fora das rotas: uma falha de escrita precisa aparecer esteja o
+          usuário em que tela estiver. */}
+      <AvisosDeFalha />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={<ProtectedLayout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/nutricao" element={<Nutricao />} />
+          <Route path="/treino" element={<Treino />} />
+          <Route path="/analise" element={<Analise />} />
+          <Route path="/mais" element={<Mais />} />
+          <Route path="/alimentos" element={<Foods />} />
+          <Route path="/refeicoes" element={<MealsConfig />} />
+          <Route path="/metas" element={<Onboarding />} />
+          <Route path="/ajustes" element={<Ajustes />} />
+          <Route path="/ia" element={<Ia />} />
+          <Route path="/plano" element={<Plano />} />
+          <Route path="/plano/importar" element={<PlanoImportar />} />
+        </Route>
+      </Routes>
+    </>
   );
 }

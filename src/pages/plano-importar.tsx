@@ -15,6 +15,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { useImportarPlano } from "@/hooks/use-plano";
 import { montarRascunho, validarPlano } from "@/domain/plano-parse";
 import { ArquivoInvalido, ehCsv, lerAbas } from "@/lib/planilha";
+import { traduzirErro } from "@/domain/erros";
 import { janelaHoraria } from "@/lib/date";
 import type { Problema, RascunhoPlano } from "@/domain/plano-types";
 
@@ -255,13 +256,31 @@ export function PlanoImportar() {
             </Card>
           </div>
 
+          {/* A falha de gravação aparece AQUI, junto do botão que o usuário
+              acabou de apertar. Antes ela sumia: o botão voltava de
+              "Importando…" para "Importar" e nada mais acontecia. */}
+          {importar.isError && (
+            <Card tone="danger" header="Não consegui gravar o plano">
+              <p className="text-sm">{traduzirErro(importar.error).titulo}</p>
+              <p className="t-caption mt-1">{traduzirErro(importar.error).acao}</p>
+              <details className="mt-2">
+                <summary className="t-caption cursor-pointer font-medium text-primary">
+                  Detalhe técnico
+                </summary>
+                <p className="mt-1 rounded-md bg-muted px-2 py-1.5 font-mono text-[0.75rem] break-words">
+                  {traduzirErro(importar.error).original}
+                </p>
+              </details>
+            </Card>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <Button variant="outline" onClick={() => setPrevia(null)}>
               Escolher outro
             </Button>
             <Button disabled={!podeImportar || importar.isPending} onClick={confirmar}>
               <Check className="size-4" />
-              {importar.isPending ? "Importando…" : "Importar"}
+              {importar.isPending ? "Importando…" : importar.isError ? "Tentar de novo" : "Importar"}
             </Button>
           </div>
 
