@@ -10,6 +10,12 @@ import { Foods } from "./pages/foods";
 import { MealsConfig } from "./pages/meals-config";
 import { Onboarding } from "./pages/onboarding";
 import { Treino } from "./pages/treino";
+import { TreinoSessao } from "./pages/treino-sessao";
+import { TreinoPrograma } from "./pages/treino-programa";
+import { TreinoProgressao } from "./pages/treino-progressao";
+import { TreinoHistorico } from "./pages/treino-historico";
+import { TreinoExercicios } from "./pages/treino-exercicios";
+import { TreinoCardio } from "./pages/treino-cardio";
 import { Analise } from "./pages/analise";
 import { Ajustes } from "./pages/ajustes";
 import { Ia } from "./pages/ia";
@@ -55,10 +61,27 @@ export default function App() {
       <AvisosDeFalha />
       <Routes>
         <Route path="/login" element={<Login />} />
+        {/* Fora do layout de propósito: na academia a tela é inteira, sem
+            barra de navegação puxando o polegar para outro lugar. */}
+        <Route
+          path="/treino/sessao"
+          element={
+            <RequireAuth>
+              <DataProvider>
+                <TreinoSessao />
+              </DataProvider>
+            </RequireAuth>
+          }
+        />
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/nutricao" element={<Nutricao />} />
           <Route path="/treino" element={<Treino />} />
+          <Route path="/treino/programa" element={<TreinoPrograma />} />
+          <Route path="/treino/progressao" element={<TreinoProgressao />} />
+          <Route path="/treino/historico" element={<TreinoHistorico />} />
+          <Route path="/treino/exercicios" element={<TreinoExercicios />} />
+          <Route path="/treino/cardio" element={<TreinoCardio />} />
           <Route path="/analise" element={<Analise />} />
           <Route path="/mais" element={<Mais />} />
           <Route path="/alimentos" element={<Foods />} />

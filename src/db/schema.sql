@@ -312,3 +312,59 @@ CREATE TABLE IF NOT EXISTS plan_checks (
   FOREIGN KEY (swap_id)  REFERENCES plan_swaps (id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_plan_checks_dia ON plan_checks (user_id, data);
+
+-- ═══════════════════════════════════════════════════════════════════
+-- PROGRAMA DE FORÇA (5/3/1)
+--
+-- O estado do programa — em que ciclo, semana e levantamento você
+-- está — NÃO fica guardado: é derivado de `program_sessions` por
+-- `domain/531.proximaSessao`. Apagar uma sessão ou registrar fora de
+-- ordem se corrige sozinho; um contador persistido mentiria para
+-- sempre.
+-- ═══════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS strength_programs (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  nome          TEXT NOT NULL,
+  tipo          TEXT NOT NULL DEFAULT '531',
+  incremento_kg REAL NOT NULL DEFAULT 2.5,
+  ativo         INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_strength_programs_user ON strength_programs (user_id, ativo);
+
+CREATE TABLE IF NOT EXISTS program_lifts (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  program_id  INTEGER NOT NULL,
+  exercise_id INTEGER NOT NULL,
+  -- Training Max INICIAL. O vigente sai daqui + ciclos fechados.
+  tm_kg       REAL NOT NULL,
+  -- Define quanto o TM sobe por ciclo: superior 2,5 kg, inferior 5 kg.
+  parte       TEXT NOT NULL,
+  ordem       INTEGER NOT NULL,
+  FOREIGN KEY (program_id)  REFERENCES strength_programs (id) ON DELETE CASCADE,
+  FOREIGN KEY (exercise_id) REFERENCES exercises (id)
+);
+CREATE INDEX IF NOT EXISTS idx_program_lifts_program ON program_lifts (program_id, ordem);
+
+CREATE TABLE IF NOT EXISTS program_sessions (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  program_id INTEGER NOT NULL,
+  lift_id    INTEGER NOT NULL,
+  ciclo      INTEGER NOT NULL,
+  semana     INTEGER NOT NULL,
+  -- O TM VIGENTE no dia. Guardado de propósito: o TM sobe a cada ciclo, e sem
+  -- o valor da época uma sessão antiga mostraria percentuais calculados sobre
+  -- o TM de hoje — o histórico contaria uma mentira.
+  tm_kg      REAL NOT NULL,
+  data       TEXT NOT NULL,
+  session_id INTEGER,
+  created_at TEXT NOT NULL,
+  UNIQUE (user_id, program_id, lift_id, ciclo, semana),
+  FOREIGN KEY (program_id) REFERENCES strength_programs (id) ON DELETE CASCADE,
+  FOREIGN KEY (lift_id)    REFERENCES program_lifts (id) ON DELETE CASCADE,
+  FOREIGN KEY (session_id) REFERENCES workout_sessions (id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_program_sessions_prog ON program_sessions (user_id, program_id);

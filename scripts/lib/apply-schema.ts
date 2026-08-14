@@ -29,6 +29,10 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   // `created_at` daria a resposta errada para quem registra à noite a água que
   // bebeu de manhã — o registro é do dia, não do instante.
   { table: "water_log", column: "block_id", ddl: "ALTER TABLE water_log ADD COLUMN block_id INTEGER" },
+  // Qual percentual do Training Max a série cumpria, e se era a AMRAP. O que
+  // já foi registrado antes do programa continua válido com as duas nulas.
+  { table: "workout_sets", column: "prescribed_pct", ddl: "ALTER TABLE workout_sets ADD COLUMN prescribed_pct REAL" },
+  { table: "workout_sets", column: "amrap", ddl: "ALTER TABLE workout_sets ADD COLUMN amrap INTEGER" },
 ];
 
 /**
