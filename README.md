@@ -142,9 +142,10 @@ npm run create-user -- --email voce@exemplo.com --senha ****
 npm run dev
 ```
 
-O login chama `/api/login`, que é uma função serverless (`api/login.ts`). Em
-desenvolvimento, use `vercel dev` no lugar de `npm run dev` se quiser exercitar
-o login de verdade.
+O login chama `/api/login`, que em produção é uma função serverless
+(`api/login.ts`). Em desenvolvimento, `npm run dev` serve a mesma rota por um
+plugin do Vite (`vite-plugin-login-dev.ts`), reaproveitando a mesma função
+`authenticate` — não precisa de `vercel dev` para entrar no app.
 
 ### Scripts
 
