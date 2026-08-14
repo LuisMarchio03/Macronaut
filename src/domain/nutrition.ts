@@ -94,6 +94,27 @@ export function totaisDoDia(entries: FoodEntry[], foodsById: Map<number, Food>):
   );
 }
 
+/** Total por refeição, indexado por `meal_id` (`null` → avulsas). */
+export function totaisPorRefeicao(
+  entries: FoodEntry[],
+  foodsById: Map<number, Food>,
+): Map<number | null, Macros> {
+  const out = new Map<number | null, Macros>();
+  for (const e of entries) {
+    const food = foodsById.get(e.food_id);
+    if (!food) continue;
+    const m = macrosDoEntry(food, e.qty_g);
+    const acc = out.get(e.meal_id) ?? { kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0 };
+    out.set(e.meal_id, {
+      kcal: acc.kcal + m.kcal,
+      prot_g: acc.prot_g + m.prot_g,
+      carb_g: acc.carb_g + m.carb_g,
+      gord_g: acc.gord_g + m.gord_g,
+    });
+  }
+  return out;
+}
+
 export function restante(meta: Macros, consumido: Macros): Macros {
   return {
     kcal: meta.kcal - consumido.kcal,

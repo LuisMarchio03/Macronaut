@@ -1,44 +1,69 @@
 import { Droplets } from "lucide-react";
-import { Button } from "./ui/button";
-import { HudPanel } from "./ui/hud-panel";
+import { Card } from "./ui/card";
+import { Progress } from "./ui/progress";
 import { useWaterToday, useAddWater, useResetWater } from "../hooks/use-water-today";
 
 export const META_AGUA_ML = 3000;
 
-export function WaterCounter({ data }: { data: string }) {
+/** Litros com uma casa e vírgula decimal: 1250 → "1,3 L". */
+function litros(ml: number): string {
+  return `${(ml / 1000).toFixed(1).replace(".", ",")} L`;
+}
+
+export function WaterCounter({ data, meta = META_AGUA_ML }: { data: string; meta?: number }) {
   const { data: total = 0 } = useWaterToday(data);
   const add = useAddWater(data);
   const reset = useResetWater(data);
-  const pct = Math.min(100, (total / META_AGUA_ML) * 100);
+  const cumprida = meta > 0 && total >= meta;
 
   return (
-    <HudPanel
-      label={
-        <span className="flex items-center gap-1.5">
-          <Droplets className="size-3.5" style={{ color: "var(--chart-2)" }} />
-          Hidratação
+    <Card>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="flex items-center gap-2">
+          <Droplets className="size-4 shrink-0 text-macro-carb" aria-hidden />
+          <span className="t-caption text-foreground">Hidratação</span>
         </span>
-      }
-      aside={`${total} / ${META_AGUA_ML} ml`}
-      bodyClassName="space-y-3"
-    >
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full transition-[width] duration-500 ease-out"
-          style={{ width: `${pct}%`, background: "var(--chart-2)", boxShadow: "0 0 10px -2px var(--chart-2)" }}
-        />
+        {/* Litros em vez de "1250 / 3000 ml": ninguém pensa a própria
+            hidratação do dia em mililitros. */}
+        <span className="t-caption shrink-0 tabular-nums">
+          <span className="font-medium text-foreground">{litros(total)}</span>
+          {" / "}
+          {litros(meta)}
+        </span>
       </div>
-      <div className="flex gap-2">
-        <Button size="sm" variant="secondary" onClick={() => add.mutate(250)}>
-          + copo (250)
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => add.mutate(500)}>
-          + garrafa (500)
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => reset.mutate()}>
-          zerar
-        </Button>
+
+      <Progress
+        value={total}
+        max={meta}
+        tone={cumprida ? "success" : "carb"}
+        size="sm"
+        className="mt-2.5"
+        label={`Água: ${total} de ${meta} mililitros`}
+      />
+
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={() => add.mutate(250)}
+          className="h-10 flex-1 rounded-md border border-input text-sm font-medium transition-colors hover:bg-muted active:bg-muted"
+        >
+          + copo
+        </button>
+        <button
+          type="button"
+          onClick={() => add.mutate(500)}
+          className="h-10 flex-1 rounded-md border border-input text-sm font-medium transition-colors hover:bg-muted active:bg-muted"
+        >
+          + garrafa
+        </button>
+        <button
+          type="button"
+          onClick={() => reset.mutate()}
+          className="h-10 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted active:bg-muted"
+        >
+          Zerar
+        </button>
       </div>
-    </HudPanel>
+    </Card>
   );
 }

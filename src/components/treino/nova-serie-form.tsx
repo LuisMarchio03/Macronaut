@@ -2,27 +2,27 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { HudPanel } from "../ui/hud-panel";
+import { Card } from "../ui/card";
+import { ChipGroup } from "../ui/chip-group";
 import { ExercicioAutocomplete } from "./exercicio-autocomplete";
 import { useExercises } from "../../hooks/use-exercises";
 import { useAddSet, useUltimaVez } from "../../hooks/use-workouts";
-import { formatarData } from "../../lib/date";
+import { dataPorExtenso } from "../../lib/date";
 import { resumirSets, rotuloRir } from "../../domain/treino";
 import type { Exercise, TipoSerie, WorkoutSet } from "../../domain/types";
 
-const TIPOS: { k: TipoSerie; label: string }[] = [
-  { k: "aquecimento", label: "Aquec." },
-  { k: "valida", label: "Válida" },
-  { k: "drop", label: "Drop" },
-  { k: "falha", label: "Falha" },
+const TIPOS: { valor: TipoSerie; label: string; descricao: string }[] = [
+  { valor: "aquecimento", label: "Aquec.", descricao: "Aquecimento" },
+  { valor: "valida", label: "Válida", descricao: "Série válida" },
+  { valor: "drop", label: "Drop", descricao: "Drop set" },
+  { valor: "falha", label: "Falha", descricao: "Até a falha" },
 ];
 
-const RIRS = [0, 1, 2, 3, 4];
-
-const chip =
-  "rounded-md px-2 py-1 font-mono text-[0.62rem] uppercase tracking-[0.1em] transition-colors";
-const chipOn = "bg-primary font-semibold text-primary-foreground";
-const chipOff = "text-muted-foreground hover:text-foreground";
+const RIRS = [0, 1, 2, 3, 4].map((r) => ({
+  valor: r,
+  label: rotuloRir(r),
+  descricao: `RIR ${rotuloRir(r)}`,
+}));
 
 function PainelAnterior({ exercicioId, data }: { exercicioId: number; data: string }) {
   const { data: ultima, isPending } = useUltimaVez(exercicioId, data);
@@ -32,14 +32,14 @@ function PainelAnterior({ exercicioId, data }: { exercicioId: number; data: stri
   // da falha) — é ela que diz se dá pra subir carga hoje, não a primeira.
   const rirUltimaSerie = ultima?.sets[ultima.sets.length - 1]?.rir ?? null;
   const corpo = !ultima
-    ? "sem histórico"
-    : `${formatarData(ultima.data)} · ${resumirSets(ultima.sets)}${
+    ? "sem histórico deste exercício"
+    : `${dataPorExtenso(ultima.data)} · ${resumirSets(ultima.sets)}${
         rirUltimaSerie != null ? ` · RIR ${rotuloRir(rirUltimaSerie)}` : ""
       }`;
 
   return (
-    <p className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1.5 font-mono text-[0.68rem] tabular-nums text-muted-foreground">
-      <span className="uppercase tracking-[0.14em] text-primary/70">anterior</span> · {corpo}
+    <p className="rounded-md bg-muted px-3 py-2 text-[0.8125rem] tabular-nums text-muted-foreground">
+      <span className="font-medium text-foreground">Última vez</span> · {corpo}
     </p>
   );
 }
@@ -85,7 +85,7 @@ export function NovaSerieForm({
   }
 
   return (
-    <HudPanel label="Nova série" bodyClassName="space-y-2">
+    <Card header="Nova série" bodyClassName="space-y-3 px-4 pt-1 pb-4">
       <div>
         <Label htmlFor="ex">Exercício</Label>
         <ExercicioAutocomplete
@@ -111,37 +111,25 @@ export function NovaSerieForm({
 
       <div>
         <Label>Tipo</Label>
-        <div className="grid grid-cols-4 gap-1 rounded-lg border border-border/60 bg-muted/40 p-1">
-          {TIPOS.map((t) => (
-            <button
-              key={t.k}
-              type="button"
-              aria-pressed={tipo === t.k}
-              className={`${chip} ${tipo === t.k ? chipOn : chipOff}`}
-              onClick={() => setTipo(t.k)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <ChipGroup
+          opcoes={TIPOS}
+          valor={tipo}
+          onChange={(v) => v && setTipo(v)}
+          rotulo="Tipo da série"
+          colunas={4}
+        />
       </div>
 
       <div>
         <Label>RIR (opcional)</Label>
-        <div className="grid grid-cols-5 gap-1 rounded-lg border border-border/60 bg-muted/40 p-1">
-          {RIRS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              aria-label={`RIR ${rotuloRir(r)}`}
-              aria-pressed={rir === r}
-              className={`${chip} ${rir === r ? chipOn : chipOff}`}
-              onClick={() => setRir(rir === r ? null : r)}
-            >
-              {rotuloRir(r)}
-            </button>
-          ))}
-        </div>
+        <ChipGroup
+          opcoes={RIRS}
+          valor={rir}
+          onChange={setRir}
+          rotulo="Repetições em reserva"
+          desmarcavel
+          colunas={5}
+        />
       </div>
 
       {mostrarNota ? (
@@ -152,16 +140,16 @@ export function NovaSerieForm({
       ) : (
         <button
           type="button"
-          className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-muted-foreground hover:text-foreground"
+          className="min-h-9 self-start text-[0.8125rem] font-medium text-primary transition-colors hover:underline"
           onClick={() => setMostrarNota(true)}
         >
-          + nota
+          + Adicionar nota
         </button>
       )}
 
-      <Button className="w-full" onClick={adicionar} disabled={!exercicio || addSet.isPending}>
-        + série
+      <Button block onClick={adicionar} disabled={!exercicio || addSet.isPending}>
+        Adicionar série
       </Button>
-    </HudPanel>
+    </Card>
   );
 }

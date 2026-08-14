@@ -2,276 +2,184 @@
 
 # 🛰️ Macronaut
 
-**Mission control for your macros & training.**
-
-A personal, installable **nutrition + workout PWA** with a dark, sci‑fi *command‑deck* interface. It talks directly to a [Turso](https://turso.tech) (libSQL) database — no backend server to run.
+**Seu plano alimentar, seus macros e seus treinos — num app só.**
 
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?logo=tailwindcss&logoColor=white)
 ![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?logo=turso&logoColor=black)
-![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-67%20passing-3FB950)
+![PWA](https://img.shields.io/badge/PWA-instalável-5A0FC8?logo=pwa&logoColor=white)
+![Testes](https://img.shields.io/badge/testes-702%20passando-3FB950)
 
 </div>
 
-> **UI language:** the interface is in **Portuguese (pt‑BR)**. This README is bilingual — [🇬🇧 English](#-english) · [🇧🇷 Português](#-português).
-
 ---
 
-## 🇬🇧 English
+## O que é
 
-### What is it?
+Um **PWA** que segue o seu plano alimentar. Você importa a planilha da sua dieta
+— a que o nutricionista mandou, ou uma que você mesmo montou a partir do
+template — e o app passa a guiar o dia: qual é a próxima refeição, o que comer
+nela, quanto de água em cada período, quando tomar o suplemento. Um toque marca
+como feito; outro troca um alimento por uma substituição prevista no seu plano.
 
-Macronaut is a single‑page **Progressive Web App** for tracking daily nutrition and strength/cardio training. It's designed to be *your* dashboard: install it on your phone, open it, and everything reads like the instrument panel of a spacecraft — glass panels, corner brackets, monospace readouts and a gauge‑style calorie ring.
+Além disso é um diário de nutrição e um registro de treino completos, para o que
+não está no plano.
 
-It's **online‑first**: the browser speaks to Turso over HTTP, so there is no API server to deploy or maintain. Perfect for a personal, low‑cost, always‑available tool.
-
-### ✨ Features
-
-**Nutrition**
-- 🎯 Daily **calorie gauge** (goal vs. consumed) with an instrument‑style ring
-- 🧬 **Macro tracking** — protein / carbs / fat, each with its own readout
-- 🍽️ **Meals** — configurable meals with times; log foods into each
-- 📚 **Food catalog** — your own custom foods **+ TACO** (Brazilian food composition table) import
-- 💧 **Water tracking** with a daily goal
-- 🧮 **Goal engine** — computes BMR (Mifflin–St Jeor), TDEE via activity factor, adjusts for your objective (cut / maintenance / bulk) and splits your macros automatically
-
-**Training**
-- 🏋️ **Workout sessions** — log sets per exercise (reps × weight), grouped by exercise
-- 📋 **Exercise library** — full CRUD, with muscle groups
-- 🏃 **Cardio** — activity types with MET values; estimates kcal from your weight + duration
-- 📈 **Progression charts** — estimated 1RM (e1RM) and top load over time
-
-**Platform**
-- 📲 **Installable PWA** — standalone display, offline app shell, auto‑updating service worker
-- 🎛️ **Command‑deck design system** — dark indigo theme, glassmorphism HUD panels, monospace instrument readouts, subtle grid + scanlines
-- ✅ **Fully tested** — 67 unit/component tests (Vitest + Testing Library) against an in‑memory libSQL database
-
-### 🧱 Tech stack
-
-| Layer | Choice |
-|---|---|
-| UI | **React 19**, **React Router 7** |
-| Data fetching | **TanStack Query 5** |
-| Database | **Turso / libSQL** (`@libsql/client`) — accessed directly from the browser |
-| Styling | **Tailwind CSS 4**, **Base UI** primitives, `class-variance-authority`, Geist font |
-| Build / tooling | **Vite 8**, **TypeScript 6**, `vite-plugin-pwa` |
-| Testing | **Vitest 4**, **Testing Library**, jsdom |
-| Icons | **lucide-react** |
-
-### 🏗️ Architecture
+## Como funciona o plano
 
 ```
-UI (pages / components)  →  hooks (TanStack Query)  →  repositories  →  Turso (libSQL)
-                                     ↕
-                          domain/ (pure logic: BMR, TDEE, macros, e1RM, MET kcal)
+sua planilha .xlsx        →   Importar   →   o app guia o dia
+├── Plano                     prévia com      ├── refeição da vez, expandida
+│   Café da Manhã  7h-8h      erros e         ├── [Comi] grava e marca
+│   💧 ÁGUA       8h-12h      avisos          ├── [Trocar] abre as substituições
+│   🥤 CREATINA   após almoço                 ├── água por período (+200/+500ml)
+├── Macros                                    └── aderência: 3 de 4 refeições
+└── Substituicoes
 ```
 
-- **`src/domain/`** — framework‑free business logic. All the nutrition/training math lives here and is unit‑tested in isolation.
-- **`src/repositories/`** — every SQL statement. The only layer that touches the database.
-- **`src/hooks/`** — TanStack Query wrappers exposing data + mutations to the UI.
-- **`src/components/ui/`** — the design system (`Button`, `Input`, `HudPanel`, …).
-- **`src/db/schema.sql`** — the full schema, applied via `npm run migrate`.
+**Não tem planilha ainda?** O app tem um botão de baixar o template (`.xlsx` com
+aba de instruções, ou três `.csv`). Preencha com a sua dieta e importe.
 
-### 🚀 Getting started
+O importador aceita o que gente escreve de verdade: `7h00 - 8h00`,
+`das 12h às 13h`, `Após almoço`, `~400 kcal`, `1600-1800 kcal`,
+`750ml (3-4 copos de 200ml)`, `3L/dia`. Deixar a coluna **REFEIÇÃO** em branco
+continua o bloco de cima — é assim que uma refeição ganha vários alimentos.
 
-**Prerequisites:** Node **≥ 22** (the `migrate`/`seed` scripts use native TypeScript execution).
+## Funcionalidades
 
-```bash
-# 1. Install
-npm install
-
-# 2. Point at a database — pick ONE:
-
-#   (a) Cloud Turso
-turso db create macronaut
-turso db show macronaut --url          # → VITE_TURSO_DATABASE_URL
-turso db tokens create macronaut       # → VITE_TURSO_AUTH_TOKEN
-
-#   (b) Local dev database (no cloud, no token)
-turso dev --db-file local.db           # serves http://127.0.0.1:8080
-
-# 3. Configure env
-cp .env.example .env.local
-#   fill in VITE_TURSO_DATABASE_URL and VITE_TURSO_AUTH_TOKEN
-#   (for local dev: URL = http://127.0.0.1:8080, token = empty)
-
-# 4. Create the schema + seed defaults
-npm run migrate
-TACO_JSON=data/taco.sample.json npm run seed   # uses the bundled sample; drop a full data/taco.json for the real table
-
-# 5. Run it
-npm run dev
-```
-
-### 📜 Scripts
-
-| Script | What it does |
-|---|---|
-| `npm run dev` | Start the Vite dev server |
-| `npm run build` | Type‑check + production build to `dist/` |
-| `npm run preview` | Preview the production build locally |
-| `npm test` | Run the test suite once |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run migrate` | Apply `src/db/schema.sql` to your Turso DB |
-| `npm run seed` | Seed default meals, activity types and (optionally) the TACO food table |
-| `node --experimental-strip-types scripts/build-medidas.ts` | Generates `src/data/medidas.json` from the IBGE household measures table (POF 2008‑2009). Run by hand; see `docs/superpowers/specs/2026-07-17-registro-alimentos-unidades-design.md`. |
-
-### ☁️ Deploy on Vercel
-
-The app is a static Vite build — `vercel.json` is already configured (framework, SPA rewrites, asset caching).
-
-1. Push the repo to GitHub (rename it to **`macronaut`**).
-2. **Import** the project on [Vercel](https://vercel.com/new) — the Vite framework is auto‑detected.
-3. Add **Environment Variables** (Production + Preview):
-   - `VITE_TURSO_DATABASE_URL`
-   - `VITE_TURSO_AUTH_TOKEN`
-4. **Deploy.** Run `npm run migrate` / `npm run seed` locally against the *same* Turso database — they are not part of the Vercel build.
-
-Or from the CLI:
-
-```bash
-vercel          # preview deploy
-vercel --prod   # production deploy
-```
-
-### 🔐 Security notes — read before deploying publicly
-
-Because the browser talks to Turso directly, the auth token is **bundled into the client JavaScript** (`VITE_*` variables are public by design). **Anyone who can load the deployed URL can extract the token and gain full read/write access to the database.**
-
-The token also **cannot be read‑only**, because the app writes to the DB.
-
-Mitigations, weakest → strongest:
-- ✅ Always use a Turso token **scoped to this database only**.
-- 🚧 Keep the deployment **private / behind a non‑guessable URL** (or Vercel Authentication on a paid plan).
-- 🛡️ **Proper fix (roadmap):** put a **serverless proxy** (`/api`) in front so the token stays server‑side and the browser never sees it.
-
-### 🗺️ Roadmap
-
-- [ ] Serverless proxy for the Turso token (remove client‑side exposure)
-- [ ] Authentication
-- [ ] Richer history & analytics views
-- [ ] Export / backup
-
-### 📄 License
-
-Private / personal project. All rights reserved unless a license file is added.
-
----
-
-## 🇧🇷 Português
-
-### O que é?
-
-O Macronaut é um **PWA** (single‑page) para acompanhar nutrição diária e treino de força/cardio. A ideia é ser o *seu* painel: instale no celular, abra, e tudo se parece com o painel de instrumentos de uma nave — painéis de vidro, cantos com brackets, leituras monoespaçadas e um anel de calorias no estilo de um mostrador.
-
-É **online‑first**: o navegador fala com o Turso via HTTP, então **não há servidor de API** para subir ou manter. Perfeito para uma ferramenta pessoal, barata e sempre disponível.
-
-### ✨ Funcionalidades
+**Plano alimentar**
+- 📥 Importação de `.xlsx` e `.csv`, com prévia antes de gravar qualquer coisa
+- 📄 Template baixável, gerado no build e validado pelo próprio importador
+- 🕐 Linha do tempo do dia com refeições, períodos de água e suplementos
+- 🔄 Substituições por refeição e categoria, direto do seu plano
+- ✅ Aderência diária às refeições
 
 **Nutrição**
-- 🎯 **Mostrador de calorias** do dia (meta vs. consumido) com anel de instrumento
-- 🧬 **Macros** — proteína / carboidrato / gordura, cada um com seu readout
-- 🍽️ **Refeições** configuráveis com horários; registre alimentos em cada uma
-- 📚 **Catálogo de alimentos** — seus alimentos próprios **+ importação da TACO**
-- 💧 **Hidratação** com meta diária
-- 🧮 **Motor de metas** — calcula TMB (Mifflin–St Jeor), GET pelo fator de atividade, ajusta pelo objetivo (cutting / manutenção / bulking) e divide os macros automaticamente
+- 🎯 Meta de calorias (ou faixa, quando o plano define uma) e macros
+- 🍽️ Diário livre por refeição, com favoritas e "repetir"
+- 📚 Catálogo próprio + tabela **TACO** e medidas caseiras da **POF/IBGE**
+- 💧 Hidratação por período do plano, ou total do dia sem plano
 
 **Treino**
-- 🏋️ **Sessões de treino** — registra séries por exercício (reps × carga), agrupadas
-- 📋 **Biblioteca de exercícios** — CRUD completo, com grupos musculares
-- 🏃 **Cardio** — atividades com valores de MET; estima kcal pelo seu peso + duração
-- 📈 **Progressão** — 1RM estimado (e1RM) e carga máxima ao longo do tempo
+- 🏋️ Séries por exercício (reps × carga), com tipo e RIR
+- 📋 Biblioteca de exercícios com grupos musculares
+- 🏃 Cardio com estimativa de kcal por MET e peso
+- 📈 Progressão: 1RM estimado e carga máxima ao longo do tempo
+
+**Análise**
+- 📊 Nutrição, peso e atividade por semana, mês, ano ou período escolhido
+- ⚖️ Balanço energético entre o que foi ingerido e o que foi gasto
 
 **Plataforma**
-- 📲 **PWA instalável** — modo standalone, shell offline, service worker com auto‑update
-- 🎛️ **Design "command‑deck"** — tema índigo escuro, painéis HUD de vidro, leituras mono, grid + scanlines sutis
-- ✅ **Testado** — 67 testes (Vitest + Testing Library) contra um banco libSQL em memória
+- 📲 PWA instalável, com service worker que se atualiza sozinho
+- 🎨 Tema claro e escuro, seguindo o do sistema quando você não escolheu
+- ♿ Paleta com contraste WCAG AA verificado **em teste**, alvos de toque de 44px
 
-### 🧱 Stack
+## Arquitetura
+
+```
+telas / componentes  →  hooks (TanStack Query)  →  repositories  →  Turso (libSQL)
+                                  ↕
+                        domain/  — lógica pura, sem framework
+```
+
+| Pasta | O que vive lá |
+|---|---|
+| `src/domain/` | Regra de negócio pura: parsers do plano, TMB/TDEE, macros, e1RM, kcal por MET. Testada isolada. |
+| `src/repositories/` | Todo SQL. A única camada que fala com o banco. |
+| `src/hooks/` | Wrappers do TanStack Query. |
+| `src/lib/planilha.ts` | A única camada que conhece o formato do arquivo importado. |
+| `src/components/ui/` | Design system: `Card`, `Progress`, `Stat`, `Segmented`, `Page`… |
+| `src/design/` | Verificação de contraste da paleta (roda como teste). |
+| `src/db/schema.sql` | Schema completo. |
+
+### Design system
+
+Tokens em `oklch` no `src/index.css`. Todo par texto/fundo é verificado em
+contraste WCAG AA por `src/design/palette.test.ts` — mudar uma cor sem manter o
+contraste quebra a suíte de propósito. Quatro níveis tipográficos, monoespaçado
+só em número que alinha em coluna, e alvos de toque de 44px (WCAG 2.5.8).
+
+## Stack
 
 | Camada | Escolha |
 |---|---|
-| UI | **React 19**, **React Router 7** |
-| Dados | **TanStack Query 5** |
-| Banco | **Turso / libSQL** (`@libsql/client`) — acessado direto do navegador |
-| Estilo | **Tailwind CSS 4**, primitivos **Base UI**, `class-variance-authority`, fonte Geist |
-| Build | **Vite 8**, **TypeScript 6**, `vite-plugin-pwa` |
-| Testes | **Vitest 4**, **Testing Library**, jsdom |
-| Ícones | **lucide-react** |
+| UI | React 19, React Router 7 |
+| Dados | TanStack Query 5 |
+| Banco | Turso / libSQL, acessado direto do navegador |
+| Estilo | Tailwind CSS 4, primitivos Base UI, fonte Geist |
+| Planilha | `read-excel-file` (leitura, sob demanda), `write-excel-file` (build) |
+| Build | Vite 8, TypeScript 6, `vite-plugin-pwa` |
+| Testes | Vitest 4, Testing Library, jsdom |
 
-### 🏗️ Arquitetura
+## Começando
 
-```
-UI (páginas / componentes) → hooks (TanStack Query) → repositories → Turso (libSQL)
-                                      ↕
-                        domain/ (lógica pura: TMB, GET, macros, e1RM, MET kcal)
-```
-
-- **`src/domain/`** — lógica de negócio sem framework, testada isoladamente.
-- **`src/repositories/`** — todo o SQL. Única camada que toca o banco.
-- **`src/hooks/`** — wrappers do TanStack Query com dados + mutações.
-- **`src/components/ui/`** — o design system (`Button`, `Input`, `HudPanel`, …).
-- **`src/db/schema.sql`** — o schema completo, aplicado via `npm run migrate`.
-
-### 🚀 Como rodar
-
-**Pré‑requisito:** Node **≥ 22** (os scripts `migrate`/`seed` executam TypeScript nativo).
+**Pré-requisito:** Node ≥ 22.
 
 ```bash
-# 1. Instalar
 npm install
 
-# 2. Apontar para um banco — escolha UM:
+# 1. Um banco. Escolha um:
+#    (a) local, sem nuvem e sem token
+turso dev --db-file local.db --port 8090
+#    (b) Turso na nuvem
+turso db create macronaut && turso db show macronaut --url
 
-#   (a) Turso na nuvem
-turso db create macronaut
-turso db show macronaut --url          # → VITE_TURSO_DATABASE_URL
-turso db tokens create macronaut       # → VITE_TURSO_AUTH_TOKEN
-
-#   (b) Banco local de dev (sem nuvem, sem token)
-turso dev --db-file local.db           # sobe http://127.0.0.1:8080
-
-# 3. Configurar o env
+# 2. Configure
 cp .env.example .env.local
-#   preencha VITE_TURSO_DATABASE_URL e VITE_TURSO_AUTH_TOKEN
-#   (dev local: URL = http://127.0.0.1:8080, token = vazio)
+#    DB_URL=http://127.0.0.1:8090   (local)
+#    DB_TOKEN=dev-local             (qualquer valor no local)
 
-# 4. Criar o schema + seed
-npm run migrate
-TACO_JSON=data/taco.sample.json npm run seed   # usa a amostra; coloque um data/taco.json completo para a TACO real
+# 3. Schema + seeds (TACO, medidas POF, exercícios, tipos de atividade)
+npm run db:setup
 
-# 5. Rodar
+# 4. Seu usuário
+npm run create-user -- --email voce@exemplo.com --senha ****
+
+# 5. Rode
 npm run dev
 ```
 
-### ☁️ Deploy na Vercel
+O login chama `/api/login`, que é uma função serverless (`api/login.ts`). Em
+desenvolvimento, use `vercel dev` no lugar de `npm run dev` se quiser exercitar
+o login de verdade.
 
-O app é um build estático do Vite — o `vercel.json` já está configurado (framework, rewrites de SPA, cache de assets).
+### Scripts
 
-1. Suba o repo para o GitHub (renomeie para **`macronaut`**).
-2. **Importe** o projeto na [Vercel](https://vercel.com/new) — o framework Vite é detectado automaticamente.
-3. Adicione as **Environment Variables** (Production + Preview):
-   - `VITE_TURSO_DATABASE_URL`
-   - `VITE_TURSO_AUTH_TOKEN`
-4. **Deploy.** Rode `npm run migrate` / `npm run seed` localmente contra o *mesmo* banco Turso — eles não fazem parte do build da Vercel.
+| Script | O que faz |
+|---|---|
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run build` | Gera o template, checa tipos e builda para `dist/` |
+| `npm run build:template` | Só o template — e valida o resultado pelo importador |
+| `npm test` | Roda a suíte inteira |
+| `npm run db:setup` | Aplica o schema e os seeds |
+| `npm run create-user` | Cria um usuário |
 
-### 🔐 Segurança — leia antes de publicar
+## Segurança — leia antes de publicar
 
-Como o navegador fala direto com o Turso, o token de auth vai **embutido no JavaScript do cliente** (variáveis `VITE_*` são públicas por definição). **Qualquer pessoa com a URL publicada consegue extrair o token e obter leitura/escrita total no banco.** O token também **não pode ser somente‑leitura**, pois o app escreve.
+O navegador fala direto com o Turso, então **o token do banco chega ao
+cliente** depois do login. Quem tem uma sessão válida tem acesso total de
+leitura e escrita ao banco, e o token não pode ser somente-leitura porque o app
+escreve.
 
-Mitigações, da mais fraca à mais forte:
-- ✅ Use sempre um token do Turso **restrito a este banco**.
-- 🚧 Mantenha o deploy **privado / com URL não‑adivinhável** (ou Vercel Authentication em plano pago).
-- 🛡️ **Correção adequada (roadmap):** um **proxy serverless** (`/api`) na frente, para o token ficar só no servidor.
+Mitigações, da mais fraca para a mais forte:
 
-### 📄 Licença
+- ✅ Use um token **restrito a este banco**.
+- 🚧 Mantenha o deploy **privado**, atrás de uma URL não adivinhável ou de
+  autenticação da plataforma.
+- 🛡️ **Correção de verdade (roadmap):** um proxy serverless em `/api` na frente
+  do banco, para o token nunca sair do servidor.
 
-Projeto pessoal / privado. Todos os direitos reservados até que um arquivo de licença seja adicionado.
+## Roadmap
 
-## 📚 Fontes de dados
+- [ ] Proxy serverless para o token do Turso
+- [ ] Edição de bloco do plano dentro do app (hoje a planilha é a fonte)
+- [ ] Casamento automático dos itens do plano com o catálogo de alimentos
+- [ ] Planos com variação por dia da semana
+- [ ] Exportar / backup
 
-- **TACO** — Tabela Brasileira de Composição de Alimentos, 4ª ed., NEPA/UNICAMP. Macros por 100 g.
-- **IBGE / POF 2008‑2009** — *Tabela de Medidas Referidas para os Alimentos Consumidos no Brasil*. Medidas caseiras (fatia, colher, concha) e seus pesos em gramas. Dado estatístico público, reproduzido com citação da fonte.
+## Licença
+
+MIT — veja [LICENSE](LICENSE).

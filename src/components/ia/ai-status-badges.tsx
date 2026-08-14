@@ -6,10 +6,11 @@ function Badge({ nome, id, up }: { nome: string; id: string; up: boolean }) {
     <span
       data-testid={`status-${id}`}
       data-up={up}
-      className="flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.14em] text-muted-foreground"
+      className="t-caption flex items-center gap-1.5"
     >
-      <span className={cn("size-2 rounded-full", up ? "bg-emerald-400" : "bg-destructive")} />
-      {nome}
+      <span aria-hidden className={cn("size-2 rounded-full", up ? "bg-success" : "bg-destructive")} />
+      {/* O texto diz o estado; a bolinha sozinha seria informação só na cor. */}
+      {nome} {up ? "no ar" : "fora do ar"}
     </span>
   );
 }

@@ -67,7 +67,7 @@ it("inicia treino do dia e loga uma série", async () => {
   await user.type(screen.getByLabelText(/reps/i), "10");
   await user.clear(screen.getByLabelText(/peso/i));
   await user.type(screen.getByLabelText(/peso/i), "80");
-  await user.click(screen.getByRole("button", { name: /\+ s[ée]rie/i }));
+  await user.click(screen.getByRole("button", { name: /adicionar série/i }));
 
   await waitFor(async () => {
     const s = await getSessionByDate(db, 1, hoje());
@@ -114,7 +114,7 @@ async function semearSessaoCom(created_ats: string[]) {
 it("mostra a duração estimada quando há mais de uma série", async () => {
   await semearSessaoCom(["2026-07-16T10:00:00.000Z", "2026-07-16T10:30:00.000Z"]);
   renderTab();
-  expect(await screen.findByText(/~30 min/)).toBeInTheDocument();
+  expect(await screen.findByText(/aproximadamente 30 min/)).toBeInTheDocument();
 });
 
 it("não mostra duração com uma série só", async () => {

@@ -1,24 +1,41 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Bot, Dumbbell, Droplets, Zap, ChevronRight,
-} from "lucide-react";
-import { StatCard } from "@/components/ui/stat-card";
-import { SectionCard } from "@/components/ui/section-card";
-import { SkeletonCard } from "@/components/ui/skeleton";
+import { Bot, ChevronRight, Dumbbell, Target, ClipboardList } from "lucide-react";
+import { Card, CardRow } from "@/components/ui/card";
+import { Page, PageHeader, SectionLabel } from "@/components/ui/page";
+import { Progress } from "@/components/ui/progress";
+import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CalorieRing } from "@/components/calorie-ring";
-import { MacroBars } from "@/components/macro-bars";
+import { ButtonLink } from "@/components/ui/button";
+import { EnergySummary } from "@/components/energy-summary";
 import { DateNav } from "@/components/date-nav";
+import { BlocoCard } from "@/components/plano/bloco-card";
+import { SheetTrocas } from "@/components/plano/sheet-trocas";
 import { useProfile } from "@/hooks/use-profile";
 import { useMeals } from "@/hooks/use-meals";
 import { useTodayEntries, useFoodsForEntries } from "@/hooks/use-today-entries";
 import { useWaterToday } from "@/hooks/use-water-today";
 import { useSessionByDate } from "@/hooks/use-workouts";
 import { useAiConfig } from "@/hooks/use-ai-config";
-import { totaisDoDia } from "@/domain/nutrition";
-import { formatarData } from "@/lib/date";
+import {
+  useAddAgua,
+  useAguaPorBloco,
+  useBlocos,
+  useChecksDoDia,
+  useItensDoPlano,
+  useMarcarBloco,
+  usePlanoAtivo,
+  useSubstituicoes,
+} from "@/hooks/use-plano";
+import { totaisDoDia, totaisPorRefeicao } from "@/domain/nutrition";
+import { aderenciaDoDia, blocoEmFoco, metaDeAgua, montarDia, trocasDoBloco } from "@/domain/plano-dia";
 import { useDataAtiva } from "@/lib/data-context";
+import { minutosAgora } from "@/lib/date";
 import type { Macros } from "@/domain/types";
+import type { PlanBlock, PlanSwap } from "@/domain/plano-types";
+
+const META_AGUA_PADRAO_ML = 3000;
+const ZERO: Macros = { kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0 };
 
 export function Dashboard() {
   const { data, ehHoje } = useDataAtiva();
@@ -30,7 +47,18 @@ export function Dashboard() {
   const { data: meals = [] } = useMeals();
   const { data: aiConfig } = useAiConfig();
 
-  const iaDisponivel = aiConfig && (aiConfig.aloy_enabled || aiConfig.gemini_enabled);
+  const { data: plano, isLoading: carregandoPlano } = usePlanoAtivo();
+  const { data: blocos = [] } = useBlocos(plano?.id);
+  const { data: itensPorBloco } = useItensDoPlano(plano?.id);
+  const { data: swaps = [] } = useSubstituicoes(plano?.id);
+  const { data: checks = [] } = useChecksDoDia(data);
+  const { data: aguaPorBloco } = useAguaPorBloco(data);
+  const marcar = useMarcarBloco(data);
+  const addAgua = useAddAgua(data);
+
+  const [trocando, setTrocando] = useState<PlanBlock | null>(null);
+
+  const iaDisponivel = aiConfig?.aloy_enabled || aiConfig?.gemini_enabled;
 
   const meta: Macros = perfil.data
     ? {
@@ -39,228 +67,264 @@ export function Dashboard() {
         carb_g: perfil.data.meta_carb_g,
         gord_g: perfil.data.meta_gord_g,
       }
-    : { kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0 };
+    : ZERO;
 
-  const consumido: Macros = foods
-    ? totaisDoDia(entries, foods)
-    : { kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0 };
+  const consumido: Macros = foods ? totaisDoDia(entries, foods) : ZERO;
 
-  const pctKcal = meta.kcal > 0 ? Math.round((consumido.kcal / meta.kcal) * 100) : 0;
-  const pctAgua = Math.min(100, (totalAgua / 3000) * 100);
+  /* "Agora" só faz sentido no dia de hoje. Num dia passado, nenhum bloco está
+     acontecendo e nenhum está atrasado — a linha do tempo vira histórico. */
+  const dia = useMemo(
+    () => montarDia(blocos, checks, ehHoje ? minutosAgora() : null),
+    [blocos, checks, ehHoje],
+  );
+
+  const aderencia = aderenciaDoDia(dia);
+  const foco = blocoEmFoco(dia);
+  const metaAgua = plano ? metaDeAgua(blocos, plano.agua_ml_alvo) : META_AGUA_PADRAO_ML;
+
+  const faixaKcal =
+    plano?.kcal_min != null && plano?.kcal_max != null && plano.kcal_min !== plano.kcal_max
+      ? { min: plano.kcal_min, max: plano.kcal_max }
+      : null;
 
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? "Bom dia" : hora < 18 ? "Boa tarde" : "Boa noite";
 
-  const entriesHoje = entries.length;
-  const totalKcalHoje = Math.round(consumido.kcal);
-  const totalProtHoje = Math.round(consumido.prot_g);
-
-  if (perfil.isLoading) {
+  if (perfil.isLoading || carregandoPlano) {
     return (
-      <div className="space-y-4 p-4">
+      <Page>
         <SkeletonCard />
-        <div className="grid grid-cols-2 gap-3">
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-        <SkeletonCard />
-      </div>
+        <SkeletonList rows={4} />
+      </Page>
     );
   }
 
   if (!perfil.data) {
     return (
-      <div className="p-4">
-        <EmptyState
-          icon={<Zap className="size-6" />}
-          title="Bem-vindo ao Macronaut"
-          description="Configure suas metas para começar a acompanhar sua nutrição e treinos."
-          action={
-            <Link
-              to="/metas"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80 active:scale-[0.97]"
-            >
-              Definir metas
-              <ChevronRight className="size-4" />
-            </Link>
-          }
-        />
-      </div>
+      <Page>
+        <Card>
+          <EmptyState
+            icon={<Target className="size-6" />}
+            title="Bem-vindo ao Macronaut"
+            description="Configure suas metas para o app começar a acompanhar sua nutrição e seus treinos."
+            action={
+              <ButtonLink to="/metas">
+                Definir metas
+                <ChevronRight className="size-4" />
+              </ButtonLink>
+            }
+          />
+        </Card>
+      </Page>
     );
   }
 
+  const onEscolherTroca = (bloco: PlanBlock) => (swap: PlanSwap) => {
+    marcar.mutate({ planId: plano!.id, blockId: bloco.id, feito: true, swapId: swap.id });
+    setTrocando(null);
+  };
+
   return (
-    <div className="space-y-5 p-4">
-      {/* Header */}
-      <header className="space-y-1 pt-2">
-        <p className="section-title">
-          {saudacao} · {ehHoje ? "Hoje" : formatarData(data)}
-        </p>
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {formatarData(data)}
-          </h1>
-          {iaDisponivel && (
-            <Link
-              to="/ia"
-              className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors hover:bg-primary/20"
-            >
+    <Page>
+      {/* O nome do plano vem da planilha e costuma vir em caixa alta e longo —
+          identifica bem, mas não é um bom título. Fica como contexto acima da
+          saudação, e a data continua só no seletor. */}
+      <PageHeader
+        eyebrow={plano ? plano.nome : ehHoje ? "Resumo do dia" : "Consultando outro dia"}
+        title={ehHoje ? saudacao : "Outro dia"}
+        action={
+          iaDisponivel && (
+            <ButtonLink variant="ghost" size="icon" to="/ia" aria-label="Abrir assistente">
               <Bot className="size-5" />
-            </Link>
-          )}
-        </div>
-        <div className="pt-1">
-          <DateNav />
-        </div>
-      </header>
-
-      {/* Calorias + Macros */}
-      <SectionCard variant="gradient" header="Consumo" aside={`${pctKcal}% da meta`}>
-        <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-          <div className="shrink-0">
-            <CalorieRing consumido={consumido.kcal} meta={meta.kcal} />
-          </div>
-          <div className="min-w-0 flex-1 self-center sm:self-stretch sm:pt-4">
-            <MacroBars consumido={consumido} meta={meta} />
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Quick Stats Grid */}
-      <div className="stat-grid stat-grid-3">
-        <StatCard
-          variant="elevated"
-          value={`${totalKcalHoje}`}
-          label="kcal"
-          sub={`meta ${Math.round(meta.kcal)}`}
-          icon={<Zap className="size-5" />}
-        />
-        <StatCard
-          variant="elevated"
-          value={`${totalProtHoje}`}
-          label="proteína (g)"
-          sub={`meta ${Math.round(meta.prot_g)}g`}
-        />
-        <StatCard
-          variant="elevated"
-          value={`${Math.round(totalAgua / 100) / 10}L`}
-          label="água"
-          sub={`${pctAgua}% da meta`}
-          icon={<Droplets className="size-5" />}
-        />
-      </div>
-
-      {/* Treino de hoje */}
-      <SectionCard
-        variant="elevated"
-        header="Treino"
-        aside={treinoHoje ? `${treinoHoje.nome || "Sessão"}` : undefined}
+            </ButtonLink>
+          )
+        }
       >
-        {treinoHoje ? (
-          <Link
-            to="/treino"
-            className="flex items-center gap-3 rounded-xl bg-primary/5 p-3 transition-colors hover:bg-primary/10"
-          >
-            <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Dumbbell className="size-5" />
-            </span>
-            <span className="flex-1">
-              <span className="block text-sm font-medium">
-                {treinoHoje.nome || "Treino registrado"}
-              </span>
-              <span className="block text-xs text-muted-foreground">
-                Ver detalhes no módulo de treino
-              </span>
-            </span>
-            <ChevronRight className="size-4 text-muted-foreground/60" />
-          </Link>
-        ) : (
-          <Link
-            to="/treino"
-            className="flex items-center gap-3 rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted"
-          >
-            <span className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-              <Dumbbell className="size-5" />
-            </span>
-            <span className="flex-1 text-left">
-              <span className="block text-sm font-medium">Nenhum treino hoje</span>
-              <span className="block text-xs text-muted-foreground">
-                Ir para módulo de treino
-              </span>
-            </span>
-            <ChevronRight className="size-4 text-muted-foreground/60" />
-          </Link>
-        )}
-      </SectionCard>
+        <DateNav />
+      </PageHeader>
 
-      {/* Últimas refeições - resumo */}
-      <SectionCard variant="elevated" header={`Refeições (${entriesHoje} registro(s))`}>
-        {entriesHoje > 0 ? (
-          <ul className="divide-y divide-border/40 -mx-4 -mb-4">
-            {meals.map((m) => {
-              const kcalM = entries
-                .filter((e) => e.meal_id === m.id)
-                .reduce((s) => s + 1, 0);
-              return kcalM > 0 ? (
-                <li key={m.id}>
-                  <Link
-                    to="/nutricao"
-                    className="flex items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-muted/50"
-                  >
-                    <span className="font-medium">{m.nome}</span>
-                    <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                      {kcalM} {kcalM === 1 ? "item" : "itens"}
-                    </span>
-                  </Link>
-                </li>
-              ) : null;
-            })}
-            <li>
-              <Link
-                to="/nutricao"
-                className="flex items-center justify-center gap-1 px-4 py-3 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
-              >
-                Ver detalhes <ChevronRight className="size-3.5" />
-              </Link>
-            </li>
-          </ul>
-        ) : (
-          <EmptyState
-            title="Nada registrado hoje"
-            description="Adicione alimentos para acompanhar sua nutrição"
+      <Card tone="primary">
+        <EnergySummary consumido={consumido} meta={meta} faixa={faixaKcal} />
+      </Card>
+
+      {plano ? (
+        <div className="space-y-2">
+          <SectionLabel
             action={
-              <Link
-                to="/nutricao"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
-              >
-                Adicionar alimentos
-              </Link>
+              aderencia.total > 0 && (
+                <span className="t-caption tabular-nums">
+                  {aderencia.feitas} de {aderencia.total} refeições
+                </span>
+              )
+            }
+          >
+            Seu dia
+          </SectionLabel>
+
+          {aderencia.total > 0 && (
+            <Progress
+              value={aderencia.feitas}
+              max={aderencia.total}
+              tone="success"
+              size="sm"
+              label={`Aderência: ${aderencia.feitas} de ${aderencia.total} refeições`}
+            />
+          )}
+
+          <div className="space-y-2 pt-1">
+            {dia.map((item) => (
+              <BlocoCard
+                key={item.bloco.id}
+                item={item}
+                itens={itensPorBloco?.get(item.bloco.id) ?? []}
+                aguaNoBloco={aguaPorBloco?.get(item.bloco.id) ?? 0}
+                emFoco={item.bloco.id === foco?.bloco.id}
+                temTrocas={trocasDoBloco(swaps, item.bloco.nome).size > 0}
+                onMarcar={(feito) =>
+                  marcar.mutate({ planId: plano.id, blockId: item.bloco.id, feito })
+                }
+                onTrocar={() => setTrocando(item.bloco)}
+                onAgua={(ml) => addAgua.mutate({ ml, blockId: item.bloco.id })}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <Card>
+          <EmptyState
+            icon={<ClipboardList className="size-6" />}
+            title="Nenhum plano ativo"
+            description="Importe a planilha da sua dieta e o app passa a guiar o seu dia: o que comer agora, quanto de água em cada período e quando tomar o suplemento."
+            action={
+              <ButtonLink to="/plano">
+                Importar plano
+                <ChevronRight className="size-4" />
+              </ButtonLink>
             }
           />
-        )}
-      </SectionCard>
+        </Card>
+      )}
 
-      {/* Ações rápidas */}
-      <div className="flex gap-2 pb-4">
-        <Link
-          to="/nutricao"
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-        >
-          <Zap className="size-4" /> Nutrição
-        </Link>
-        <Link
-          to="/treino"
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-        >
-          <Dumbbell className="size-4" /> Treino
-        </Link>
-        <Link
-          to="/analise"
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-        >
-          <Droplets className="size-4" /> Análise
-        </Link>
+      {/* Sem plano, a hidratação não tem períodos e vira um total do dia. */}
+      {!plano && (
+        <Card>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="t-caption text-foreground">Hidratação</span>
+            <span className="t-caption tabular-nums">
+              <span className="font-medium text-foreground">
+                {(totalAgua / 1000).toFixed(1).replace(".", ",")} L
+              </span>
+              {" / "}
+              {(metaAgua / 1000).toFixed(1).replace(".", ",")} L
+            </span>
+          </div>
+          <Progress
+            value={totalAgua}
+            max={metaAgua}
+            tone="carb"
+            size="sm"
+            className="mt-2.5"
+            label={`Água: ${totalAgua} de ${metaAgua} mililitros`}
+          />
+          <p className="t-caption mt-2 tabular-nums">
+            {metaAgua > 0 ? Math.round((totalAgua / metaAgua) * 100) : 0}% da meta
+          </p>
+        </Card>
+      )}
+
+      <RegistroDoDia entries={entries} foods={foods} meals={meals} />
+
+      <div className="space-y-2">
+        <SectionLabel>Treino</SectionLabel>
+        <Card padded={false}>
+          <CardRow as={Link} to="/treino">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Dumbbell className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">
+                {treinoHoje ? treinoHoje.nome || "Treino registrado" : "Nenhum treino hoje"}
+              </span>
+              <span className="t-caption block truncate">
+                {treinoHoje ? "Ver séries e cargas" : "Registrar uma sessão"}
+              </span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+          </CardRow>
+        </Card>
       </div>
+
+      {trocando && (
+        <SheetTrocas
+          blockNome={trocando.nome}
+          swaps={swaps}
+          onEscolher={onEscolherTroca(trocando)}
+          onClose={() => setTrocando(null)}
+        />
+      )}
+    </Page>
+  );
+}
+
+/** O que foi de fato registrado no diário, por refeição. */
+function RegistroDoDia({
+  entries,
+  foods,
+  meals,
+}: {
+  entries: ReturnType<typeof useTodayEntries>["data"] & object;
+  foods: ReturnType<typeof useFoodsForEntries>["data"];
+  meals: ReturnType<typeof useMeals>["data"] & object;
+}) {
+  const porRefeicao = foods ? totaisPorRefeicao(entries, foods) : new Map();
+  const comRegistro = meals.filter((m) => (porRefeicao.get(m.id)?.kcal ?? 0) > 0);
+  const avulsas = porRefeicao.get(null);
+
+  return (
+    <div className="space-y-2">
+      <SectionLabel
+        action={
+          <Link to="/nutricao" className="text-[0.8125rem] font-medium text-primary">
+            Ver tudo
+          </Link>
+        }
+      >
+        Registrado no diário
+      </SectionLabel>
+
+      <Card padded={false}>
+        {comRegistro.length === 0 && !avulsas ? (
+          <EmptyState
+            title="Nada registrado ainda"
+            description="Use o botão + para registrar o que você comeu."
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {comRegistro.map((m) => (
+              <li key={m.id}>
+                <CardRow as={Link} to="/nutricao">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.nome}</span>
+                  <span className="t-caption shrink-0 tabular-nums">
+                    {Math.round(porRefeicao.get(m.id)!.kcal)} kcal
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                </CardRow>
+              </li>
+            ))}
+            {avulsas && (
+              <li>
+                <CardRow as={Link} to="/nutricao">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">Avulsas</span>
+                  <span className="t-caption shrink-0 tabular-nums">
+                    {Math.round(avulsas.kcal)} kcal
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                </CardRow>
+              </li>
+            )}
+          </ul>
+        )}
+      </Card>
     </div>
   );
 }

@@ -1,5 +1,6 @@
-import { Routes, Route, Outlet } from "react-router-dom";
+import { Routes, Route, Outlet, useLocation } from "react-router-dom";
 import { BottomNav } from "./components/bottom-nav";
+import { QuickAdd } from "./components/quick-add";
 import { RequireAuth } from "./components/require-auth";
 import { DataProvider } from "./lib/data-context";
 import { Dashboard } from "./pages/dashboard";
@@ -12,14 +13,32 @@ import { Analise } from "./pages/analise";
 import { Ajustes } from "./pages/ajustes";
 import { Ia } from "./pages/ia";
 import { Mais } from "./pages/mais";
+import { Plano } from "./pages/plano";
+import { PlanoImportar } from "./pages/plano-importar";
 import { Login } from "./pages/login";
 
+/** Telas onde registrar comida é a próxima ação provável. */
+const COM_REGISTRO_RAPIDO = ["/", "/nutricao"];
+
 function ProtectedLayout() {
+  const { pathname } = useLocation();
+  const comRegistroRapido = COM_REGISTRO_RAPIDO.includes(pathname);
+
   return (
     <RequireAuth>
       <DataProvider>
-        <div className="mx-auto min-h-screen max-w-lg pb-24">
+        {/* A folga inferior cobre a barra de navegação e, quando existe, também
+            o botão flutuante — sem ela o botão fica por cima do último card e
+            esconde o que está debaixo dele. */}
+        <div
+          className={
+            comRegistroRapido
+              ? "mx-auto min-h-dvh max-w-lg pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+              : "mx-auto min-h-dvh max-w-lg pb-[calc(4rem+env(safe-area-inset-bottom))]"
+          }
+        >
           <Outlet />
+          {comRegistroRapido && <QuickAdd />}
           <BottomNav />
         </div>
       </DataProvider>
@@ -42,6 +61,8 @@ export default function App() {
         <Route path="/metas" element={<Onboarding />} />
         <Route path="/ajustes" element={<Ajustes />} />
         <Route path="/ia" element={<Ia />} />
+        <Route path="/plano" element={<Plano />} />
+        <Route path="/plano/importar" element={<PlanoImportar />} />
       </Route>
     </Routes>
   );

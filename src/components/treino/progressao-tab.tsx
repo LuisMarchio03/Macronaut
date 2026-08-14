@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Label } from "../ui/label";
-import { HudPanel } from "../ui/hud-panel";
+import { Card } from "../ui/card";
+import { Segmented } from "../ui/segmented";
 import { LineChart } from "../line-chart";
 import { useExercises } from "../../hooks/use-exercises";
 import { useSetsForExercise } from "../../hooks/use-workouts";
@@ -8,6 +9,11 @@ import { serieDeProgressao } from "../../domain/treino";
 import { formatarData } from "../../lib/date";
 
 type Metrica = "e1RM" | "topPeso";
+
+const METRICAS = [
+  { valor: "e1RM" as const, label: "1RM estimado" },
+  { valor: "topPeso" as const, label: "Carga máxima" },
+];
 
 export function ProgressaoTab() {
   const { data: exercicios = [] } = useExercises();
@@ -21,10 +27,10 @@ export function ProgressaoTab() {
   }));
 
   return (
-    <HudPanel label="Progressão" bodyClassName="space-y-3">
+    <Card header="Progressão" bodyClassName="space-y-3 px-4 pt-1 pb-4">
       <div>
         <Label htmlFor="prog-ex">Exercício</Label>
-        <select id="prog-ex" className="hud-select"
+        <select id="prog-ex" className="select-field"
           value={exId ?? ""} onChange={(e) => setExId(e.target.value ? Number(e.target.value) : undefined)}>
           <option value="">Selecione…</option>
           {exercicios.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
@@ -33,27 +39,15 @@ export function ProgressaoTab() {
 
       {exId != null && (
         <>
-          <div className="grid grid-cols-2 gap-1 rounded-lg border border-border/60 bg-muted/40 p-1">
-            {([
-              { k: "e1RM", label: "1RM estimado" },
-              { k: "topPeso", label: "Carga máx." },
-            ] as const).map((m) => (
-              <button
-                key={m.k}
-                className={`rounded-md px-2 py-1 font-mono text-[0.62rem] uppercase tracking-[0.1em] transition-colors ${
-                  metrica === m.k
-                    ? "bg-primary font-semibold text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={() => setMetrica(m.k)}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            opcoes={METRICAS}
+            valor={metrica}
+            onChange={setMetrica}
+            rotulo="Métrica de progressão"
+          />
           <LineChart pontos={pontos} unidade="kg" />
         </>
       )}
-    </HudPanel>
+    </Card>
   );
 }

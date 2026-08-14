@@ -21,14 +21,21 @@ export function ProviderSelector({
           <button
             key={p}
             type="button"
+            aria-pressed={value === p}
             onClick={() => onChange(p)}
             className={cn(
-              "flex-1 rounded-lg border px-3 py-2 font-mono text-xs uppercase tracking-[0.16em] transition-colors",
-              value === p ? "border-primary/70 bg-primary/10 text-primary" : "border-border/60 text-muted-foreground",
+              "min-h-11 flex-1 rounded-md border px-3 text-sm font-medium transition-colors",
+              value === p
+                ? "border-primary bg-tint-primary text-primary"
+                : "border-input text-muted-foreground hover:bg-muted",
             )}
           >
             {ROTULO[p]}
-            {down && <span className="ml-1 text-destructive">•</span>}
+            {down && (
+              <span className="ml-1.5 text-destructive" title="fora do ar">
+                • fora do ar
+              </span>
+            )}
           </button>
         );
       })}

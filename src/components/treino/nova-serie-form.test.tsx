@@ -115,7 +115,7 @@ it("mostra o painel anterior com data, séries e RIR", async () => {
   // semear: sessão em 2026-07-12 com 3x10 @ 40kg RIR 2 no exercício 1
   await montar({ comHistorico: true });
   await selecionarExercicio("Supino reto com barra");
-  expect(await screen.findByText(/12\/07/)).toBeInTheDocument();
+  expect(await screen.findByText(/12 de julho/)).toBeInTheDocument();
   expect(screen.getByText(/3×10 @ 40 kg/)).toBeInTheDocument();
   expect(screen.getByText(/RIR 2/)).toBeInTheDocument();
 });
@@ -128,7 +128,7 @@ it("grava a série com tipo e rir escolhidos", async () => {
   await userEvent.type(screen.getByLabelText(/peso/i), "60");
   await userEvent.click(screen.getByRole("button", { name: /aquec/i }));
   await userEvent.click(screen.getByRole("button", { name: "RIR 3" }));
-  await userEvent.click(screen.getByRole("button", { name: /\+ série/i }));
+  await userEvent.click(screen.getByRole("button", { name: /adicionar série/i }));
 
   const rs = await db.execute("SELECT reps, peso_kg, tipo, rir FROM workout_sets");
   expect(rs.rows[0]).toMatchObject({ reps: 8, peso_kg: 60, tipo: "aquecimento", rir: 3 });
@@ -136,14 +136,14 @@ it("grava a série com tipo e rir escolhidos", async () => {
 
 it("não deixa gravar sem exercício selecionado", async () => {
   await montar();
-  expect(screen.getByRole("button", { name: /\+ série/i })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /adicionar série/i })).toBeDisabled();
 });
 
 it("grava RIR 0 como 0, não como null", async () => {
   const { db } = await montar();
   await selecionarExercicio("Supino reto com barra");
   await userEvent.click(screen.getByRole("button", { name: "RIR 0" }));
-  await userEvent.click(screen.getByRole("button", { name: /\+ série/i }));
+  await userEvent.click(screen.getByRole("button", { name: /adicionar série/i }));
 
   const rs = await db.execute("SELECT rir FROM workout_sets");
   expect(rs.rows[0].rir).toBe(0);
@@ -210,7 +210,7 @@ it("calcula a ordem da nova série por exercício, ignorando séries de outros e
   );
 
   await selecionarExercicio("Supino reto com barra");
-  await userEvent.click(screen.getByRole("button", { name: /\+ série/i }));
+  await userEvent.click(screen.getByRole("button", { name: /adicionar série/i }));
   await waitFor(async () => {
     const rs = await db.execute("SELECT COUNT(*) AS n FROM workout_sets");
     expect(rs.rows[0].n).toBe(1);
@@ -218,7 +218,7 @@ it("calcula a ordem da nova série por exercício, ignorando séries de outros e
 
   await userEvent.clear(screen.getByRole("combobox"));
   await selecionarExercicio("Puxada frontal na polia");
-  await userEvent.click(screen.getByRole("button", { name: /\+ série/i }));
+  await userEvent.click(screen.getByRole("button", { name: /adicionar série/i }));
   await waitFor(async () => {
     const rs = await db.execute("SELECT COUNT(*) AS n FROM workout_sets");
     expect(rs.rows[0].n).toBe(2);
@@ -252,7 +252,7 @@ it("usa MAX(ordem)+1 ao calcular a ordem da nova série, mesmo com buraco na seq
   );
 
   await selecionarExercicio("Supino reto com barra");
-  await userEvent.click(screen.getByRole("button", { name: /\+ série/i }));
+  await userEvent.click(screen.getByRole("button", { name: /adicionar série/i }));
   await waitFor(async () => {
     const rs = await db.execute("SELECT COUNT(*) AS n FROM workout_sets");
     expect(rs.rows[0].n).toBe(1);
@@ -273,10 +273,10 @@ it("mantém exercício, reps, peso e tipo depois de gravar; só a nota limpa", a
   await userEvent.clear(screen.getByLabelText(/peso/i));
   await userEvent.type(screen.getByLabelText(/peso/i), "60");
   await userEvent.click(screen.getByRole("button", { name: /aquec/i }));
-  await userEvent.click(screen.getByRole("button", { name: "+ nota" }));
+  await userEvent.click(screen.getByRole("button", { name: /adicionar nota/i }));
   await userEvent.type(screen.getByLabelText(/^nota$/i), "boa execução");
 
-  await userEvent.click(screen.getByRole("button", { name: /\+ série/i }));
+  await userEvent.click(screen.getByRole("button", { name: /adicionar série/i }));
   await waitFor(async () => {
     const rs = await db.execute("SELECT COUNT(*) AS n FROM workout_sets");
     expect(rs.rows[0].n).toBe(1);
@@ -287,7 +287,7 @@ it("mantém exercício, reps, peso e tipo depois de gravar; só a nota limpa", a
   expect(screen.getByLabelText(/peso/i)).toHaveValue("60");
   expect(screen.getByRole("button", { name: /aquec/i })).toHaveAttribute("aria-pressed", "true");
   // nota volta a ficar escondida atrás de "+ nota" — sinal de que foi limpa
-  expect(screen.getByRole("button", { name: "+ nota" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /adicionar nota/i })).toBeInTheDocument();
   expect(screen.queryByLabelText(/^nota$/i)).not.toBeInTheDocument();
 
   // Mordida direta: grava uma SEGUNDA série sem tocar na nota e afirma no
@@ -296,7 +296,7 @@ it("mantém exercício, reps, peso e tipo depois de gravar; só a nota limpa", a
   // Se `setNota("")` sumir de `nova-serie-form.tsx` (mantendo só
   // `setMostrarNota(false)`), os asserts de UI acima continuam verdes, mas
   // este aqui pega: a segunda série gravaria "boa execução" de novo.
-  await userEvent.click(screen.getByRole("button", { name: /\+ série/i }));
+  await userEvent.click(screen.getByRole("button", { name: /adicionar série/i }));
   await waitFor(async () => {
     const rs = await db.execute("SELECT COUNT(*) AS n FROM workout_sets");
     expect(rs.rows[0].n).toBe(2);

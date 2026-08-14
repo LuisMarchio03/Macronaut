@@ -68,7 +68,7 @@ export function DesambiguarPof({
     <div className="space-y-3">
       <div>
         <p className="font-medium">{foodNome}</p>
-        <p className="font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
+        <p className="t-caption">
           Qual destes é, na tabela do IBGE?
         </p>
       </div>
@@ -83,7 +83,7 @@ export function DesambiguarPof({
               className="w-full rounded-lg border border-border/60 px-3 py-2 text-left transition-colors hover:border-primary/60 hover:bg-muted/50"
             >
               <span className="block text-sm">{c.pof_descricao ?? "(sem descrição)"}</span>
-              <span className="mt-0.5 block font-mono text-[0.72rem] tabular-nums text-muted-foreground">
+              <span className="mt-0.5 block t-caption tabular-nums">
                 {c.medidas.map((m) => `${m.nome} ${formatarNumero(m.qty_base)} ${baseUnit}`).join(" · ")}
               </span>
             </button>
@@ -95,7 +95,7 @@ export function DesambiguarPof({
         <button
           type="button"
           onClick={() => setVerTodas(true)}
-          className="font-mono text-[0.68rem] uppercase tracking-[0.12em] text-primary/80 hover:text-primary"
+          className="text-[0.8125rem] font-medium text-primary hover:underline"
         >
           ver todas as {candidatos.length}
         </button>

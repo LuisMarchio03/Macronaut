@@ -3,7 +3,7 @@ import { Plus, Pencil, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { HudPanel } from "../ui/hud-panel";
+import { Card } from "../ui/card";
 import {
   useExercises, useCreateExercise, useUpdateExercise, useDeleteExercise,
 } from "../../hooks/use-exercises";
@@ -51,23 +51,27 @@ export function ExerciciosTab() {
 
   if (editando) {
     return (
-      <HudPanel
-        label={editando === "novo" ? "Novo exercício" : "Editar exercício"}
-        bodyClassName="space-y-3"
+      <Card
+        header={editando === "novo" ? "Novo exercício" : "Editar exercício"}
+        bodyClassName="space-y-3 px-4 pt-1 pb-4"
       >
         <div><Label htmlFor="ex-nome">Nome</Label>
           <Input id="ex-nome" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
         <div><Label htmlFor="ex-grupo">Grupo muscular</Label>
-          <select id="ex-grupo" className="hud-select"
+          <select id="ex-grupo" className="select-field"
             value={grupoId} onChange={(e) => setGrupoId(e.target.value)}>
             <option value="">Sem grupo</option>
             {grupos.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
           </select></div>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setEditando(null)}>Cancelar</Button>
-          <Button className="flex-1" onClick={salvar} disabled={!nome.trim()}>Salvar</Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" onClick={() => setEditando(null)}>
+            Cancelar
+          </Button>
+          <Button onClick={salvar} disabled={!nome.trim()}>
+            Salvar
+          </Button>
         </div>
-      </HudPanel>
+      </Card>
     );
   }
 
@@ -83,7 +87,7 @@ export function ExerciciosTab() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-mono text-[0.66rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+        <h2 className="t-section">
           Biblioteca
         </h2>
         <Button size="sm" onClick={() => abrir("novo")}>
@@ -91,50 +95,65 @@ export function ExerciciosTab() {
         </Button>
       </div>
       {nPendentes > 0 && (
-        <p className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm">
+        <p className="rounded-md border border-primary/30 bg-tint-primary px-3 py-2 text-sm">
           {nPendentes} {nPendentes === 1 ? "exercício está" : "exercícios estão"} sem grupo muscular
           e <b>{nPendentes === 1 ? "fica" : "ficam"} fora da análise</b> até você escolher um.
         </p>
       )}
       {aviso && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p role="alert" className="rounded-md border border-destructive/30 bg-tint-danger px-3 py-2 text-sm text-destructive">
           {aviso}
         </p>
       )}
-      <HudPanel label="Exercícios" aside={`${exercicios.length}`} bodyClassName="p-2">
-        <ul className="divide-y divide-border/40">
-          {ordenados.map((e) => (
-            <li key={e.id} aria-label={e.nome} className="flex items-center justify-between gap-2 px-2 py-2.5">
-              <span className="truncate">
-                {e.nome}
-                <span className={`font-mono text-xs ${e.grupo_id == null ? "text-primary" : "text-muted-foreground"}`}>
-                  {" · "}{e.grupo_nome ?? "sem grupo"}
+      <Card
+        header="Exercícios"
+        aside={exercicios.length > 0 ? String(exercicios.length) : undefined}
+        padded={false}
+      >
+        {exercicios.length > 0 ? (
+          <ul className="divide-y divide-border">
+            {ordenados.map((e) => (
+              <li key={e.id} aria-label={e.nome} className="flex items-center gap-1 px-4 py-1.5">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{e.nome}</span>
+                  <span
+                    className={
+                      e.grupo_id == null
+                        ? "block truncate text-[0.8125rem] text-primary"
+                        : "t-caption block truncate"
+                    }
+                  >
+                    {e.grupo_nome ?? "sem grupo muscular"}
+                    {e.source === "catalogo" && " · catálogo"}
+                  </span>
                 </span>
-                {e.source === "catalogo" && (
-                  <span className="font-mono text-xs text-muted-foreground"> · catálogo</span>
+                {e.source === "custom" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => abrir(e)}
+                      aria-label={`Editar ${e.nome}`}
+                      className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => excluir(e)}
+                      aria-label={`Excluir ${e.nome}`}
+                      className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-tint-danger hover:text-destructive"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </>
                 )}
-              </span>
-              {e.source === "custom" && (
-                <span className="flex shrink-0 gap-1">
-                  <button
-                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/15 hover:text-primary"
-                    onClick={() => abrir(e)} aria-label="editar">
-                    <Pencil className="size-3.5" />
-                  </button>
-                  <button
-                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-                    onClick={() => excluir(e)} aria-label="excluir">
-                    <X className="size-3.5" />
-                  </button>
-                </span>
-              )}
-            </li>
-          ))}
-          {exercicios.length === 0 && (
-            <li className="px-2 py-6 text-center font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">Nenhum exercício ainda</li>
-          )}
-        </ul>
-      </HudPanel>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="t-caption px-4 pt-1 pb-4">Nenhum exercício cadastrado ainda.</p>
+        )}
+      </Card>
     </div>
   );
 }

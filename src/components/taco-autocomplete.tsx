@@ -62,14 +62,14 @@ export function TacoAutocomplete({
                 onClick={() => { cancelarFechamento(); onSelecionar(it); setAberto(false); }}
               >
                 {it.nome}{" "}
-                <span className="font-mono text-xs text-muted-foreground">
+                <span className="t-caption tabular-nums">
                   · {Math.round(it.kcal)} kcal /100g
                 </span>
               </button>
             </li>
           ))}
           {sugestoes.length === 0 && (
-            <li className="px-3 py-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
+            <li className="px-3 py-2 t-caption">
               Nada encontrado
             </li>
           )}

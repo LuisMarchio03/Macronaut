@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR" class="dark">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -7,12 +7,31 @@
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#0a0c12" />
+    <meta name="theme-color" content="#0c0d11" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)" />
     <meta
       name="description"
-      content="Macronaut — mission control for your macros & training. A personal, installable nutrition and workout PWA."
+      content="Macronaut — acompanhe seu plano alimentar, seus macros e seus treinos. PWA instalável."
     />
-    <title>Macronaut — nutrition &amp; training command deck</title>
+    <title>Macronaut</title>
+    <script>
+      // Aplica o tema antes da primeira pintura. Feito no React, o tema só
+      // entrava depois do mount e a tela piscava escura antes de ficar clara.
+      // Precisa ficar aqui, síncrono, sem `defer` nem `type=module`.
+      (function () {
+        try {
+          var salvo = localStorage.getItem("macronaut-theme");
+          var escuro =
+            salvo === "dark" ||
+            (salvo !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.classList.toggle("dark", escuro);
+        } catch (e) {
+          // localStorage bloqueado (modo privado em alguns navegadores):
+          // o React aplica o tema no mount e a única perda é o piscar.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

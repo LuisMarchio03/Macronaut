@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
-import { SectionCard } from "../components/ui/section-card";
+import { Card } from "../components/ui/card";
+import { BackLink, Page, PageHeader } from "../components/ui/page";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -36,19 +35,11 @@ export function Ajustes() {
   };
 
   return (
-    <div className="space-y-4 p-4">
-      <header className="space-y-1 pt-2">
-        <Link
-          to="/mais"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-3.5" /> Voltar
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Ajustes</h1>
-      </header>
+    <Page>
+      <PageHeader eyebrow={<BackLink to="/mais">Mais</BackLink>} title="Ajustes" />
 
       {config?.gemini_enabled && (
-        <SectionCard variant="elevated" header="Chave do Gemini" bodyClassName="space-y-2">
+        <Card header="Chave do Gemini">
           <form
             className="space-y-2"
             onSubmit={(e) => { e.preventDefault(); void salvarKey(); }}
@@ -61,25 +52,20 @@ export function Ajustes() {
               onChange={(e) => { setKey(e.target.value); setSalvo(false); setErro(""); }}
               placeholder={config.has_gemini_key ? "•••••••• (configurada)" : "cole sua API key"}
             />
-            <div className="flex gap-2">
-              <Button type="submit" disabled={!key.trim()}>Salvar chave</Button>
-              <Button type="button" variant="ghost" className="ml-auto text-muted-foreground hover:text-destructive" onClick={logout}>
-                Sair
-              </Button>
-            </div>
+            <Button type="submit" block disabled={!key.trim()}>
+              Salvar chave
+            </Button>
           </form>
-          {salvo && <p className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-emerald-400">Chave salva.</p>}
-          {erro && <p className="font-mono text-[0.6rem] uppercase tracking-[0.12em] text-destructive">{erro}</p>}
-        </SectionCard>
+          {salvo && <p className="text-[0.8125rem] font-medium text-success">Chave salva.</p>}
+          {erro && <p className="text-[0.8125rem] font-medium text-destructive">{erro}</p>}
+        </Card>
       )}
 
-      {!config?.gemini_enabled && (
-        <div className="flex justify-center pt-8">
-          <Button variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={logout}>
-            Sair
-          </Button>
-        </div>
-      )}
-    </div>
+      <Card>
+        <Button variant="destructive-ghost" block onClick={logout}>
+          Sair da conta
+        </Button>
+      </Card>
+    </Page>
   );
 }

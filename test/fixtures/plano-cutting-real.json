@@ -1,0 +1,589 @@
+{
+  "Plano": [
+    [
+      "PLANO DE CUTTING - LUÍS GABRIEL",
+      "Unnamed: 1",
+      "Unnamed: 2",
+      "Unnamed: 3",
+      "Unnamed: 4"
+    ],
+    [
+      "Meta Calórica Diária: 1700-2000 kcal",
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Meta Proteína: ~150g",
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Meta Água: 3L/dia",
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "REFEIÇÃO",
+      "HORÁRIO",
+      "ALIMENTOS",
+      "CALORIAS",
+      "OBSERVAÇÕES"
+    ],
+    [
+      "Café da Manhã",
+      "7h00 - 8h00",
+      "3 ovos mexidos/cozidos com espinafre e tomate",
+      "~400 kcal",
+      null
+    ],
+    [
+      null,
+      null,
+      "1 fatia de pão integral OU 2 col. sopa aveia",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "1 col. chá pasta de amendoim natural",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "1 fruta média (maçã ou mamão)",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "Café preto sem açúcar",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "💧 ÁGUA",
+      "8h00 - 12h00",
+      "750ml (3-4 copos de 200ml)",
+      null,
+      "Distribuir ao longo da manhã"
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Almoço",
+      "12h00 - 13h00",
+      "120g peito de frango grelhado OU atum em água",
+      "~500 kcal",
+      null
+    ],
+    [
+      null,
+      null,
+      "3 col. sopa arroz integral OU batata-doce",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "Salada abundante (alface, brócolis, cenoura)",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "1 col. sopa azeite extravirgem",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "🥤 CREATINA",
+      "Após almoço",
+      "3-5g creatina monohidratada",
+      null,
+      "Misturar em 200ml de água ou suco"
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "💧 ÁGUA",
+      "13h00 - 17h00",
+      "1000ml (5 copos de 200ml)",
+      null,
+      "Maior volume - período mais ativo"
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Lanche da Tarde",
+      "15h00 - 16h00",
+      "1 iogurte natural desnatado ou grego (150g)",
+      "~300 kcal",
+      null
+    ],
+    [
+      null,
+      null,
+      "1 banana média",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "1 col. sopa sementes (gergelim ou chia)",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "💧 ÁGUA",
+      "17h00 - 20h00",
+      "750ml (3-4 copos de 200ml)",
+      null,
+      "Antes/durante treino"
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Janta",
+      "19h00 - 20h00",
+      "100g peixe branco grelhado OU 3 ovos inteiros",
+      "~400 kcal",
+      null
+    ],
+    [
+      null,
+      null,
+      "2 col. sopa feijão ou lentilha cozida",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "Vegetais refogados (couve-flor, chuchu, espinafre)",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "💧 ÁGUA",
+      "20h00 - 22h00",
+      "500ml (2-3 copos de 200ml)",
+      null,
+      "Reduzir próximo ao sono"
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "TOTAL ESTIMADO",
+      null,
+      null,
+      "1600-1800 kcal",
+      null
+    ],
+    [
+      "HIDRATAÇÃO TOTAL",
+      null,
+      "3 LITROS",
+      null,
+      "Fracionada em 4 períodos"
+    ]
+  ],
+  "Macros": [
+    [
+      "Refeição",
+      "Proteína (g)",
+      "Carboidrato (g)",
+      "Gordura (g)",
+      "Calorias (kcal)"
+    ],
+    [
+      "Café da Manhã",
+      25,
+      35,
+      15,
+      400
+    ],
+    [
+      "Almoço",
+      35,
+      45,
+      15,
+      500
+    ],
+    [
+      "Lanche da Tarde",
+      15,
+      45,
+      7,
+      300
+    ],
+    [
+      "Janta",
+      30,
+      35,
+      10,
+      400
+    ],
+    [
+      "TOTAL DIÁRIO",
+      105,
+      160,
+      47,
+      1600
+    ]
+  ],
+  "Substituicoes": [
+    [
+      "Refeição",
+      "Categoria",
+      "Alimento",
+      "Porção",
+      "Calorias (kcal)"
+    ],
+    [
+      "Café da Manhã",
+      "Proteína",
+      "Ovos inteiros",
+      "3 unidades (150g)",
+      210
+    ],
+    [
+      "Café da Manhã",
+      "Proteína",
+      "Iogurte grego light",
+      "150g",
+      120
+    ],
+    [
+      "Café da Manhã",
+      "Proteína",
+      "Queijo cottage magro",
+      "60g",
+      70
+    ],
+    [
+      "Café da Manhã",
+      "Carboidrato",
+      "Pão integral",
+      "1 fatia (30g)",
+      75
+    ],
+    [
+      "Café da Manhã",
+      "Carboidrato",
+      "Aveia em flocos",
+      "3 col. sopa (30g)",
+      110
+    ],
+    [
+      "Café da Manhã",
+      "Carboidrato",
+      "Tapioca",
+      "2 col. sopa (30g)",
+      90
+    ],
+    [
+      "Café da Manhã",
+      "Fruta",
+      "Banana",
+      "1 unidade média",
+      90
+    ],
+    [
+      "Café da Manhã",
+      "Fruta",
+      "Maçã",
+      "1 unidade média",
+      70
+    ],
+    [
+      "Café da Manhã",
+      "Fruta",
+      "Mamão",
+      "1 fatia grande (150g)",
+      60
+    ],
+    [
+      "Café da Manhã",
+      "Gordura",
+      "Pasta de amendoim",
+      "1 col. sopa (15g)",
+      90
+    ],
+    [
+      "Café da Manhã",
+      "Gordura",
+      "Sementes de chia",
+      "1 col. sopa (10g)",
+      50
+    ],
+    [
+      "Café da Manhã",
+      "Gordura",
+      "Linhaça",
+      "1 col. sopa (10g)",
+      55
+    ],
+    [
+      "Almoço",
+      "Proteína",
+      "Peito de frango",
+      "120g",
+      130
+    ],
+    [
+      "Almoço",
+      "Proteína",
+      "Peixe branco",
+      "120g",
+      115
+    ],
+    [
+      "Almoço",
+      "Proteína",
+      "Patinho moído magro",
+      "100g",
+      150
+    ],
+    [
+      "Almoço",
+      "Proteína",
+      "Ovos inteiros",
+      "4 unidades (200g)",
+      280
+    ],
+    [
+      "Almoço",
+      "Carboidrato",
+      "Arroz integral cozido",
+      "100g",
+      110
+    ],
+    [
+      "Almoço",
+      "Carboidrato",
+      "Batata-doce cozida",
+      "160g",
+      130
+    ],
+    [
+      "Almoço",
+      "Carboidrato",
+      "Macarrão integral cozido",
+      "100g",
+      120
+    ],
+    [
+      "Almoço",
+      "Carboidrato",
+      "Tapioca",
+      "1 unidade média (50g)",
+      160
+    ],
+    [
+      "Almoço",
+      "Gordura",
+      "Azeite de oliva",
+      "1 col. sopa (10g)",
+      90
+    ],
+    [
+      "Almoço",
+      "Gordura",
+      "Castanha de caju",
+      "10 unidades (20g)",
+      110
+    ],
+    [
+      "Lanche da Tarde",
+      "Proteína",
+      "Iogurte desnatado",
+      "170g",
+      100
+    ],
+    [
+      "Lanche da Tarde",
+      "Proteína",
+      "Iogurte grego light",
+      "150g",
+      120
+    ],
+    [
+      "Lanche da Tarde",
+      "Proteína",
+      "Queijo cottage magro",
+      "100g",
+      85
+    ],
+    [
+      "Lanche da Tarde",
+      "Fruta",
+      "Banana",
+      "1 unidade média",
+      90
+    ],
+    [
+      "Lanche da Tarde",
+      "Fruta",
+      "Maçã",
+      "1 unidade média",
+      70
+    ],
+    [
+      "Lanche da Tarde",
+      "Fruta",
+      "Abacaxi",
+      "2 fatias (150g)",
+      75
+    ],
+    [
+      "Lanche da Tarde",
+      "Gordura",
+      "Sementes de chia",
+      "1 col. sopa (10g)",
+      50
+    ],
+    [
+      "Lanche da Tarde",
+      "Carboidrato",
+      "Aveia em flocos",
+      "1 col. sopa (10g)",
+      40
+    ],
+    [
+      "Janta",
+      "Proteína",
+      "Peixe branco",
+      "100g",
+      110
+    ],
+    [
+      "Janta",
+      "Proteína",
+      "Peito de frango",
+      "120g",
+      130
+    ],
+    [
+      "Janta",
+      "Proteína",
+      "Ovos inteiros",
+      "3 unidades (150g)",
+      210
+    ],
+    [
+      "Janta",
+      "Carboidrato",
+      "Feijão cozido",
+      "2 col. sopa (60g)",
+      60
+    ],
+    [
+      "Janta",
+      "Carboidrato",
+      "Lentilha cozida",
+      "2 col. sopa (60g)",
+      70
+    ],
+    [
+      "Janta",
+      "Carboidrato",
+      "Grão-de-bico cozido",
+      "2 col. sopa (60g)",
+      90
+    ],
+    [
+      "Janta",
+      "Vegetal",
+      "Brócolis",
+      "100g",
+      30
+    ],
+    [
+      "Janta",
+      "Vegetal",
+      "Couve-flor",
+      "100g",
+      25
+    ],
+    [
+      "Janta",
+      "Vegetal",
+      "Abobrinha",
+      "100g",
+      20
+    ]
+  ]
+}
