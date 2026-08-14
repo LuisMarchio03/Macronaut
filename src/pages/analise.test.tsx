@@ -54,7 +54,7 @@ it("mostra água, atividades e balanço do período", async () => {
   expect(await screen.findByText("Água")).toBeInTheDocument();
 
   // Switch to Atividade tab
-  const ativBtn = screen.getByRole("button", { name: /atividade/i });
+  const ativBtn = screen.getByRole("tab", { name: /atividade/i });
   await userEvent.setup().click(ativBtn);
 
   expect(screen.getByText("Balanço energético")).toBeInTheDocument();
@@ -81,7 +81,7 @@ it("mostra o painel de treino (sessões/volume/séries + grupo)", async () => {
   );
 
   // Switch to Atividade tab
-  const ativBtn = await screen.findByRole("button", { name: /atividade/i });
+  const ativBtn = await screen.findByRole("tab", { name: /atividade/i });
   await userEvent.setup().click(ativBtn);
 
   expect(await screen.findByText("Peito")).toBeInTheDocument();
@@ -100,7 +100,7 @@ it("mostra o painel de peso com o peso atual e o input de registro", async () =>
   );
 
   // Switch to Peso tab
-  const pesoBtn = await screen.findByRole("button", { name: /^peso$/i });
+  const pesoBtn = await screen.findByRole("tab", { name: /^peso$/i });
   await userEvent.setup().click(pesoBtn);
 
   expect(screen.getByLabelText("registrar peso")).toBeInTheDocument();

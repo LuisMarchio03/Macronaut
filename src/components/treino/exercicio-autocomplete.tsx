@@ -70,7 +70,7 @@ export function ExercicioAutocomplete({
                 onClick={() => { cancelarFechamento(); onSelecionar(e); setTexto(e.nome); setAberto(false); }}
               >
                 <span className="truncate">{e.nome}</span>
-                <span className="shrink-0 font-mono text-[0.62rem] uppercase tracking-[0.1em] text-muted-foreground">
+                <span className="shrink-0 t-caption">
                   {e.grupo_nome ?? "sem grupo"}
                   {e.source === "custom" && " · seu"}
                 </span>
@@ -78,7 +78,7 @@ export function ExercicioAutocomplete({
             </li>
           ))}
           {sugestoes.length === 0 && (
-            <li className="px-3 py-3 text-center font-mono text-[0.66rem] uppercase tracking-[0.12em] text-muted-foreground">
+            <li className="px-3 py-3 text-center t-caption">
               Nenhum exercício
             </li>
           )}

@@ -34,7 +34,7 @@ export function EditorMedidas({ foodId, baseUnit }: { foodId: number; baseUnit: 
 
   return (
     <div className="space-y-2">
-      <p className="font-mono text-[0.6rem] uppercase tracking-[0.28em] text-primary/70">
+      <p className="t-caption font-medium text-foreground">
         Medidas caseiras
       </p>
 
@@ -43,11 +43,11 @@ export function EditorMedidas({ foodId, baseUnit }: { foodId: number; baseUnit: 
           <li key={m.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm">
             <span className="flex-1 truncate">
               {m.nome}{" "}
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="t-caption tabular-nums">
                 · {formatarNumero(m.qty_base)} {baseUnit}
               </span>
               {m.source === "pof" && (
-                <span className="ml-1 font-mono text-[0.6rem] uppercase text-primary/60">ibge</span>
+                <span className="ml-1 text-[0.75rem] font-medium text-primary">ibge</span>
               )}
             </span>
             {m.source === "manual" && (
@@ -63,7 +63,7 @@ export function EditorMedidas({ foodId, baseUnit }: { foodId: number; baseUnit: 
           </li>
         ))}
         {medidas.length === 0 && (
-          <li className="px-2 py-1 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
+          <li className="px-2 py-1 t-caption">
             Nenhuma medida — registro será em {baseUnit}
           </li>
         )}

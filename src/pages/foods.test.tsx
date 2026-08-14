@@ -2,6 +2,7 @@ import { it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
@@ -15,7 +16,11 @@ function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}><Foods /></DbProvider>
+      <DbProvider client={db}>
+        <MemoryRouter>
+          <Foods />
+        </MemoryRouter>
+      </DbProvider>
     </QueryClientProvider>,
   );
 }

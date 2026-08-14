@@ -22,7 +22,7 @@ it("trocar para Mês re-ancora no início do período atual", async () => {
   const user = userEvent.setup();
   const onChange = vi.fn();
   render(<SeletorPeriodo gran="semana" periodo={periodoSemana} onChange={onChange} />);
-  await user.click(screen.getByRole("button", { name: "Mês" }));
+  await user.click(screen.getByRole("tab", { name: "Mês" }));
   expect(onChange).toHaveBeenCalledWith("mes", { inicio: "2026-07-01", fim: "2026-07-31" });
 });
 
@@ -37,6 +37,6 @@ it("trocar para Personalizado preserva o período atual (não colapsa)", async (
   const user = userEvent.setup();
   const onChange = vi.fn();
   render(<SeletorPeriodo gran="semana" periodo={periodoSemana} onChange={onChange} />);
-  await user.click(screen.getByRole("button", { name: "Personalizado" }));
+  await user.click(screen.getByRole("tab", { name: "Escolher" }));
   expect(onChange).toHaveBeenCalledWith("personalizado", periodoSemana);
 });

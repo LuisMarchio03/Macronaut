@@ -104,7 +104,7 @@ export function AddFoodSheet({
     <Sheet open={open} onOpenChange={(o) => { if (!o) { limpar(); onClose(); } }}>
       <SheetContent side="bottom" className="flex h-[90vh] flex-col">
         <SheetHeader>
-          <p className="font-mono text-[0.6rem] uppercase tracking-[0.28em] text-primary/70">
+          <p className="t-caption font-medium text-foreground">
             Registro · alimento
           </p>
           <SheetTitle>{editando ? "Editar alimento" : "Adicionar alimento"}</SheetTitle>
@@ -124,14 +124,14 @@ export function AddFoodSheet({
                   <li key={f.id}>
                     <button className="w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted/60"
                       onClick={() => setSelecionado(f)}>
-                      {f.nome} <span className="font-mono text-xs text-muted-foreground">
+                      {f.nome} <span className="t-caption tabular-nums">
                         · {Math.round(f.kcal)} kcal / {formatarNumero(f.base_qty_g)} {f.base_unit}
                       </span>
                     </button>
                   </li>
                 ))}
                 {resultados.length === 0 && (
-                  <li className="py-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
+                  <li className="py-2 t-caption">
                     Nada encontrado
                   </li>
                 )}
@@ -181,14 +181,14 @@ export function AddFoodSheet({
             </div>
 
             {medida && qtdN > 0 && (
-              <p className="font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="t-caption">
                 {formatarNumero(qtdN)} {pluralizar(medida.nome, qtdN)} ={" "}
                 {formatarNumero(qtyG)} {selecionado.base_unit}
               </p>
             )}
 
             {preview && (
-              <p className="font-mono text-[0.72rem] tabular-nums text-muted-foreground">
+              <p className="t-caption tabular-nums">
                 {Math.round(preview.kcal)} kcal · P {Math.round(preview.prot_g)}g ·
                 C {Math.round(preview.carb_g)}g · G {Math.round(preview.gord_g)}g
               </p>
@@ -235,7 +235,7 @@ function ListaRapida({
 
   return (
     <div className="space-y-1">
-      <p className="font-mono text-[0.6rem] uppercase tracking-[0.28em] text-primary/70">{titulo}</p>
+      <p className="t-caption font-medium text-foreground">{titulo}</p>
       <ul className="space-y-0.5">
         {usos.map((u) => {
           const f = foods?.get(u.food_id);
@@ -247,7 +247,7 @@ function ListaRapida({
           return (
             <li key={u.food_id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm">
               <button type="button" onClick={() => onSelecionar(f)} className="flex-1 truncate text-left hover:text-primary">
-                {f.nome} <span className="font-mono text-xs text-muted-foreground">· {rotulo}</span>
+                {f.nome} <span className="t-caption tabular-nums">· {rotulo}</span>
               </button>
               <button
                 type="button"

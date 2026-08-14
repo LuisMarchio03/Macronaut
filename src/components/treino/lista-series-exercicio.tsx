@@ -1,14 +1,23 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
+import { Card } from "../ui/card";
 import { Input } from "../ui/input";
-import { HudPanel } from "../ui/hud-panel";
 import { useDeleteSet, useUpdateSet } from "../../hooks/use-workouts";
 import { seriesEfetivas, rotuloRir } from "../../domain/treino";
+import { cn } from "@/lib/utils";
 import type { WorkoutSet } from "../../domain/types";
 
+const ROTULO_TIPO: Record<string, string> = {
+  aquecimento: "aquecimento",
+  drop: "drop",
+  falha: "falha",
+};
+
 export function ListaSeriesExercicio({
-  nome, sets, sessionId,
+  nome,
+  sets,
+  sessionId,
 }: {
   nome: string;
   sets: WorkoutSet[];
@@ -21,7 +30,9 @@ export function ListaSeriesExercicio({
   const [ePeso, setEPeso] = useState("");
 
   function abrirEdicao(s: WorkoutSet) {
-    setEditId(s.id); setEReps(String(s.reps)); setEPeso(String(s.peso_kg));
+    setEditId(s.id);
+    setEReps(String(s.reps));
+    setEPeso(String(s.peso_kg));
   }
   async function confirmarEdicao(id: number) {
     if (Number(eReps) <= 0) return;
@@ -33,48 +44,75 @@ export function ListaSeriesExercicio({
   const nEfetivas = seriesEfetivas(sets).length;
 
   return (
-    <HudPanel label={nome} aside={`${nEfetivas} séries`} bodyClassName="p-2">
-      <ul>
+    <Card
+      header={nome}
+      aside={nEfetivas === 1 ? "1 série" : `${nEfetivas} séries`}
+      padded={false}
+    >
+      <ul className="divide-y divide-border">
         {sets.map((s) => {
           const aquec = s.tipo === "aquecimento";
+          const marcador = ROTULO_TIPO[s.tipo];
+
+          if (editId === s.id) {
+            return (
+              <li key={s.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+                <Input
+                  aria-label="reps"
+                  inputMode="numeric"
+                  value={eReps}
+                  onChange={(e) => setEReps(e.target.value)}
+                  className="w-16"
+                />
+                <span aria-hidden className="text-muted-foreground">
+                  ×
+                </span>
+                <Input
+                  aria-label="peso"
+                  inputMode="decimal"
+                  value={ePeso}
+                  onChange={(e) => setEPeso(e.target.value)}
+                  className="w-20"
+                />
+                <Button size="sm" onClick={() => confirmarEdicao(s.id)} disabled={updSet.isPending}>
+                  Confirmar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>
+                  Cancelar
+                </Button>
+              </li>
+            );
+          }
+
           return (
-            <li
-              key={s.id}
-              className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/50 ${
-                aquec ? "opacity-50" : ""
-              }`}
-            >
-              {editId === s.id ? (
-                <div className="flex flex-1 items-center gap-1">
-                  <Input aria-label="reps" inputMode="numeric" value={eReps}
-                    onChange={(e) => setEReps(e.target.value)} className="h-7 w-14" />
-                  <span className="font-mono text-xs">×</span>
-                  <Input aria-label="peso" inputMode="decimal" value={ePeso}
-                    onChange={(e) => setEPeso(e.target.value)} className="h-7 w-16" />
-                  <Button size="sm" className="h-7" onClick={() => confirmarEdicao(s.id)}
-                    disabled={updSet.isPending}>confirmar</Button>
-                  <Button size="sm" variant="secondary" className="h-7"
-                    onClick={() => setEditId(null)}>cancelar</Button>
-                </div>
-              ) : (
-                <button type="button" onClick={() => abrirEdicao(s)}
-                  className="flex-1 text-left font-mono text-[0.8rem] tabular-nums hover:text-primary">
-                  {s.ordem}ª · {s.reps} reps × {s.peso_kg} kg
-                  {s.rir != null && <span className="text-muted-foreground"> · RIR {rotuloRir(s.rir)}</span>}
-                  {aquec && <span className="text-muted-foreground"> · aquec.</span>}
-                  {s.tipo === "drop" && <span className="text-muted-foreground"> · drop</span>}
-                  {s.tipo === "falha" && <span className="text-muted-foreground"> · falha</span>}
-                </button>
-              )}
+            <li key={s.id} className="flex items-center gap-1 px-2">
               <button
-                className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
-                onClick={() => delSet.mutate(s.id)} aria-label="remover">
-                <X className="size-3.5" />
+                type="button"
+                onClick={() => abrirEdicao(s)}
+                aria-label={`Editar ${s.ordem}ª série: ${s.reps} repetições com ${s.peso_kg} quilos`}
+                className={cn(
+                  "min-h-11 min-w-0 flex-1 rounded-md px-2 py-1.5 text-left text-sm tabular-nums transition-colors hover:bg-muted",
+                  aquec && "text-muted-foreground",
+                )}
+              >
+                <span className="font-medium">{s.ordem}ª</span> · {s.reps} reps × {s.peso_kg} kg
+                {s.rir != null && (
+                  <span className="t-caption"> · RIR {rotuloRir(s.rir)}</span>
+                )}
+                {marcador && <span className="t-caption"> · {marcador}</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => delSet.mutate(s.id)}
+                aria-label={`Remover ${s.ordem}ª série`}
+                className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-tint-danger hover:text-destructive"
+              >
+                <X className="size-4" />
               </button>
             </li>
           );
         })}
       </ul>
-    </HudPanel>
+    </Card>
   );
 }

@@ -17,46 +17,31 @@ import { useAnalisePeso, useRegistrarPeso } from "../hooks/use-analise-peso";
 import { useProfile } from "../hooks/use-profile";
 import { LineChart } from "../components/line-chart";
 import { MacroBars } from "../components/macro-bars";
-import { SectionCard } from "../components/ui/section-card";
-import { StatCard } from "../components/ui/stat-card";
+import { Card } from "../components/ui/card";
+import { Page, PageHeader } from "../components/ui/page";
+import { Progress } from "../components/ui/progress";
+import { Segmented } from "../components/ui/segmented";
+import { Stat } from "../components/ui/stat";
 import { SkeletonCard } from "../components/ui/skeleton";
 import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
-import { hoje, formatarData } from "../lib/date";
+import { hoje, dataPorExtenso } from "../lib/date";
 import type { Macros } from "../domain/types";
 
 const META_ZERO: Macros = { kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0 };
+
+/** Uma casa decimal, com vírgula: 82.35 → "82,4". */
+const arred = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace(".", ",");
 const META_AGUA_ML = 3000;
 
 type TabKey = "nutricao" | "peso" | "atividade";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "nutricao", label: "Nutrição" },
-  { key: "peso", label: "Peso" },
-  { key: "atividade", label: "Atividade" },
+const TABS = [
+  { valor: "nutricao" as const, label: "Nutrição" },
+  { valor: "peso" as const, label: "Peso" },
+  { valor: "atividade" as const, label: "Atividade" },
 ];
-
-function TabBar({ active, onChange }: { active: TabKey; onChange: (k: TabKey) => void }) {
-  return (
-    <div className="grid grid-cols-3 gap-1 rounded-xl border border-border/50 bg-card p-1">
-      {TABS.map((t) => (
-        <button
-          key={t.key}
-          type="button"
-          onClick={() => onChange(t.key)}
-          className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-all ${
-            active === t.key
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export function Analise() {
   const [tab, setTab] = useState<TabKey>("nutricao");
@@ -116,15 +101,12 @@ export function Analise() {
   const vazioAtividade = sessions.length === 0 && treino.nSessoes === 0 && treino.sets.length === 0;
 
   return (
-    <div className="space-y-4 p-4">
-      <header className="space-y-1 pt-2">
-        <p className="section-title">Análise</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Análise</h1>
-      </header>
+    <Page>
+      <PageHeader title="Análise" />
 
       <SeletorPeriodo gran={gran} periodo={periodo} onChange={(g, p) => { setGran(g); setPeriodo(p); }} />
 
-      <TabBar active={tab} onChange={setTab} />
+      <Segmented opcoes={TABS} valor={tab} onChange={setTab} rotulo="O que analisar" />
 
       {/* ─── Tab: Nutrição ─── */}
       {tab === "nutricao" && (
@@ -142,56 +124,81 @@ export function Analise() {
           <div className="space-y-3">
             {diasComKcal > 0 && (
               <>
-                <SectionCard variant="gradient" header="Média diária" aside={`${diasComKcal}/${resumo.diasNoPeriodo} dias`}>
-                  <StatCard variant="flush" value={`${Math.round(resumo.mediaKcal)}`} label="kcal / dia" />
+                <Card
+                  tone="primary"
+                  header="Média diária"
+                  aside={`${diasComKcal} de ${resumo.diasNoPeriodo} dias`}
+                >
+                  <Stat
+                    value={Math.round(resumo.mediaKcal).toLocaleString("pt-BR")}
+                    unit="kcal / dia"
+                    label=""
+                    size="lg"
+                  />
                   {meta.kcal > 0 && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${Math.min(100, resumo.aderenciaKcalPct)}%` }}
-                        />
-                      </div>
-                      <span className="font-mono text-xs tabular-nums text-primary">
-                        {resumo.aderenciaKcalPct}% da meta
-                      </span>
-                    </div>
+                    <>
+                      <Progress
+                        value={resumo.aderenciaKcalPct}
+                        max={100}
+                        tone="primary"
+                        size="sm"
+                        className="mt-3"
+                        label={`Aderência à meta de calorias: ${resumo.aderenciaKcalPct}%`}
+                      />
+                      <p className="t-caption mt-2 tabular-nums">
+                        {resumo.aderenciaKcalPct}% da meta de {Math.round(meta.kcal)} kcal
+                      </p>
+                    </>
                   )}
-                </SectionCard>
+                </Card>
 
-                <SectionCard variant="elevated" header="Calorias por dia">
+                <Card header="Calorias por dia">
                   <LineChart pontos={pontos} unidade="kcal" msgVazia="Registre alimentos para ver o gráfico." />
-                </SectionCard>
+                </Card>
 
-                <SectionCard variant="elevated" header="Macros médios vs meta">
+                <Card header="Macros médios comparados à meta">
                   <MacroBars consumido={media} meta={meta} />
-                </SectionCard>
+                </Card>
 
-                <SectionCard variant="elevated" header="Dias" bodyClassName="p-2">
-                  <ul className="divide-y divide-border/40">
+                <Card header="Dia a dia" padded={false}>
+                  <ul className="divide-y divide-border">
                     {diasRegistrados.map(([dia, m]) => (
-                      <li key={dia} className="flex items-center justify-between px-2 py-2.5">
-                        <span className="font-mono text-sm">{formatarData(dia)}</span>
-                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                          {Math.round(m.kcal)} kcal · P{Math.round(m.prot_g)} · C{Math.round(m.carb_g)} · G{Math.round(m.gord_g)}
+                      <li key={dia} className="px-4 py-2.5">
+                        <span className="block text-sm font-medium">{dataPorExtenso(dia)}</span>
+                        <span className="t-caption block tabular-nums">
+                          {Math.round(m.kcal)} kcal · P {Math.round(m.prot_g)} · C{" "}
+                          {Math.round(m.carb_g)} · G {Math.round(m.gord_g)}
                         </span>
                       </li>
                     ))}
                   </ul>
-                </SectionCard>
+                </Card>
               </>
             )}
 
-            <SectionCard variant="elevated" header="Água" aside={`${resumoAg.diasBateramMeta} dia(s) na meta`}>
-              <div className="flex items-baseline gap-2">
-                <span className="metric-value text-3xl">{Math.round(resumoAg.mediaMl)}</span>
-                <span className="metric-label">ml / dia</span>
-                <span className="ml-auto font-mono text-xs text-muted-foreground">meta {META_AGUA_ML} ml</span>
+            <Card
+              header="Água"
+              aside={
+                resumoAg.diasBateramMeta === 1
+                  ? "1 dia na meta"
+                  : `${resumoAg.diasBateramMeta} dias na meta`
+              }
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <Stat
+                  value={Math.round(resumoAg.mediaMl).toLocaleString("pt-BR")}
+                  unit="ml / dia"
+                  label=""
+                  size="lg"
+                />
+                <span className="t-caption shrink-0 tabular-nums">
+                  meta {(META_AGUA_ML / 1000).toFixed(1).replace(".", ",")} L
+                </span>
               </div>
               <div className="mt-3">
                 <LineChart pontos={pontosAgua} unidade="ml" msgVazia="Registre água para ver o gráfico." />
               </div>
-            </SectionCard>
+            </Card>
           </div>
         )
       )}
@@ -199,7 +206,7 @@ export function Analise() {
       {/* ─── Tab: Peso ─── */}
       {tab === "peso" && (
         <div className="space-y-3">
-          <SectionCard variant="gradient" header="Registrar peso">
+          <Card tone="primary" header="Registrar peso">
             <div className="flex gap-2">
               <Input
                 inputMode="decimal"
@@ -212,23 +219,28 @@ export function Analise() {
                 Salvar
               </Button>
             </div>
-          </SectionCard>
+          </Card>
 
           {resumoPe.nRegistros > 0 ? (
             <>
-              <div className="stat-grid stat-grid-3">
-                <StatCard variant="elevated" value={`${Math.round(resumoPe.atual * 10) / 10}`} label="atual (kg)" />
-                <StatCard variant="elevated" value={`${Math.round(resumoPe.media * 10) / 10}`} label="média (kg)" />
-                <StatCard
-                  variant="elevated"
-                  value={`${resumoPe.variacao >= 0 ? "+" : ""}${Math.abs(Math.round(resumoPe.variacao * 10) / 10)}`}
-                  label="variação (kg)"
-                />
-              </div>
+              <Card>
+                <div className="grid grid-cols-3 gap-3">
+                  <Stat value={arred(resumoPe.atual)} unit="kg" label="atual" />
+                  <Stat value={arred(resumoPe.media)} unit="kg" label="média" />
+                  <Stat
+                    value={`${resumoPe.variacao >= 0 ? "+" : "−"}${arred(Math.abs(resumoPe.variacao))}`}
+                    unit="kg"
+                    label="variação"
+                  />
+                </div>
+              </Card>
 
-              <SectionCard variant="elevated" header={`Evolução (${resumoPe.nRegistros} pesagens)`}>
+              <Card
+                header="Evolução"
+                aside={resumoPe.nRegistros === 1 ? "1 pesagem" : `${resumoPe.nRegistros} pesagens`}
+              >
                 <LineChart pontos={pontosPeso} unidade="kg" msgVazia="Registre pelo menos 2 pesagens para ver a curva." />
-              </SectionCard>
+              </Card>
             </>
           ) : (
             <EmptyState
@@ -248,64 +260,68 @@ export function Analise() {
           />
         ) : (
           <div className="space-y-3">
-            <div className="stat-grid stat-grid-3">
-              <StatCard variant="elevated" value={`${Math.round(resumoAt.totalKcal)}`} label="kcal gastas" />
-              <StatCard variant="elevated" value={`${Math.round(resumoAt.totalMin)}`} label="min totais" />
-              <StatCard variant="elevated" value={`${resumoAt.nSessoes}`} label="sessões" />
-            </div>
-
-            <SectionCard variant="gradient" header="Balanço energético">
-              <div className="flex items-center justify-between font-mono text-sm tabular-nums">
-                <span className="text-muted-foreground">
-                  ingerido <b className="text-foreground">{Math.round(balanco.ingerido)}</b>
-                </span>
-                <span className="text-muted-foreground">
-                  gasto <b className="text-foreground">{Math.round(balanco.gasto)}</b>
-                </span>
-                <span className={balanco.saldo >= 0 ? "text-primary" : "text-destructive"}>
-                  saldo <b>{balanco.saldo >= 0 ? "+" : "−"}{Math.abs(Math.round(balanco.saldo))}</b>
-                </span>
+            <Card>
+              <div className="grid grid-cols-3 gap-3">
+                <Stat value={Math.round(resumoAt.totalKcal)} unit="kcal" label="gastas" />
+                <Stat value={Math.round(resumoAt.totalMin)} unit="min" label="em atividade" />
+                <Stat value={resumoAt.nSessoes} label="sessões" />
               </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${Math.min(100, (balanco.ingerido / (balanco.gasto || 1)) * 100)}%`,
-                    background: balanco.saldo >= 0 ? "var(--primary)" : "var(--destructive)",
-                  }}
+            </Card>
+
+            <Card tone="primary" header="Balanço energético">
+              <div className="grid grid-cols-3 gap-3">
+                <Stat value={Math.round(balanco.ingerido)} unit="kcal" label="ingerido" />
+                <Stat value={Math.round(balanco.gasto)} unit="kcal" label="gasto em atividade" />
+                <Stat
+                  value={`${balanco.saldo >= 0 ? "+" : "−"}${Math.abs(Math.round(balanco.saldo))}`}
+                  unit="kcal"
+                  label="saldo"
+                  tone={balanco.saldo >= 0 ? "primary" : undefined}
                 />
               </div>
-            </SectionCard>
+              <Progress
+                value={balanco.ingerido}
+                max={balanco.gasto || balanco.ingerido || 1}
+                tone={balanco.saldo >= 0 ? "primary" : "warning"}
+                size="sm"
+                className="mt-3"
+                label={`Ingerido ${Math.round(balanco.ingerido)} kcal contra ${Math.round(balanco.gasto)} kcal gastos`}
+              />
+            </Card>
 
             {treino.sets.length > 0 && (
               <>
-                <div className="stat-grid stat-grid-3">
-                  <StatCard variant="elevated" value={`${resumoTr.nSessoes}`} label="sessões" />
-                  <StatCard variant="elevated" value={`${Math.round(resumoTr.volumeTotal)}`} label="volume (kg)" />
-                  <StatCard variant="elevated" value={`${resumoTr.nSeries}`} label="séries" />
-                </div>
+                <Card>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Stat value={resumoTr.nSessoes} label="sessões" />
+                    <Stat value={Math.round(resumoTr.volumeTotal).toLocaleString("pt-BR")} unit="kg" label="volume" />
+                    <Stat value={resumoTr.nSeries} label="séries" />
+                  </div>
+                </Card>
 
-                <SectionCard variant="elevated" header="Volume por dia">
+                <Card header="Volume por dia">
                   <LineChart pontos={pontosVolume} unidade="kg" msgVazia="Registre treinos para ver o volume." />
-                </SectionCard>
+                </Card>
 
                 {gruposVol.length > 0 && (
-                  <SectionCard variant="elevated" header="Volume por grupo muscular">
-                    <ul className="space-y-1.5">
+                  <Card header="Volume por grupo muscular" padded={false}>
+                    <ul className="divide-y divide-border">
                       {gruposVol.map(([g, v]) => (
-                        <li key={g} className="flex items-center justify-between font-mono text-sm tabular-nums">
-                          <span className="text-muted-foreground">{g}</span>
-                          <span className="font-medium">{Math.round(v)} kg</span>
+                        <li key={g} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                          <span className="min-w-0 truncate">{g}</span>
+                          <span className="shrink-0 font-medium tabular-nums">
+                            {Math.round(v).toLocaleString("pt-BR")} kg
+                          </span>
                         </li>
                       ))}
                     </ul>
-                  </SectionCard>
+                  </Card>
                 )}
               </>
             )}
           </div>
         )
       )}
-    </div>
+    </Page>
   );
 }

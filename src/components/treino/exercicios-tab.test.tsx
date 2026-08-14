@@ -105,8 +105,8 @@ it("exercício sem grupo sobe ao topo marcado como pendente", async () => {
 it("exercício de catálogo não tem botão de editar nem excluir", async () => {
   await montar({ comCatalogo: true });
   const item = screen.getByRole("listitem", { name: /supino reto com barra/i });
-  expect(within(item).queryByLabelText("editar")).not.toBeInTheDocument();
-  expect(within(item).queryByLabelText("excluir")).not.toBeInTheDocument();
+  expect(within(item).queryByLabelText(/^editar /i)).not.toBeInTheDocument();
+  expect(within(item).queryByLabelText(/^excluir /i)).not.toBeInTheDocument();
   // controle positivo: o item de catálogo aparece e está marcado como tal —
   // sem isto, os dois queryBy acima passariam mesmo se a lista estivesse vazia.
   expect(within(item).getByText(/catálogo/i)).toBeInTheDocument();
@@ -115,8 +115,10 @@ it("exercício de catálogo não tem botão de editar nem excluir", async () => 
 it("exercício do usuário tem editar e excluir", async () => {
   await montar({ exercicios: [{ nome: "Meu supino", grupo: "Peito" }] });
   const item = screen.getByRole("listitem", { name: /meu supino/i });
-  expect(within(item).getByLabelText("editar")).toBeInTheDocument();
-  expect(within(item).getByLabelText("excluir")).toBeInTheDocument();
+  // O rótulo nomeia o exercício: numa lista de vinte, "editar" sozinho não
+  // diz a um leitor de tela o que está sendo editado.
+  expect(within(item).getByLabelText("Editar Meu supino")).toBeInTheDocument();
+  expect(within(item).getByLabelText("Excluir Meu supino")).toBeInTheDocument();
 });
 
 it("o formulário usa select de grupo, não texto livre", async () => {
@@ -143,6 +145,6 @@ it("cria exercício com o grupo escolhido", async () => {
 
 it("avisa quando a exclusão é recusada por estar em uso", async () => {
   await montar({ exercicioEmUso: true });
-  await userEvent.click(screen.getByLabelText("excluir"));
+  await userEvent.click(screen.getByLabelText(/^excluir /i));
   expect(await screen.findByText(/está em uso/i)).toBeInTheDocument();
 });

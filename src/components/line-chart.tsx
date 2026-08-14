@@ -9,7 +9,7 @@ export function LineChart({
 }) {
   if (pontos.length < 2) {
     return (
-      <p className="py-8 text-center font-mono text-[0.68rem] uppercase tracking-[0.12em] text-muted-foreground">
+      <p className="py-8 text-center t-caption">
         {msgVazia}
       </p>
     );

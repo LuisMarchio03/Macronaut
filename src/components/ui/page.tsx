@@ -1,5 +1,20 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** Volta para a tela de origem. Vai no `eyebrow` do cabeçalho. */
+export function BackLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="inline-flex min-h-8 items-center gap-1 text-[0.8125rem] font-medium text-primary"
+    >
+      <ArrowLeft className="size-3.5" aria-hidden />
+      {children}
+    </Link>
+  );
+}
 
 /** Casca da página: gutter, ritmo vertical e folga para a barra inferior. */
 export function Page({

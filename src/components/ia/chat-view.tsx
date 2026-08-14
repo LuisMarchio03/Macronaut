@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { HudPanel } from "../ui/hud-panel";
+
 import { ProviderSelector } from "./provider-selector";
 import { AiStatusBadges } from "./ai-status-badges";
 import { MessageList, type ChatMsg } from "./message-list";
@@ -67,16 +67,16 @@ export function ChatView({
   };
 
   return (
-    <HudPanel label={`IA · ${provider}`} bodyClassName="space-y-4 p-4">
+    <div className="space-y-4 p-4">
       <AiStatusBadges health={health.data} enabled={enabled} />
       <ProviderSelector enabled={enabled} value={provider} onChange={trocar} health={health.data} />
       {semKeyGemini && (
-        <p className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-destructive">
+        <p className="text-[0.8125rem] font-medium text-destructive">
           Cadastre sua chave do Gemini em Ajustes.
         </p>
       )}
       <MessageList messages={messages} />
       <ChatInput onSend={enviar} disabled={chat.isPending || semKeyGemini || conv.isLoading} />
-    </HudPanel>
+    </div>
   );
 }

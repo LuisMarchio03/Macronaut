@@ -4,7 +4,8 @@ import { Target, Calculator, Save, TrendingDown, Clock } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { SectionCard } from "../components/ui/section-card";
+import { Card } from "../components/ui/card";
+import { Page, PageHeader } from "../components/ui/page";
 import { useProfile, useSaveProfile } from "../hooks/use-profile";
 import { useAuth } from "../lib/auth-context";
 import {
@@ -92,17 +93,25 @@ export function Onboarding() {
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <header className="space-y-1 pt-2">
-        <p className="section-title">Perfil</p>
-        <h1 className="text-2xl font-semibold tracking-tight">Suas metas</h1>
-      </header>
+    <Page>
+      <PageHeader title="Suas metas">
+        <p className="t-caption">
+          O app usa estes dados para calcular sua meta de calorias e a divisão de macros.
+        </p>
+      </PageHeader>
 
-      <SectionCard variant="gradient" header={<span className="flex items-center gap-1.5"><Target className="size-3.5" /> Perfil</span>} bodyClassName="p-4">
+      <Card
+        tone="primary"
+        header={
+          <span className="flex items-center gap-1.5">
+            <Target className="size-3.5" aria-hidden /> Perfil
+          </span>
+        }
+      >
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="sexo">Sexo</Label>
-            <select id="sexo" className="hud-select"
+            <select id="sexo" className="select-field"
               value={sexo} onChange={(e) => setSexo(e.target.value as Sexo)}>
               <option value="M">Masculino</option>
               <option value="F">Feminino</option>
@@ -125,7 +134,7 @@ export function Onboarding() {
           </div>
           <div>
             <Label htmlFor="fator">Atividade</Label>
-            <select id="fator" className="hud-select"
+            <select id="fator" className="select-field"
               value={fator} onChange={(e) => setFator(e.target.value)}>
               <option value="1.2">Sedentário (1.2)</option>
               <option value="1.375">Leve (1.375)</option>
@@ -136,7 +145,7 @@ export function Onboarding() {
           </div>
           <div>
             <Label htmlFor="objetivo">Objetivo</Label>
-            <select id="objetivo" className="hud-select"
+            <select id="objetivo" className="select-field"
               value={objetivo} onChange={(e) => setObjetivo(e.target.value as Objetivo)}>
               <option value="cut">Emagrecimento</option>
               <option value="manutencao">Manutenção</option>
@@ -144,14 +153,17 @@ export function Onboarding() {
             </select>
           </div>
         </div>
-      </SectionCard>
+      </Card>
 
       {/* Ritmo de emagrecimento */}
       {objetivo === "cut" && (
-        <SectionCard
-          variant="elevated"
-          header={<span className="flex items-center gap-1.5"><TrendingDown className="size-3.5" /> Ritmo de emagrecimento</span>}
-          bodyClassName="space-y-4"
+        <Card
+          header={
+            <span className="flex items-center gap-1.5">
+              <TrendingDown className="size-3.5" aria-hidden /> Ritmo de emagrecimento
+            </span>
+          }
+          bodyClassName="space-y-4 px-4 pt-1 pb-4"
         >
           <div className="grid grid-cols-4 gap-1.5">
             {RITMOS.map((r) => (
@@ -159,15 +171,16 @@ export function Onboarding() {
                 key={r.key}
                 type="button"
                 onClick={() => setRitmo(r.key)}
+                aria-pressed={ritmo === r.key}
                 className={cn(
-                  "rounded-lg border px-2 py-2.5 text-center text-xs transition-all",
+                  "min-h-14 rounded-md border px-2 py-2 text-center text-[0.8125rem] transition-colors",
                   ritmo === r.key
-                    ? "border-primary bg-primary/10 text-primary shadow-sm"
-                    : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                    ? "border-primary bg-tint-primary text-primary"
+                    : "border-input text-muted-foreground hover:bg-muted",
                 )}
               >
                 <span className="block font-semibold">{r.label}</span>
-                <span className="block font-mono text-[0.6rem] tabular-nums opacity-70">{r.sub}</span>
+                <span className="block text-[0.75rem] tabular-nums opacity-80">{r.sub}</span>
               </button>
             ))}
           </div>
@@ -184,44 +197,51 @@ export function Onboarding() {
           </div>
 
           {tdeeEstimado > 0 && (
-            <div className="rounded-xl bg-muted/50 p-3 text-sm">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2">
+            <div className="rounded-lg bg-muted p-3 text-sm">
+              <div className="flex items-center justify-between border-b border-border pb-2">
                 <span className="text-muted-foreground">Gasto total (TDEE)</span>
-                <span className="font-mono font-semibold tabular-nums">{Math.round(tdeeEstimado)} kcal</span>
+                <span className="font-semibold tabular-nums">{Math.round(tdeeEstimado)} kcal</span>
               </div>
-              <div className="flex items-center justify-between border-b border-border/40 py-2">
+              <div className="flex items-center justify-between border-b border-border py-2">
                 <span className="text-muted-foreground">Déficit diário</span>
-                <span className="font-mono font-semibold tabular-nums text-destructive">-{deficitEstimado} kcal</span>
+                <span className="font-semibold tabular-nums text-destructive">-{deficitEstimado} kcal</span>
               </div>
-              <div className="flex items-center justify-between border-b border-border/40 py-2">
+              <div className="flex items-center justify-between border-b border-border py-2">
                 <span className="text-muted-foreground">Meta calórica</span>
-                <span className="font-mono font-semibold tabular-nums text-primary">
+                <span className="font-semibold tabular-nums text-primary">
                   {metaKcal || Math.round(tdeeEstimado - deficitEstimado)} kcal
                 </span>
               </div>
               <div className="flex items-center justify-between pt-2">
                 <span className="text-muted-foreground">Perda semanal</span>
-                <span className="font-mono font-semibold tabular-nums text-emerald-500">
+                <span className="font-semibold tabular-nums text-success">
                   ~{perdaSemanal(ritmo)} kg
                 </span>
               </div>
               {semanasRestantes > 0 && (
-                <div className="mt-2 flex items-center justify-between rounded-lg bg-primary/10 px-2 py-1.5">
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="size-3.5" /> Tempo até a meta
+                <div className="mt-2 flex items-center justify-between rounded-md bg-tint-primary px-2 py-1.5">
+                  <span className="t-caption flex items-center gap-1">
+                    <Clock className="size-3.5" aria-hidden /> Tempo até a meta
                   </span>
-                  <span className="font-mono text-xs font-semibold tabular-nums text-primary">
+                  <span className="text-[0.8125rem] font-semibold tabular-nums text-primary">
                     ~{semanasRestantes} {semanasRestantes === 1 ? "semana" : "semanas"}
                   </span>
                 </div>
               )}
             </div>
           )}
-        </SectionCard>
+        </Card>
       )}
 
-      <SectionCard variant="elevated" header={<span className="flex items-center gap-1.5"><Calculator className="size-3.5" /> Metas · macros</span>} bodyClassName="space-y-4">
-        <Button type="button" variant="secondary" className="w-full" onClick={calcular}>
+      <Card
+        header={
+          <span className="flex items-center gap-1.5">
+            <Calculator className="size-3.5" aria-hidden /> Metas e macros
+          </span>
+        }
+        bodyClassName="space-y-4 px-4 pt-1 pb-4"
+      >
+        <Button type="button" variant="outline" block onClick={calcular}>
           <Calculator className="size-4" /> Calcular
         </Button>
         <div className="grid grid-cols-2 gap-3">
@@ -246,15 +266,16 @@ export function Onboarding() {
               onChange={(e) => setMetaGord(e.target.value)} />
           </div>
         </div>
-        <Button type="button" className="w-full" onClick={onSalvar}
-          disabled={!metaKcal || salvar.isPending}>
-          <Save className="size-4" /> Salvar
+        <Button type="button" block onClick={onSalvar} disabled={!metaKcal || salvar.isPending}>
+          <Save className="size-4" /> Salvar metas
         </Button>
-      </SectionCard>
+      </Card>
 
-      <Button type="button" variant="ghost" className="w-full text-muted-foreground hover:text-destructive" onClick={logout}>
-        Sair
-      </Button>
-    </div>
+      <Card>
+        <Button type="button" variant="destructive-ghost" block onClick={logout}>
+          Sair da conta
+        </Button>
+      </Card>
+    </Page>
   );
 }
