@@ -33,6 +33,10 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   // já foi registrado antes do programa continua válido com as duas nulas.
   { table: "workout_sets", column: "prescribed_pct", ddl: "ALTER TABLE workout_sets ADD COLUMN prescribed_pct REAL" },
   { table: "workout_sets", column: "amrap", ddl: "ALTER TABLE workout_sets ADD COLUMN amrap INTEGER" },
+  // Quando o usuário disse que o treino acabou. NULL = em andamento. Explícito
+  // e não derivado: uma sessão pode terminar com séries por fazer, e derivar
+  // "acabou" de "não sobrou nada pendente" nunca deixaria essa sessão fechar.
+  { table: "workout_sessions", column: "concluida_em", ddl: "ALTER TABLE workout_sessions ADD COLUMN concluida_em TEXT" },
 ];
 
 /**

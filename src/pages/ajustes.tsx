@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ThemeToggle } from "@/lib/theme";
 import { Card } from "../components/ui/card";
 import { BackLink, Page, PageHeader } from "../components/ui/page";
 import { Button } from "../components/ui/button";
@@ -76,6 +77,12 @@ export function Ajustes() {
             </dd>
           </div>
         </dl>
+      </Card>
+
+      {/* O tema era uma funcionalidade anunciada e inalcançável: `ThemeToggle`
+          existia em lib/theme.tsx sem estar montado em tela nenhuma. */}
+      <Card header="Aparência" padded={false}>
+        <ThemeToggle />
       </Card>
 
       {!config?.gemini_enabled && !config?.aloy_enabled && (

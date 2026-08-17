@@ -27,7 +27,7 @@ export function ProgressaoTab() {
   }));
 
   return (
-    <Card header="Progressão" bodyClassName="space-y-3 px-4 pt-1 pb-4">
+    <Card bodyClassName="space-y-3 px-4 pt-1 pb-4">
       <div>
         <Label htmlFor="prog-ex">Exercício</Label>
         <select id="prog-ex" className="select-field"

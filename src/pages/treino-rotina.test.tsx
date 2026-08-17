@@ -45,6 +45,21 @@ describe("TreinoRotina", () => {
     expect(await screen.findByRole("button", { name: /criar rotina/i })).toBeInTheDocument();
   });
 
+  it("nomear um dia de descanso grava o treino", async () => {
+    const r = await criarRotina(db, 1, "R");
+    montar();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /adicionar treino em segunda/i }),
+    );
+    const campo = await screen.findByLabelText(/nome do treino de segunda/i);
+    await userEvent.type(campo, "Peito e tríceps");
+    await campo.blur();
+    await waitFor(async () => {
+      const dias = await listDias(db, 1, r.id);
+      expect(dias.map((d) => [d.dia_semana, d.nome])).toEqual([[1, "Peito e tríceps"]]);
+    });
+  });
+
   it("criada a rotina, lista os sete dias da semana", async () => {
     montar();
     await userEvent.click(await screen.findByRole("button", { name: /criar rotina/i }));

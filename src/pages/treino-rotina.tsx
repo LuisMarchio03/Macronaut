@@ -90,18 +90,31 @@ function Dia({
     <Card padded={false}>
       <div className="flex items-center gap-2 px-4 pt-3 pb-1">
         <span className="t-caption w-16 shrink-0">{rotulo}</span>
-        {editandoNome || !nome ? (
+        {editandoNome ? (
           <Input
             aria-label={`Nome do treino de ${rotulo.toLowerCase()}`}
-            placeholder="Descanso"
+            placeholder="Peito e tríceps"
+            autoFocus
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
             onBlur={() => {
               setEditandoNome(false);
               const novo = texto.trim();
               if (novo && novo !== nome) onRenomear(novo);
             }}
           />
+        ) : !nome ? (
+          // Dia de descanso é um convite, não um campo vazio: sete inputs
+          // abertos faziam a rotina parecer um formulário de cadastro.
+          <button
+            type="button"
+            onClick={() => { setTexto(""); setEditandoNome(true); }}
+            aria-label={`Adicionar treino em ${rotulo.toLowerCase()}`}
+            className="min-h-11 flex-1 text-left text-[0.9375rem] text-muted-foreground"
+          >
+            Descanso
+          </button>
         ) : (
           <>
             <button
@@ -125,7 +138,7 @@ function Dia({
         )}
       </div>
 
-      {!nome && <p className="t-caption px-4 pb-3">Descanso</p>}
+      {!nome && !editandoNome && <div className="pb-2" />}
 
       {nome && dayId !== null && (
         <>
@@ -133,6 +146,7 @@ function Dia({
             <ul className="divide-y divide-border border-t border-border">
               {exercicios.map((e, i) => (
                 <li key={e.id} className="flex items-center gap-1 pr-2 pl-4">
+                  {exercicios.length > 1 && (
                   <span className="flex shrink-0 flex-col">
                     <button
                       type="button"
@@ -153,6 +167,7 @@ function Dia({
                       <ChevronDown className="size-3.5" />
                     </button>
                   </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => onEditar(e)}

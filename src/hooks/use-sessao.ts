@@ -4,6 +4,7 @@ import type { TipoSerie } from "../domain/types";
 import {
   adicionarAoPlano,
   desfazerSerie,
+  finalizarSessao,
   getPlano,
   iniciarSessao,
   marcasAmrap,
@@ -114,4 +115,10 @@ export function useAdicionarAoPlano() {
   return useEscritaNaSessao((v: { sessionId: number; item: ItemPlanejado }) =>
     adicionarAoPlano(db, userId, v.sessionId, v.item),
   );
+}
+
+export function useFinalizarSessao() {
+  const db = useDb();
+  const userId = useUserId();
+  return useEscritaNaSessao((sessionId: number) => finalizarSessao(db, userId, sessionId));
 }

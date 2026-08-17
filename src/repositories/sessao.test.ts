@@ -6,6 +6,7 @@ import {
   desfazerSerie,
   getPlano,
   iniciarSessao,
+  finalizarSessao,
   marcasAmrap,
   montarPlanoDoDia,
   registrarSerie,
@@ -234,6 +235,43 @@ describe("sessaoEmAndamento", () => {
 
     const em = await sessaoEmAndamento(db, USER, "2026-08-17");
     expect(em).toEqual({ session_id: sid, nome: "Peito", total: 3, feitas: 1 });
+  });
+});
+
+describe("finalizarSessao", () => {
+  // O hub oferecia "retomar" para sempre, inclusive com todas as séries feitas:
+  // não havia como uma sessão acabar.
+  it("encerrada, a sessão some do 'em andamento' mesmo com séries pendentes", async () => {
+    const supino = await exercicio("Supino");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino)],
+    });
+    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).not.toBeNull();
+
+    await finalizarSessao(db, USER, sid);
+    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).toBeNull();
+  });
+
+  it("um usuário não encerra a sessão do outro", async () => {
+    const supino = await exercicio("Supino");
+    await iniciarSessao(db, USER, { data: "2026-08-17", nome: "Peito", itens: [item(supino)] });
+    const alvo = (await sessaoEmAndamento(db, USER, "2026-08-17"))!.session_id;
+    await finalizarSessao(db, OUTRO, alvo);
+    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).not.toBeNull();
+  });
+
+  it("encerrar duas vezes não muda a hora do encerramento", async () => {
+    const supino = await exercicio("Supino");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino)],
+    });
+    await finalizarSessao(db, USER, sid);
+    const hora = async () =>
+      (await db.execute({ sql: "SELECT concluida_em FROM workout_sessions WHERE id=?", args: [sid] }))
+        .rows[0].concluida_em as string;
+    const primeira = await hora();
+    await finalizarSessao(db, USER, sid);
+    expect(await hora()).toBe(primeira);
   });
 });
 

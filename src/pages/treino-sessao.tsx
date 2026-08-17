@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Check, Pencil, Plus, X } from "lucide-react";
+import { Check, ChevronDown, Minus, Pencil, Plus, Trophy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { CronometroDescanso } from "@/components/treino/cronometro-descanso";
@@ -10,12 +10,15 @@ import { useExercises } from "@/hooks/use-exercises";
 import {
   useAdicionarAoPlano,
   useDesfazerSerie,
+  useMarcasAmrap,
   usePlano,
+  useFinalizarSessao,
   useRegistrarSerie,
   useSessaoEmAndamento,
 } from "@/hooks/use-sessao";
 import { useHistoricoExercicio } from "@/hooks/use-workouts";
 import { planejar } from "@/domain/prescricao";
+import { e1RMDaSerie, ehRecorde, recordeNoPeso } from "@/domain/531";
 import { resumirSets } from "@/domain/treino";
 import type { TipoSerie } from "@/domain/types";
 import { hoje } from "@/lib/date";
@@ -101,6 +104,182 @@ function LinhaSerie({
   );
 }
 
+/**
+ * A série até a falha do 5/3/1.
+ *
+ * É a única série da sessão cujo número de repetições não está decidido de
+ * antemão — todas as outras são confirmação, esta é medição. Por isso ela é a
+ * única com contador, e por isso o recorde a bater aparece ANTES da série: é o
+ * que o método usa como motivação, e depois já não serve para nada.
+ */
+function LinhaAmrap({
+  s,
+  onRegistrar,
+  onDesfazer,
+  onAjustar,
+}: {
+  s: PlanoSerie;
+  onRegistrar: (reps: number) => void;
+  onDesfazer: () => void;
+  onAjustar: () => void;
+}) {
+  const { data: marcas = [] } = useMarcasAmrap(s.exercise_id);
+  // Começa nas reps prescritas: é o mínimo, e quem faz o mínimo não deve
+  // precisar mexer no contador.
+  const [escolhidas, setEscolhidas] = useState<number | null>(null);
+  const reps = escolhidas ?? s.reps_alvo;
+  const ok = s.set_id !== null;
+  const recorde = recordeNoPeso(marcas, s.peso_kg);
+  const bateuRecorde = ehRecorde(marcas, s.peso_kg, reps);
+
+  if (ok) {
+    return (
+      <li className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onDesfazer}
+          aria-label={`Desfazer série ${s.serie_ordem} de ${s.nome}`}
+          className="flex min-h-16 flex-1 items-center gap-3 rounded-xl border border-success/40 bg-tint-success px-4 text-left"
+        >
+          <Bolinha ok />
+          <span className="flex-1 text-[0.9375rem] font-semibold tabular-nums">
+            {s.reps_feitas} × {s.peso_feito_kg} kg
+          </span>
+          <span className="t-caption shrink-0 tabular-nums">{s.pct}% · máx</span>
+        </button>
+        <button
+          type="button"
+          onClick={onAjustar}
+          aria-label={`Ajustar série ${s.serie_ordem} de ${s.nome}`}
+          className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
+        >
+          <Pencil className="size-4" />
+        </button>
+      </li>
+    );
+  }
+
+  return (
+    <li className="rounded-xl border border-primary/40 bg-tint-primary p-4">
+      <div className="flex items-center gap-3">
+        <Bolinha ok={false} />
+        <span className="flex-1 text-[0.9375rem] font-semibold tabular-nums">
+          {s.reps_alvo}+ × {s.peso_kg} kg
+        </span>
+        <span className="t-caption tabular-nums">{s.pct}%</span>
+      </div>
+
+      <p className="t-caption mt-1">
+        Máximo de repetições.{" "}
+        {recorde !== null ? (
+          <>
+            Seu recorde neste peso: <strong>{recorde}</strong>
+          </>
+        ) : (
+          "Primeira vez neste peso."
+        )}
+      </p>
+
+      <div className="mt-3 flex items-center justify-center gap-4">
+        <button
+          type="button"
+          onClick={() => setEscolhidas(Math.max(1, reps - 1))}
+          aria-label="Menos uma repetição"
+          className="flex size-12 items-center justify-center rounded-full border border-input transition-colors hover:bg-muted"
+        >
+          <Minus className="size-5" />
+        </button>
+        <span className="min-w-[3ch] text-center">
+          <span className="block text-4xl font-bold tabular-nums">{reps}</span>
+          <span className="t-caption block">reps</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setEscolhidas(reps + 1)}
+          aria-label="Mais uma repetição"
+          className="flex size-12 items-center justify-center rounded-full border border-input transition-colors hover:bg-muted"
+        >
+          <Plus className="size-5" />
+        </button>
+      </div>
+
+      {bateuRecorde && (
+        <p className="mt-2 flex items-center justify-center gap-1.5 text-[0.8125rem] font-medium text-success">
+          <Trophy className="size-4" aria-hidden />
+          Novo recorde · 1RM estimado {e1RMDaSerie(s.peso_kg, reps)} kg
+        </p>
+      )}
+
+      <Button
+        block
+        className="mt-3"
+        onClick={() => onRegistrar(reps)}
+        aria-label={`Registrar série ${s.serie_ordem} de ${s.nome}`}
+      >
+        <Check className="size-4" />
+        Registrar série
+      </Button>
+    </li>
+  );
+}
+
+/** Ritual, não decisão: recolhido por padrão, com o contador de quantas já foram. */
+function BlocoAquecimento({
+  series,
+  onRegistrar,
+  onDesfazer,
+}: {
+  series: PlanoSerie[];
+  onRegistrar: (s: PlanoSerie) => void;
+  onDesfazer: (s: PlanoSerie) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const feitas = series.filter((s) => s.set_id !== null).length;
+
+  return (
+    <div className="rounded-xl border border-border bg-card">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        className="flex min-h-12 w-full items-center gap-2 px-4 text-left"
+      >
+        <ChevronDown
+          className={cn("size-4 shrink-0 transition-transform", aberto && "rotate-180")}
+          aria-hidden
+        />
+        <span className="flex-1 text-sm font-medium">Aquecimento</span>
+        <span className="t-caption tabular-nums">
+          {feitas}/{series.length}
+        </span>
+      </button>
+      {aberto && (
+        <ul className="border-t border-border">
+          {series.map((s) => {
+            const ok = s.set_id !== null;
+            return (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => (ok ? onDesfazer(s) : onRegistrar(s))}
+                  aria-label={`${ok ? "Desfazer" : "Registrar"} aquecimento ${s.serie_ordem} de ${s.nome}`}
+                  className="flex min-h-12 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-muted"
+                >
+                  <Bolinha ok={ok} />
+                  <span className="flex-1 text-sm tabular-nums">
+                    {s.reps_alvo} × {s.peso_kg} kg
+                  </span>
+                  <span className="t-caption tabular-nums">{s.pct}%</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function TreinoSessao() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -112,6 +291,7 @@ export function TreinoSessao() {
   const registrar = useRegistrarSerie();
   const desfazer = useDesfazerSerie();
   const adicionar = useAdicionarAoPlano();
+  const finalizar = useFinalizarSessao();
   const { data: catalogo = [] } = useExercises();
 
   const [iExercicio, setIExercicio] = useState(0);
@@ -134,6 +314,8 @@ export function TreinoSessao() {
   const feitas = plano.filter((s) => s.set_id !== null).length;
   const atual = exercicios[Math.min(iExercicio, Math.max(exercicios.length - 1, 0))];
   const descanso = atual?.series[0]?.descanso_s ?? undefined;
+  const aquecimento = (atual?.series ?? []).filter((s) => s.tipo === "aquecimento");
+  const trabalho = (atual?.series ?? []).filter((s) => s.tipo !== "aquecimento");
 
   function registrarSerie(
     s: PlanoSerie,
@@ -156,13 +338,18 @@ export function TreinoSessao() {
     if (ultimaPendente && iExercicio < exercicios.length - 1) setIExercicio((i) => i + 1);
   }
 
-  if (sessionId === undefined && (carregandoSessao || carregandoPlano)) {
-    return (
-      <div className="p-4">
-        <div className="skeleton h-40 w-full" />
-      </div>
-    );
-  }
+  // A ordem destas três guardas importa. `usePlano(undefined)` fica `isPending`
+  // para sempre — no Query v5 uma consulta desabilitada nunca sai de `pending` —
+  // então esperar por ela antes de saber se existe sessão prendia a tela num
+  // esqueleto eterno, e o estado "nenhum treino em andamento" era inalcançável.
+  const esqueleto = (
+    <div className="p-4">
+      <div className="skeleton h-40 w-full" />
+    </div>
+  );
+
+  // Só faz sentido esperar a sessão do dia quando a URL não trouxe uma.
+  if (!idDaUrl && carregandoSessao) return esqueleto;
 
   if (sessionId === undefined) {
     return (
@@ -175,6 +362,8 @@ export function TreinoSessao() {
       </div>
     );
   }
+
+  if (carregandoPlano) return esqueleto;
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
@@ -203,16 +392,42 @@ export function TreinoSessao() {
               <UltimaVez exerciseId={atual.exercise_id} />
             </div>
 
+            {aquecimento.length > 0 && (
+              <BlocoAquecimento
+                series={aquecimento}
+                onRegistrar={(s) => registrarSerie(s)}
+                onDesfazer={(s) => desfazer.mutate(s.id)}
+              />
+            )}
+
             <ul className="space-y-2">
-              {atual.series.map((s) => (
-                <LinhaSerie
-                  key={s.id}
-                  s={s}
-                  onRegistrar={() => registrarSerie(s)}
-                  onDesfazer={() => desfazer.mutate(s.id)}
-                  onAjustar={() => setAjustando(s)}
-                />
-              ))}
+              {trabalho.map((s) =>
+                s.amrap ? (
+                  <LinhaAmrap
+                    key={s.id}
+                    s={s}
+                    onRegistrar={(reps) =>
+                      registrarSerie(s, {
+                        reps,
+                        peso_kg: s.peso_kg,
+                        tipo: s.tipo,
+                        rir: null,
+                        nota: null,
+                      })
+                    }
+                    onDesfazer={() => desfazer.mutate(s.id)}
+                    onAjustar={() => setAjustando(s)}
+                  />
+                ) : (
+                  <LinhaSerie
+                    key={s.id}
+                    s={s}
+                    onRegistrar={() => registrarSerie(s)}
+                    onDesfazer={() => desfazer.mutate(s.id)}
+                    onAjustar={() => setAjustando(s)}
+                  />
+                ),
+              )}
             </ul>
 
             {registros > 0 && <CronometroDescanso chave={registros} segundos={descanso} />}
@@ -270,7 +485,7 @@ export function TreinoSessao() {
                 onClick={() => setIExercicio(i)}
                 aria-current={i === iExercicio}
                 className={cn(
-                  "min-h-11 shrink-0 rounded-lg px-3 text-[0.8125rem] font-medium transition-colors",
+                  "min-h-11 max-w-[45vw] shrink-0 truncate rounded-lg px-3 text-[0.8125rem] font-medium transition-colors",
                   i === iExercicio
                     ? "bg-primary text-primary-foreground"
                     : completo
@@ -286,7 +501,14 @@ export function TreinoSessao() {
       )}
 
       <footer className="sticky bottom-0 border-t border-border bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-lg">
-        <Button block size="lg" onClick={() => navigate("/treino")}>
+        <Button
+          block
+          size="lg"
+          disabled={finalizar.isPending}
+          onClick={() =>
+            finalizar.mutate(sessionId, { onSuccess: () => navigate("/treino") })
+          }
+        >
           {plano.length > 0 && feitas === plano.length
             ? "Finalizar treino"
             : `Finalizar (${feitas} de ${plano.length})`}

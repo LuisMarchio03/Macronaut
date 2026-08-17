@@ -200,6 +200,26 @@ export async function desfazerSerie(db: Client, userId: number, planId: number):
   );
 }
 
+/** Marca a sessão como encerrada. Idempotente: reencerrar não muda a hora. */
+export async function finalizarSessao(
+  db: Client,
+  userId: number,
+  sessionId: number,
+): Promise<void> {
+  await db.execute({
+    sql: `UPDATE workout_sessions SET concluida_em = ?
+          WHERE id = ? AND user_id = ? AND concluida_em IS NULL`,
+    args: [new Date().toISOString(), sessionId, userId],
+  });
+}
+
+/**
+ * A sessão de hoje que ainda não foi encerrada.
+ *
+ * O filtro por `concluida_em` é o que impede o hub de oferecer "retomar" um
+ * treino que já acabou — antes ele oferecia para sempre, inclusive com todas
+ * as séries feitas.
+ */
 export async function sessaoEmAndamento(
   db: Client,
   userId: number,
@@ -211,7 +231,7 @@ export async function sessaoEmAndamento(
                  SUM(CASE WHEN p.set_id IS NOT NULL THEN 1 ELSE 0 END) AS feitas
           FROM workout_sessions s
           JOIN session_plan_sets p ON p.session_id = s.id
-          WHERE s.user_id = ? AND s.data = ?
+          WHERE s.user_id = ? AND s.data = ? AND s.concluida_em IS NULL
           GROUP BY s.id
           ORDER BY s.created_at DESC
           LIMIT 1`,

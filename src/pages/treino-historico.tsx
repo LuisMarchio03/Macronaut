@@ -92,7 +92,9 @@ export function TreinoHistorico() {
         title="Histórico"
         action={
           sessoes.length > 0 && (
-            <span className="t-caption tabular-nums">{sessoes.length} sessões</span>
+            <span className="t-caption tabular-nums">
+                {sessoes.length} {sessoes.length === 1 ? "sessão" : "sessões"}
+              </span>
           )
         }
       />

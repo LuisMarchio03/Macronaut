@@ -23,6 +23,7 @@ import { Mais } from "./pages/mais";
 import { Plano } from "./pages/plano";
 import { PlanoImportar } from "./pages/plano-importar";
 import { Login } from "./pages/login";
+import { NaoEncontrada } from "./pages/nao-encontrada";
 
 /** Telas onde registrar comida é a próxima ação provável. */
 const COM_REGISTRO_RAPIDO = ["/", "/nutricao"];
@@ -91,6 +92,9 @@ export default function App() {
           <Route path="/ia" element={<Ia />} />
           <Route path="/plano" element={<Plano />} />
           <Route path="/plano/importar" element={<PlanoImportar />} />
+          {/* Dentro do layout de propósito: quem se perdeu precisa da barra de
+              navegação mais do que ninguém. */}
+          <Route path="*" element={<NaoEncontrada />} />
         </Route>
       </Routes>
     </>

@@ -23,6 +23,29 @@ const ATALHOS = [
   { to: "/treino/cardio", icone: HeartPulse, label: "Cardio", sub: "Corrida, bike, caminhada" },
 ];
 
+/**
+ * Como o card de hoje descreve um exercício.
+ *
+ * Só as séries de trabalho entram: o 5/3/1 começa por três séries de
+ * aquecimento, e resumir pela primeira linha do array prometia "5 × 32,5 kg"
+ * para um treino que sobe até 67,5. Carga zero não é uma carga — é a ausência
+ * de uma, e o card convida a defini-la em vez de mostrar "0 kg".
+ */
+function resumoDoItem(item: ItemPlanejado): string {
+  const trabalho = item.series.filter((s) => s.tipo !== "aquecimento");
+  if (trabalho.length === 0) return "sem séries";
+
+  const pesos = trabalho.map((s) => s.peso_kg);
+  const maisPesada = Math.max(...pesos);
+  if (maisPesada === 0) return `${trabalho.length} séries · definir carga`;
+
+  const cargaUnica = pesos.every((p) => p === maisPesada);
+  const repsUnicas = trabalho.every((s) => s.reps_alvo === trabalho[0].reps_alvo);
+  return cargaUnica && repsUnicas
+    ? `${trabalho.length} × ${trabalho[0].reps_alvo} × ${maisPesada} kg`
+    : `${trabalho.length} séries · até ${maisPesada} kg`;
+}
+
 export function Treino() {
   const navigate = useNavigate();
   const data = hoje();
@@ -92,9 +115,7 @@ export function Treino() {
                   className="flex items-baseline justify-between gap-3 text-sm"
                 >
                   <span className="min-w-0 truncate">{item.nome}</span>
-                  <span className="t-caption shrink-0 tabular-nums">
-                    {item.series.length} × {item.series[0]?.reps_alvo} × {item.series[0]?.peso_kg} kg
-                  </span>
+                  <span className="t-caption shrink-0 tabular-nums">{resumoDoItem(item)}</span>
                 </li>
               ))}
             </ul>

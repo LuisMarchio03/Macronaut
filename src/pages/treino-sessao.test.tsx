@@ -173,4 +173,98 @@ describe("TreinoSessao", () => {
     montar(sid);
     expect(await screen.findByRole("button", { name: /adicionar exercício/i })).toBeInTheDocument();
   });
+
+  // Antes desta correção a tela ficava presa num esqueleto: `usePlano(undefined)`
+  // tem `enabled: false` e no Query v5 nunca sai de `pending`, então a guarda de
+  // carregamento nunca abria e este estado era inalcançável.
+  it("sem sessão nenhuma, oferece voltar em vez de ficar em branco", async () => {
+    const Wrapper = criarWrapper(db);
+    render(
+      <Wrapper>
+        <MemoryRouter initialEntries={["/treino/sessao"]}>
+          <TreinoSessao />
+        </MemoryRouter>
+      </Wrapper>,
+    );
+    expect(await screen.findByText(/nenhum treino em andamento/i)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /voltar ao treino/i })).toBeInTheDocument();
+  });
+
+  it("a série AMRAP tem contador de repetições e o recorde a bater", async () => {
+    const agacho = await exercicio("Agachamento");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(),
+      nome: "Perna",
+      itens: [{
+        routine_exercise_id: null, exercise_id: agacho, nome: "Agachamento", descanso_s: 180,
+        series: planejar({ tipo: "531", tm_kg: 100, parte: "inferior", incremento_kg: 2.5 }, []),
+      }],
+    });
+    montar(sid);
+
+    expect(await screen.findByRole("button", { name: /mais uma repetição/i })).toBeInTheDocument();
+    expect(await screen.findByText(/primeira vez neste peso/i)).toBeInTheDocument();
+  });
+
+  it("registrar a AMRAP grava as reps escolhidas, não as prescritas", async () => {
+    const agacho = await exercicio("Agachamento");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(),
+      nome: "Perna",
+      itens: [{
+        routine_exercise_id: null, exercise_id: agacho, nome: "Agachamento", descanso_s: 180,
+        series: planejar({ tipo: "531", tm_kg: 100, parte: "inferior", incremento_kg: 2.5 }, []),
+      }],
+    });
+    montar(sid);
+
+    const mais = await screen.findByRole("button", { name: /mais uma repetição/i });
+    await userEvent.click(mais);
+    await userEvent.click(mais);
+    await userEvent.click(mais);
+    await userEvent.click(await screen.findByRole("button", { name: /registrar série 6 de agachamento/i }));
+
+    await waitFor(async () => {
+      const plano = await getPlano(db, 1, sid);
+      const amrap = plano.find((p) => p.amrap)!;
+      expect(amrap.reps_feitas).toBe(8); // prescrito 5 + três toques
+    });
+  });
+
+  it("o aquecimento do 5/3/1 fica num bloco recolhido, separado do trabalho", async () => {
+    const agacho = await exercicio("Agachamento");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(),
+      nome: "Perna",
+      itens: [{
+        routine_exercise_id: null, exercise_id: agacho, nome: "Agachamento", descanso_s: 180,
+        series: planejar({ tipo: "531", tm_kg: 100, parte: "inferior", incremento_kg: 2.5 }, []),
+      }],
+    });
+    montar(sid);
+
+    const cabecalho = await screen.findByRole("button", { name: /aquecimento/i });
+    expect(cabecalho).toHaveAttribute("aria-expanded", "false");
+    // Recolhido: as séries de aquecimento não estão na tela até abrir.
+    expect(screen.queryByRole("button", { name: /registrar aquecimento 1/i })).not.toBeInTheDocument();
+
+    await userEvent.click(cabecalho);
+    expect(await screen.findByRole("button", { name: /registrar aquecimento 1 de agachamento/i })).toBeInTheDocument();
+  });
+
+  it("finalizar encerra a sessão de verdade", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /finalizar/i }));
+    await waitFor(async () => {
+      const rs = await db.execute({
+        sql: "SELECT concluida_em FROM workout_sessions WHERE id = ?", args: [sid],
+      });
+      expect(rs.rows[0].concluida_em).not.toBeNull();
+    });
+  });
 });
