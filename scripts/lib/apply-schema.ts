@@ -64,6 +64,22 @@ const ADDITIVE_INDEXES: { ddl: string }[] = [
   { ddl: "CREATE INDEX IF NOT EXISTS idx_food_measures_status ON food_measures (food_id, status)" },
 ];
 
+/**
+ * A tabela existe?
+ *
+ * `applyAdditiveColumns` roda depois do schema, quando toda tabela já foi
+ * criada — mas ela também é chamada isolada (em teste, e num banco legado que
+ * nunca teve as tabelas novas). Sem esta guarda, um `ALTER TABLE` numa tabela
+ * inexistente aborta a aplicação inteira no meio.
+ */
+async function tableExists(db: Client, table: string): Promise<boolean> {
+  const rs = await db.execute({
+    sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+    args: [table],
+  });
+  return rs.rows.length > 0;
+}
+
 async function columnExists(db: Client, table: string, column: string): Promise<boolean> {
   const rs = await db.execute(`PRAGMA table_info(${table})`); // table é literal interno, sem input externo
   return rs.rows.some((r) => (r.name as string) === column);
@@ -71,6 +87,7 @@ async function columnExists(db: Client, table: string, column: string): Promise<
 
 export async function applyAdditiveColumns(db: Client): Promise<void> {
   for (const m of ADDITIVE_COLUMNS) {
+    if (!(await tableExists(db, m.table))) continue;
     if (!(await columnExists(db, m.table, m.column))) await db.execute(m.ddl);
   }
   for (const idx of ADDITIVE_INDEXES) {

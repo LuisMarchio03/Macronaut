@@ -106,17 +106,18 @@ describe("Treino — o hub", () => {
     expect(await screen.findByText(/0 de 3 séries/i)).toBeInTheDocument();
   });
 
-  it("os atalhos apontam para rotina, progressão, histórico, exercícios e cardio", async () => {
+  // Dois destinos, não cinco: o hub deixou de ser um menu de objetos.
+  it("o hub tem só os atalhos de rotina e progresso", async () => {
     montar();
     for (const [nome, destino] of [
       [/^rotina/i, "/treino/rotina"], // "Montar rotina" do estado vazio também casaria sem a âncora
-      [/progressão/i, "/treino/progressao"],
-      [/histórico/i, "/treino/historico"],
-      [/exercícios/i, "/treino/exercicios"],
-      [/cardio/i, "/treino/cardio"],
+      [/^progresso/i, "/treino/progresso"],
     ] as const) {
       const link = await screen.findByRole("link", { name: nome });
       expect(link).toHaveAttribute("href", destino);
+    }
+    for (const morto of [/histórico/i, /cardio/i]) {
+      expect(screen.queryByRole("link", { name: morto })).not.toBeInTheDocument();
     }
   });
 });
