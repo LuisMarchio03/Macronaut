@@ -6,7 +6,13 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { criarWrapper } from "../../test/helpers/query-wrapper";
 import { TreinoRotina } from "./treino-rotina";
-import { criarRotina, salvarDia, adicionarExercicio, listExercicios } from "../repositories/rotina";
+import {
+  criarRotina,
+  salvarDia,
+  adicionarExercicio,
+  listExercicios,
+  listDias,
+} from "../repositories/rotina";
 
 let db: Client;
 
@@ -153,5 +159,46 @@ describe("TreinoRotina", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /remover crucifixo/i }));
     await waitFor(async () => expect(await listExercicios(db, 1, d.id)).toHaveLength(0));
+  });
+
+  // Sem isto, nomear um dia por engano é irreversível: o campo de nome só grava
+  // valor não-vazio, então não haveria como voltar a descanso.
+  it("um dia de treino pode voltar a ser descanso", async () => {
+    const r = await criarRotina(db, 1, "R");
+    const d = await salvarDia(db, 1, r.id, 1, "Peito");
+    await adicionarExercicio(db, 1, d.id, {
+      exercise_id: await exercicio("Supino reto"),
+      prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12,
+      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90,
+    });
+    montar();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /tornar segunda um dia de descanso/i }),
+    );
+
+    await waitFor(async () => {
+      expect(await listDias(db, 1, r.id)).toHaveLength(0);
+      expect(await listExercicios(db, 1, d.id)).toHaveLength(0);
+    });
+  });
+
+  it("reordena os exercícios do dia pelas setas", async () => {
+    const r = await criarRotina(db, 1, "R");
+    const d = await salvarDia(db, 1, r.id, 1, "Peito");
+    const base = {
+      prescricao: "dupla" as const, series: 3, reps_min: 8, reps_max: 12,
+      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90,
+    };
+    await adicionarExercicio(db, 1, d.id, { ...base, exercise_id: await exercicio("Supino reto") });
+    await adicionarExercicio(db, 1, d.id, { ...base, exercise_id: await exercicio("Crucifixo") });
+    montar();
+
+    await userEvent.click(await screen.findByRole("button", { name: /subir crucifixo/i }));
+
+    await waitFor(async () => {
+      const lista = await listExercicios(db, 1, d.id);
+      expect(lista.map((e) => e.nome)).toEqual(["Crucifixo", "Supino reto"]);
+    });
   });
 });

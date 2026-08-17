@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,7 +16,9 @@ import {
   useCriarRotina,
   useDiasDaRotina,
   useExerciciosDaRotina,
+  useRemoverDia,
   useRemoverExercicio,
+  useReordenarExercicios,
   useRotinaAtiva,
   useSalvarDia,
 } from "@/hooks/use-rotina";
@@ -68,9 +70,21 @@ function Dia({
   const { data: catalogo = [] } = useExercises();
   const adicionar = useAdicionarExercicio();
   const remover = useRemoverExercicio();
+  const removerDia = useRemoverDia();
+  const reordenar = useReordenarExercicios();
 
   const rotulo = DIAS_DA_SEMANA[diaSemana];
   const idBusca = `add-dia-${diaSemana}`;
+
+  /** Move o exercício `i` casas para cima ou para baixo dentro do dia. */
+  function mover(i: number, passo: -1 | 1) {
+    if (dayId === null) return;
+    const ids = exercicios.map((e) => e.id);
+    const j = i + passo;
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    reordenar.mutate({ dayId, ids });
+  }
 
   return (
     <Card padded={false}>
@@ -89,13 +103,25 @@ function Dia({
             }}
           />
         ) : (
-          <button
-            type="button"
-            onClick={() => { setTexto(nome); setEditandoNome(true); }}
-            className="min-h-11 flex-1 text-left text-[0.9375rem] font-semibold"
-          >
-            {nome}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => { setTexto(nome); setEditandoNome(true); }}
+              className="min-h-11 flex-1 text-left text-[0.9375rem] font-semibold"
+            >
+              {nome}
+            </button>
+            {/* Sem isto, nomear um dia por engano é irreversível: o campo só
+                grava nome não-vazio, então não há como voltar a descanso. */}
+            <button
+              type="button"
+              aria-label={`Tornar ${rotulo.toLowerCase()} um dia de descanso`}
+              onClick={() => dayId !== null && removerDia.mutate(dayId)}
+              className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-tint-danger hover:text-destructive"
+            >
+              <X className="size-4" />
+            </button>
+          </>
         )}
       </div>
 
@@ -105,8 +131,28 @@ function Dia({
         <>
           {exercicios.length > 0 && (
             <ul className="divide-y divide-border border-t border-border">
-              {exercicios.map((e) => (
-                <li key={e.id} className="flex items-center gap-2 pr-2 pl-4">
+              {exercicios.map((e, i) => (
+                <li key={e.id} className="flex items-center gap-1 pr-2 pl-4">
+                  <span className="flex shrink-0 flex-col">
+                    <button
+                      type="button"
+                      aria-label={`Subir ${e.nome}`}
+                      disabled={i === 0}
+                      onClick={() => mover(i, -1)}
+                      className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
+                    >
+                      <ChevronUp className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Descer ${e.nome}`}
+                      disabled={i === exercicios.length - 1}
+                      onClick={() => mover(i, 1)}
+                      className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
+                    >
+                      <ChevronDown className="size-3.5" />
+                    </button>
+                  </span>
                   <button
                     type="button"
                     onClick={() => onEditar(e)}
