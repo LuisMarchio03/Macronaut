@@ -1,25 +1,22 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
-  ChevronRight,
-  ClipboardList,
-  Dumbbell,
-  HeartPulse,
-  History,
-  Play,
-  TrendingUp,
+  CalendarDays, ChevronRight, Dumbbell, HeartPulse, History, Play, TrendingUp,
 } from "lucide-react";
 import { Card, CardRow } from "@/components/ui/card";
 import { Page, PageHeader, SectionLabel } from "@/components/ui/page";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
-import { useLevantamentos, usePosicao, useProgramaAtivo, useSessoesDoPrograma } from "@/hooks/use-programa";
+import { useDiasDaRotina, useRotinaAtiva } from "@/hooks/use-rotina";
+import { useIniciarSessao, usePlanoDoDia, useSessaoEmAndamento } from "@/hooks/use-sessao";
 import { useListSessions } from "@/hooks/use-workouts";
-import { ehDeload, nomeDaSemana, seriesDeTrabalho, sessaoPrescrita } from "@/domain/531";
-import { dataPorExtenso, dataRelativa } from "@/lib/date";
+import { proximoTreino, treinoDoDia } from "@/domain/prescricao";
+import type { ItemPlanejado } from "@/repositories/sessao";
+import { dataPorExtenso, dataRelativa, diaSemana, hoje } from "@/lib/date";
+import { DIAS_DA_SEMANA } from "./treino-rotina";
 
 const ATALHOS = [
-  { to: "/treino/programa", icone: ClipboardList, label: "Programa", sub: "Levantamentos e Training Max" },
+  { to: "/treino/rotina", icone: CalendarDays, label: "Rotina", sub: "O que você treina em cada dia" },
   { to: "/treino/progressao", icone: TrendingUp, label: "Progressão", sub: "Gráficos e recordes" },
   { to: "/treino/historico", icone: History, label: "Histórico", sub: "Sessões anteriores" },
   { to: "/treino/exercicios", icone: Dumbbell, label: "Exercícios", sub: "Biblioteca" },
@@ -27,17 +24,26 @@ const ATALHOS = [
 ];
 
 export function Treino() {
-  const { data: programa, isLoading } = useProgramaAtivo();
-  const { data: posicao } = usePosicao(programa);
-  const { data: lifts = [] } = useLevantamentos(programa);
-  const { data: doPrograma = [] } = useSessoesDoPrograma(programa);
-  const { data: recentes = [] } = useListSessions();
+  const navigate = useNavigate();
+  const data = hoje();
+  const hojeSemana = diaSemana(data);
 
-  const lift = posicao?.levantamento ?? null;
-  const prescrito =
-    lift && posicao && programa
-      ? seriesDeTrabalho(sessaoPrescrita(lift.tm_kg, posicao.semana, programa.incremento_kg))
-      : [];
+  const { data: rotina, isLoading } = useRotinaAtiva();
+  const { data: dias = [] } = useDiasDaRotina(rotina);
+  const dia = treinoDoDia(dias, hojeSemana);
+  const proximo = proximoTreino(dias, hojeSemana);
+
+  const { data: plano = [] } = usePlanoDoDia(dia?.id, data);
+  const { data: emAndamento } = useSessaoEmAndamento(data);
+  const { data: recentes = [] } = useListSessions();
+  const iniciar = useIniciarSessao();
+
+  function comecar(itens: ItemPlanejado[]) {
+    iniciar.mutate(
+      { data, nome: dia?.nome ?? "Treino livre", itens },
+      { onSuccess: (id) => navigate(`/treino/sessao?s=${id}`) },
+    );
+  }
 
   if (isLoading) {
     return (
@@ -50,63 +56,79 @@ export function Treino() {
 
   return (
     <Page>
-      <PageHeader eyebrow={dataPorExtenso(new Date().toISOString().slice(0, 10))} title="Treino" />
+      <PageHeader eyebrow={dataPorExtenso(data)} title="Treino" />
 
-      {programa && lift && posicao ? (
-        <Card tone="primary">
-          <p className="t-caption">
-            Ciclo {posicao.ciclo} · semana {posicao.semana} · {nomeDaSemana(posicao.semana)}
-          </p>
-          <h2 className="t-title mt-0.5">{lift.nome}</h2>
-
-          <ul className="mt-3 space-y-1">
-            {prescrito.map((s, i) => (
-              <li key={i} className="flex items-baseline justify-between gap-3 text-sm tabular-nums">
-                <span>
-                  {s.reps}
-                  {s.amrap && "+"} × {s.peso_kg} kg
-                </span>
-                <span className="t-caption">{s.pct}%</span>
-              </li>
-            ))}
-          </ul>
-
-          {ehDeload(posicao.semana) && (
-            <p className="t-caption mt-2">Semana de deload: leve, sem série até a falha.</p>
-          )}
-
-          <ButtonLink to="/treino/sessao" block className="mt-4">
-            <Play className="size-4" />
-            Começar treino
-          </ButtonLink>
-        </Card>
-      ) : (
+      {!rotina ? (
         <Card>
           <EmptyState
-            icon={<ClipboardList className="size-6" />}
-            title="Nenhum programa configurado"
-            description="Informe seus levantamentos e os Training Max. O app monta cada sessão do 5/3/1 a partir daí — você só confirma as séries."
-            action={<ButtonLink to="/treino/programa">Configurar programa</ButtonLink>}
+            icon={<CalendarDays className="size-6" />}
+            title="Nenhuma rotina configurada"
+            description="Diga ao app o que você treina em cada dia da semana. Depois é só abrir e seguir — a carga de cada exercício ele calcula sozinho, e sobe quando você bater a meta."
+            action={<ButtonLink to="/treino/rotina">Montar rotina</ButtonLink>}
           />
         </Card>
-      )}
+      ) : emAndamento ? (
+        <Card tone="primary">
+          <p className="t-caption">Sessão em andamento</p>
+          <h2 className="t-title mt-0.5">{emAndamento.nome ?? "Treino"}</h2>
+          <p className="t-caption mt-1 tabular-nums">
+            {emAndamento.feitas} de {emAndamento.total} séries
+          </p>
+          <ButtonLink to={`/treino/sessao?s=${emAndamento.session_id}`} block className="mt-4">
+            <Play className="size-4" />
+            Retomar treino
+          </ButtonLink>
+        </Card>
+      ) : dia ? (
+        <Card tone="primary">
+          <p className="t-caption">{DIAS_DA_SEMANA[hojeSemana]}</p>
+          <h2 className="t-title mt-0.5">{dia.nome}</h2>
 
-      {programa && lifts.length > 0 && (
-        <div className="space-y-2">
-          <SectionLabel action={<span className="t-caption">{doPrograma.length} sessões</span>}>
-            Seus levantamentos
-          </SectionLabel>
-          <Card padded={false}>
-            <ul className="divide-y divide-border">
-              {lifts.map((l) => (
-                <li key={l.id} className="flex items-baseline justify-between gap-3 px-4 py-2.5">
-                  <span className="min-w-0 truncate text-sm font-medium">{l.nome}</span>
-                  <span className="t-caption shrink-0 tabular-nums">TM {l.tm_kg} kg</span>
+          {plano.length > 0 ? (
+            <ul className="mt-3 space-y-1">
+              {plano.map((item) => (
+                <li
+                  key={item.routine_exercise_id ?? item.exercise_id}
+                  className="flex items-baseline justify-between gap-3 text-sm"
+                >
+                  <span className="min-w-0 truncate">{item.nome}</span>
+                  <span className="t-caption shrink-0 tabular-nums">
+                    {item.series.length} × {item.series[0]?.reps_alvo} × {item.series[0]?.peso_kg} kg
+                  </span>
                 </li>
               ))}
             </ul>
-          </Card>
-        </div>
+          ) : (
+            <p className="t-caption mt-2">
+              Este dia ainda não tem exercício. Adicione na rotina, ou comece e monte na hora.
+            </p>
+          )}
+
+          <Button block className="mt-4" onClick={() => comecar(plano)} disabled={iniciar.isPending}>
+            <Play className="size-4" />
+            Começar treino
+          </Button>
+        </Card>
+      ) : (
+        <Card>
+          <p className="t-caption">{DIAS_DA_SEMANA[hojeSemana]}</p>
+          <h2 className="t-title mt-0.5">Descanso</h2>
+          {proximo ? (
+            <p className="t-caption mt-1">
+              Próximo: {DIAS_DA_SEMANA[proximo.dia_semana].toLowerCase()} · {proximo.nome}
+            </p>
+          ) : (
+            <p className="t-caption mt-1">Sua rotina ainda não tem nenhum dia de treino.</p>
+          )}
+          <button
+            type="button"
+            onClick={() => comecar([])}
+            disabled={iniciar.isPending}
+            className="mt-3 min-h-11 text-[0.8125rem] font-medium text-primary"
+          >
+            Treinar mesmo assim
+          </button>
+        </Card>
       )}
 
       {recentes.length > 0 && (
@@ -126,9 +148,7 @@ export function Treino() {
                 <li key={s.id}>
                   <CardRow as={Link} to="/treino/historico">
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
-                        {s.nome || "Sessão"}
-                      </span>
+                      <span className="block truncate text-sm font-medium">{s.nome || "Sessão"}</span>
                       <span className="t-caption block">{dataRelativa(s.data)}</span>
                     </span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
