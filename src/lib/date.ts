@@ -41,6 +41,13 @@ export function dataRelativa(data: string): string {
   return dataPorExtenso(data);
 }
 
+/** Dia da semana de "YYYY-MM-DD": 0 = domingo. Usa `local` de propósito —
+ *  `new Date(data).getDay()` leria a string como UTC e, a oeste de Greenwich,
+ *  responderia o dia anterior. */
+export function diaSemana(data: string): number {
+  return local(data).getDay();
+}
+
 /** Minutos desde a meia-noite, de "HH:MM". NaN vira null para não contaminar
  *  comparações de horário com um valor que é sempre falso em toda comparação. */
 export function horaParaMinutos(hhmm: string | null | undefined): number | null {
