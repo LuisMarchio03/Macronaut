@@ -11,7 +11,7 @@ import { MealsConfig } from "./pages/meals-config";
 import { Onboarding } from "./pages/onboarding";
 import { Treino } from "./pages/treino";
 import { TreinoSessao } from "./pages/treino-sessao";
-import { TreinoPrograma } from "./pages/treino-programa";
+import { TreinoRotina } from "./pages/treino-rotina";
 import { TreinoProgressao } from "./pages/treino-progressao";
 import { TreinoHistorico } from "./pages/treino-historico";
 import { TreinoExercicios } from "./pages/treino-exercicios";
@@ -77,7 +77,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/nutricao" element={<Nutricao />} />
           <Route path="/treino" element={<Treino />} />
-          <Route path="/treino/programa" element={<TreinoPrograma />} />
+          <Route path="/treino/rotina" element={<TreinoRotina />} />
           <Route path="/treino/progressao" element={<TreinoProgressao />} />
           <Route path="/treino/historico" element={<TreinoHistorico />} />
           <Route path="/treino/exercicios" element={<TreinoExercicios />} />
