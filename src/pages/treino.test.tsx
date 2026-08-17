@@ -29,7 +29,7 @@ const DUPLA = {
   incremento_kg: 2.5,
   tm_kg: null,
   parte: null,
-  descanso_s: 90,
+  descanso_s: 90, duracao_min: null,
 };
 
 function montar() {

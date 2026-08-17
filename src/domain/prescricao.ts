@@ -8,7 +8,7 @@ import { arredondarCarga, sessaoPrescrita, tmVigente, type Parte, type Semana } 
  * errada aqui custa uma sessão ou um ombro. Nada aqui conhece React nem banco.
  */
 
-export type TipoPrescricao = "dupla" | "fixa" | "531";
+export type TipoPrescricao = "dupla" | "fixa" | "531" | "cardio";
 
 export type Prescricao =
   | {
@@ -20,7 +20,8 @@ export type Prescricao =
       incremento_kg: number;
     }
   | { tipo: "fixa"; series: number; reps: number; peso_kg: number }
-  | { tipo: "531"; tm_kg: number; parte: Parte; incremento_kg: number };
+  | { tipo: "531"; tm_kg: number; parte: Parte; incremento_kg: number }
+  | { tipo: "cardio"; duracao_min: number; met: number };
 
 /** Uma sessão passada do exercício. Só séries efetivas — aquecimento fora. */
 export interface SessaoAnterior {
@@ -42,6 +43,8 @@ export interface SeriePlanejada {
   amrap: boolean;
   /** Percentual do Training Max. Só o 5/3/1 tem. */
   pct: number | null;
+  /** Minutos prescritos. Só cardio tem; nos demais é `null`. */
+  duracao_min: number | null;
 }
 
 /**
@@ -96,6 +99,7 @@ function planejarDupla(
     tipo: "valida" as const,
     amrap: false,
     pct: null,
+    duracao_min: null,
   }));
 }
 
@@ -108,6 +112,7 @@ function planejarFixa(p: Extract<Prescricao, { tipo: "fixa" }>): SeriePlanejada[
     tipo: "valida" as const,
     amrap: false,
     pct: null,
+    duracao_min: null,
   }));
 }
 
@@ -140,7 +145,29 @@ function planejar531(
     tipo: s.tipo === "aquecimento" ? ("aquecimento" as const) : ("valida" as const),
     amrap: s.amrap,
     pct: s.pct,
+    duracao_min: null,
   }));
+}
+
+/**
+ * Cardio: uma linha só, e nenhuma progressão.
+ *
+ * Não há carga que suba sozinha aqui — a duração é a que você escreveu na
+ * rotina, e o que varia é quanto você de fato pedalou. `reps_alvo` e `peso_kg`
+ * ficam em zero de propósito: são campos que não se aplicam, e forjar um
+ * número neles faria o volume da sessão mentir.
+ */
+function planejarCardio(p: Extract<Prescricao, { tipo: "cardio" }>): SeriePlanejada[] {
+  return [{
+    ordem: 1,
+    peso_kg: 0,
+    reps_alvo: 0,
+    reps_min: null,
+    tipo: "valida" as const,
+    amrap: false,
+    pct: null,
+    duracao_min: p.duracao_min,
+  }];
 }
 
 /** As séries de hoje para UM exercício, dadas as sessões passadas dele —
@@ -153,6 +180,8 @@ export function planejar(p: Prescricao, anteriores: SessaoAnterior[]): SeriePlan
       return planejarDupla(p, anteriores);
     case "531":
       return planejar531(p, anteriores);
+    case "cardio":
+      return planejarCardio(p);
   }
 }
 

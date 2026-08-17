@@ -88,7 +88,7 @@ describe("TreinoRotina", () => {
     await adicionarExercicio(db, 1, d.id, {
       exercise_id: await exercicio("Supino reto"),
       prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12,
-      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90,
+      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90, duracao_min: null,
     });
     montar();
     expect(await screen.findByText("Supino reto")).toBeInTheDocument();
@@ -124,7 +124,7 @@ describe("TreinoRotina", () => {
     await adicionarExercicio(db, 1, d.id, {
       exercise_id: await exercicio("Agachamento"),
       prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12,
-      peso_kg: 60, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90,
+      peso_kg: 60, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90, duracao_min: null,
     });
     montar();
 
@@ -144,7 +144,7 @@ describe("TreinoRotina", () => {
     await adicionarExercicio(db, 1, d.id, {
       exercise_id: await exercicio("Agachamento"),
       prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12,
-      peso_kg: 60, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90,
+      peso_kg: 60, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90, duracao_min: null,
     });
     montar();
 
@@ -168,7 +168,7 @@ describe("TreinoRotina", () => {
     await adicionarExercicio(db, 1, d.id, {
       exercise_id: await exercicio("Crucifixo"),
       prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12,
-      peso_kg: 12, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 60,
+      peso_kg: 12, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 60, duracao_min: null,
     });
     montar();
 
@@ -184,7 +184,7 @@ describe("TreinoRotina", () => {
     await adicionarExercicio(db, 1, d.id, {
       exercise_id: await exercicio("Supino reto"),
       prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12,
-      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90,
+      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90, duracao_min: null,
     });
     montar();
 
@@ -203,7 +203,7 @@ describe("TreinoRotina", () => {
     const d = await salvarDia(db, 1, r.id, 1, "Peito");
     const base = {
       prescricao: "dupla" as const, series: 3, reps_min: 8, reps_max: 12,
-      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90,
+      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90, duracao_min: null,
     };
     await adicionarExercicio(db, 1, d.id, { ...base, exercise_id: await exercicio("Supino reto") });
     await adicionarExercicio(db, 1, d.id, { ...base, exercise_id: await exercicio("Crucifixo") });

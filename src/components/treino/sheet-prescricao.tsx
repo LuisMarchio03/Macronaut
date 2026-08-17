@@ -14,6 +14,7 @@ const TIPOS = [
   { valor: "dupla" as const, label: "Dupla", descricao: "Dupla progressão" },
   { valor: "fixa" as const, label: "Fixa", descricao: "Carga fixa" },
   { valor: "531" as const, label: "5/3/1", descricao: "Método 5/3/1" },
+  { valor: "cardio" as const, label: "Cardio", descricao: "Cardio por duração" },
 ];
 
 const PARTES = [
@@ -55,6 +56,7 @@ export function SheetPrescricao({
   const [tm, setTm] = useState("");
   const [parte, setParte] = useState<Parte>("superior");
   const [descanso, setDescanso] = useState("90");
+  const [duracao, setDuracao] = useState("30");
 
   // Abrir o sheet para outro exercício precisa recarregar os campos; sem isso o
   // segundo exercício aberto mostraria os números do primeiro.
@@ -69,6 +71,7 @@ export function SheetPrescricao({
     setTm(exercicio.tm_kg == null ? "" : String(exercicio.tm_kg));
     setParte(exercicio.parte ?? "superior");
     setDescanso(exercicio.descanso_s == null ? "90" : String(exercicio.descanso_s));
+    setDuracao(exercicio.duracao_min == null ? "30" : String(exercicio.duracao_min));
   }, [exercicio]);
 
   if (!exercicio) return null;
@@ -85,6 +88,7 @@ export function SheetPrescricao({
       tm_kg: tipo === "531" ? num(tm, 0) : null,
       parte: tipo === "531" ? parte : null,
       descanso_s: num(descanso, 90),
+      duracao_min: tipo === "cardio" ? num(duracao, 30) : null,
     });
     onFechar();
   }
@@ -104,10 +108,21 @@ export function SheetPrescricao({
               valor={tipo}
               onChange={(v) => v && setTipo(v)}
               rotulo="Tipo de prescrição"
-              colunas={3}
+              colunas={4}
             />
           </div>
 
+          {tipo === "cardio" ? (
+            <div>
+              <Label htmlFor="p-duracao">Duração (min)</Label>
+              <Input id="p-duracao" inputMode="numeric" value={duracao}
+                onChange={(e) => setDuracao(e.target.value)} />
+              <p className="t-caption mt-1">
+                As calorias saem do MET do exercício e do seu peso, como já saíam na tela de
+                cardio. Sem séries nem carga: aqui não há progressão a calcular.
+              </p>
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor="p-series">Séries</Label>
@@ -120,6 +135,7 @@ export function SheetPrescricao({
                 onChange={(e) => setDescanso(e.target.value)} />
             </div>
           </div>
+          )}
 
           {tipo === "dupla" && (
             <>
@@ -149,7 +165,7 @@ export function SheetPrescricao({
             </div>
           )}
 
-          {tipo !== "531" ? (
+          {tipo === "cardio" ? null : tipo !== "531" ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="p-peso">

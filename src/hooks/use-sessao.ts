@@ -9,6 +9,7 @@ import {
   iniciarSessao,
   marcasAmrap,
   montarPlanoDoDia,
+  registrarCardio,
   registrarSerie,
   sessaoEmAndamento,
   type ItemPlanejado,
@@ -68,7 +69,7 @@ function useEscritaNaSessao<TVars, TDados>(fn: (v: TVars) => Promise<TDados>) {
     onSuccess: () => {
       for (const chave of [
         ["sessao"], ["sessions"], ["session"], ["session-sets"],
-        ["sets-exercise"], ["ultima-vez"], ["historico-exercicio"],
+        ["sets-exercise"], ["ultima-vez"], ["historico-exercicio"], ["progresso"],
       ]) {
         qc.invalidateQueries({ queryKey: chave });
       }
@@ -121,4 +122,12 @@ export function useFinalizarSessao() {
   const db = useDb();
   const userId = useUserId();
   return useEscritaNaSessao((sessionId: number) => finalizarSessao(db, userId, sessionId));
+}
+
+export function useRegistrarCardio() {
+  const db = useDb();
+  const userId = useUserId();
+  return useEscritaNaSessao((v: { planId: number; duracao_min: number; kcal: number }) =>
+    registrarCardio(db, userId, v.planId, { duracao_min: v.duracao_min, kcal: v.kcal }),
+  );
 }

@@ -37,6 +37,15 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   // e não derivado: uma sessão pode terminar com séries por fazer, e derivar
   // "acabou" de "não sobrou nada pendente" nunca deixaria essa sessão fechar.
   { table: "workout_sessions", column: "concluida_em", ddl: "ALTER TABLE workout_sessions ADD COLUMN concluida_em TEXT" },
+  // Cardio virou exercício do catálogo, para a sessão continuar sendo UMA lista
+  // ordenada. O MET mora aqui porque é do exercício, não da rotina.
+  { table: "exercises", column: "met", ddl: "ALTER TABLE exercises ADD COLUMN met REAL" },
+  { table: "routine_exercises", column: "duracao_min", ddl: "ALTER TABLE routine_exercises ADD COLUMN duracao_min REAL" },
+  { table: "session_plan_sets", column: "duracao_min", ddl: "ALTER TABLE session_plan_sets ADD COLUMN duracao_min REAL" },
+  // O elo do cardio com o realizado. Cardio grava em activity_sessions, não em
+  // workout_sets: lá vive levantamento de peso, e contaminar aquela tabela
+  // quebraria volume, 1RM e progressão de uma vez.
+  { table: "session_plan_sets", column: "activity_id", ddl: "ALTER TABLE session_plan_sets ADD COLUMN activity_id INTEGER" },
 ];
 
 /**

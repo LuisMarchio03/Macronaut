@@ -9,6 +9,7 @@ import { seedActivityTypes } from "../src/repositories/activities.ts";
 import { seedMuscleGroups } from "../src/repositories/muscle-groups.ts";
 import { seedExercicios, backfillGrupos, backfillUserIds } from "../src/repositories/exercises.ts";
 import { CATALOGO } from "../src/db/catalogo-exercicios.ts";
+import { seedExerciciosDeCardio } from "../src/db/seed-cardio.ts";
 
 const url = process.env.DB_URL;
 if (!url) throw new Error("DB_URL não definida");
@@ -23,6 +24,7 @@ const db = createClient({ url, authToken: token });
 await seedActivityTypes(db);
 await seedMuscleGroups(db);
 await seedExercicios(db);
+const nCardio = await seedExerciciosDeCardio(db);
 const nBackfill = await backfillGrupos(db);
 const nBackfillUserIds = await backfillUserIds(db);
 
@@ -51,6 +53,7 @@ db.close();
 
 console.log(
   `Banco pronto: schema aplicado, tipos de atividade e ${CATALOGO.length} exercícios seedados, ` +
+    `${nCardio} exercícios de cardio criados, ` +
     `${nBackfill} exercícios com grupo migrado, ${nBackfillUserIds} exercícios com dono migrado, ` +
     `${n} alimentos da TACO, ${nNutrientes} alimentos com nutrientes migrados` +
     `, ${nMedidas} medidas caseiras da POF.`,

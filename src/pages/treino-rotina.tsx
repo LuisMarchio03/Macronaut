@@ -39,7 +39,7 @@ const PADRAO: Omit<ExercicioRotinaInput, "exercise_id"> = {
   incremento_kg: 2.5,
   tm_kg: null,
   parte: null,
-  descanso_s: 90,
+  descanso_s: 90, duracao_min: null,
 };
 
 /** "3 × 8–12" na dupla, "3 × 15" na fixa, "5/3/1 · TM 120 kg" no método. */

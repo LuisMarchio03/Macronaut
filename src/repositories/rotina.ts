@@ -32,9 +32,16 @@ export interface ExercicioRotina {
   tm_kg: number | null;
   parte: Parte | null;
   descanso_s: number | null;
+  /** Minutos prescritos. Só `prescricao === 'cardio'`. */
+  duracao_min: number | null;
+  /** MET do exercício de cardio, vindo do catálogo. Não é editável na rotina. */
+  met: number | null;
 }
 
-export type ExercicioRotinaInput = Omit<ExercicioRotina, "id" | "day_id" | "nome" | "ordem">;
+export type ExercicioRotinaInput = Omit<
+  ExercicioRotina,
+  "id" | "day_id" | "nome" | "ordem" | "met"
+>;
 
 /**
  * Os dias que pertencem ao usuário, para o WHERE das escritas.
@@ -82,6 +89,8 @@ function mapExercicio(r: Row): ExercicioRotina {
     tm_kg: (r.tm_kg as number | null) ?? null,
     parte: (r.parte as Parte | null) ?? null,
     descanso_s: (r.descanso_s as number | null) ?? null,
+    duracao_min: (r.duracao_min as number | null) ?? null,
+    met: (r.met as number | null) ?? null,
   };
 }
 
@@ -164,7 +173,7 @@ export async function removerDia(db: Client, userId: number, dayId: number): Pro
 }
 
 const SELECT_EXERCICIOS = `
-  SELECT re.*, e.nome AS exercicio_nome, d.dia_semana AS dia_semana
+  SELECT re.*, e.nome AS exercicio_nome, e.met AS met, d.dia_semana AS dia_semana
   FROM routine_exercises re
   JOIN routine_days d ON d.id = re.day_id
   JOIN routines r     ON r.id = d.routine_id
@@ -225,11 +234,12 @@ export async function adicionarExercicio(
   const rs = await db.execute({
     sql: `INSERT INTO routine_exercises
             (day_id, exercise_id, ordem, prescricao, series, reps_min, reps_max,
-             peso_kg, incremento_kg, tm_kg, parte, descanso_s)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             peso_kg, incremento_kg, tm_kg, parte, descanso_s, duracao_min)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       dayId, e.exercise_id, rs0.rows[0].proxima as number, e.prescricao, e.series,
       e.reps_min, e.reps_max, e.peso_kg, e.incremento_kg, e.tm_kg, e.parte, e.descanso_s,
+      e.duracao_min,
     ],
   });
   return Number(rs.lastInsertRowid);
@@ -244,11 +254,11 @@ export async function atualizarExercicio(
   await db.execute({
     sql: `UPDATE routine_exercises
           SET exercise_id=?, prescricao=?, series=?, reps_min=?, reps_max=?,
-              peso_kg=?, incremento_kg=?, tm_kg=?, parte=?, descanso_s=?
+              peso_kg=?, incremento_kg=?, tm_kg=?, parte=?, descanso_s=?, duracao_min=?
           WHERE id = ? AND day_id IN (${DIAS_DO_USUARIO})`,
     args: [
       e.exercise_id, e.prescricao, e.series, e.reps_min, e.reps_max,
-      e.peso_kg, e.incremento_kg, e.tm_kg, e.parte, e.descanso_s,
+      e.peso_kg, e.incremento_kg, e.tm_kg, e.parte, e.descanso_s, e.duracao_min,
       id, userId,
     ],
   });

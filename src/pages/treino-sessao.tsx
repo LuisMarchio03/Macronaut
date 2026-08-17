@@ -7,11 +7,13 @@ import { CronometroDescanso } from "@/components/treino/cronometro-descanso";
 import { ExercicioAutocomplete } from "@/components/treino/exercicio-autocomplete";
 import { SheetAjustarSerie } from "@/components/treino/sheet-ajustar-serie";
 import { useExercises } from "@/hooks/use-exercises";
+import { useProfile } from "@/hooks/use-profile";
 import {
   useAdicionarAoPlano,
   useDesfazerSerie,
   useMarcasAmrap,
   usePlano,
+  useRegistrarCardio,
   useFinalizarSessao,
   useRegistrarSerie,
   useSessaoEmAndamento,
@@ -19,11 +21,12 @@ import {
 import { useHistoricoExercicio } from "@/hooks/use-workouts";
 import { planejar } from "@/domain/prescricao";
 import { e1RMDaSerie, ehRecorde, recordeNoPeso } from "@/domain/531";
-import { resumirSets } from "@/domain/treino";
+import { estimativaKcal, resumirSets } from "@/domain/treino";
 import type { TipoSerie } from "@/domain/types";
 import { hoje } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { PlanoSerie } from "@/repositories/sessao";
+import { ehCardio } from "@/repositories/sessao";
 
 /** Exercício adicionado no meio do treino entra por dupla progressão, com os
  *  mesmos padrões da rotina — o ajuste da primeira série define a carga. */
@@ -223,6 +226,58 @@ function LinhaAmrap({
   );
 }
 
+/**
+ * Um item de cardio: duração no lugar de reps e carga.
+ *
+ * As calorias saem do MET do exercício e do peso do perfil — a mesma conta que
+ * a tela de cardio antiga fazia, para que registrar bike dentro do treino e
+ * registrar bike avulso deem o mesmo número no balanço energético.
+ */
+function LinhaCardio({
+  s,
+  peso_kg,
+  onRegistrar,
+  onDesfazer,
+}: {
+  s: PlanoSerie;
+  peso_kg: number | null;
+  onRegistrar: (v: { duracao_min: number; kcal: number }) => void;
+  onDesfazer: () => void;
+}) {
+  const ok = s.activity_id !== null;
+  const duracao = s.duracao_min ?? 0;
+  const kcal =
+    peso_kg !== null && s.met !== null ? Math.round(estimativaKcal(s.met, peso_kg, duracao)) : 0;
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={ok ? onDesfazer : () => onRegistrar({ duracao_min: duracao, kcal })}
+        aria-label={`${ok ? "Desfazer" : "Registrar"} ${s.nome}`}
+        className={cn(
+          "flex min-h-16 w-full items-center gap-3 rounded-xl border px-4 text-left transition-colors",
+          ok ? "border-success/40 bg-tint-success" : "border-border bg-card hover:bg-muted",
+        )}
+      >
+        <Bolinha ok={ok} />
+        <span className="flex-1">
+          <span className="block text-[0.9375rem] font-semibold tabular-nums">
+            {ok ? s.duracao_feita_min : duracao} min
+          </span>
+          <span className="t-caption block tabular-nums">
+            {ok
+              ? `${Math.round(s.kcal_feita ?? 0)} kcal`
+              : kcal > 0
+                ? `≈ ${kcal} kcal`
+                : "defina seu peso nas metas para estimar as calorias"}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
 /** Ritual, não decisão: recolhido por padrão, com o contador de quantas já foram. */
 function BlocoAquecimento({
   series,
@@ -292,6 +347,8 @@ export function TreinoSessao() {
   const desfazer = useDesfazerSerie();
   const adicionar = useAdicionarAoPlano();
   const finalizar = useFinalizarSessao();
+  const registrarCardio = useRegistrarCardio();
+  const { data: perfil } = useProfile();
   const { data: catalogo = [] } = useExercises();
 
   const [iExercicio, setIExercicio] = useState(0);
@@ -311,11 +368,13 @@ export function TreinoSessao() {
     return blocos;
   }, [plano]);
 
-  const feitas = plano.filter((s) => s.set_id !== null).length;
+  const feitas = plano.filter((s) => s.set_id !== null || s.activity_id !== null).length;
   const atual = exercicios[Math.min(iExercicio, Math.max(exercicios.length - 1, 0))];
   const descanso = atual?.series[0]?.descanso_s ?? undefined;
-  const aquecimento = (atual?.series ?? []).filter((s) => s.tipo === "aquecimento");
-  const trabalho = (atual?.series ?? []).filter((s) => s.tipo !== "aquecimento");
+  const doAtual = atual?.series ?? [];
+  const cardio = doAtual.filter(ehCardio);
+  const aquecimento = doAtual.filter((s) => !ehCardio(s) && s.tipo === "aquecimento");
+  const trabalho = doAtual.filter((s) => !ehCardio(s) && s.tipo !== "aquecimento");
 
   function registrarSerie(
     s: PlanoSerie,
@@ -391,6 +450,23 @@ export function TreinoSessao() {
               <h1 className="t-title">{atual.nome}</h1>
               <UltimaVez exerciseId={atual.exercise_id} />
             </div>
+
+            {cardio.length > 0 && (
+              <ul className="space-y-2">
+                {cardio.map((s) => (
+                  <LinhaCardio
+                    key={s.id}
+                    s={s}
+                    peso_kg={perfil?.peso_kg ?? null}
+                    onRegistrar={(v) => {
+                      registrarCardio.mutate({ planId: s.id, ...v });
+                      setRegistros((n) => n + 1);
+                    }}
+                    onDesfazer={() => desfazer.mutate(s.id)}
+                  />
+                ))}
+              </ul>
+            )}
 
             {aquecimento.length > 0 && (
               <BlocoAquecimento
@@ -477,7 +553,7 @@ export function TreinoSessao() {
       {exercicios.length > 1 && (
         <nav aria-label="Exercícios da sessão" className="flex gap-1.5 overflow-x-auto border-t border-border px-4 py-2">
           {exercicios.map((b, i) => {
-            const completo = b.series.every((s) => s.set_id !== null);
+            const completo = b.series.every((s) => s.set_id !== null || s.activity_id !== null);
             return (
               <button
                 key={b.exercise_id}

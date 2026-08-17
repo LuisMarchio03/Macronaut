@@ -12,10 +12,9 @@ import { Onboarding } from "./pages/onboarding";
 import { Treino } from "./pages/treino";
 import { TreinoSessao } from "./pages/treino-sessao";
 import { TreinoRotina } from "./pages/treino-rotina";
-import { TreinoProgressao } from "./pages/treino-progressao";
-import { TreinoHistorico } from "./pages/treino-historico";
-import { TreinoExercicios } from "./pages/treino-exercicios";
-import { TreinoCardio } from "./pages/treino-cardio";
+import { TreinoProgresso } from "./pages/treino-progresso";
+import { TreinoSessaoDetalhe } from "./pages/treino-sessao-detalhe";
+import { Exercicios } from "./pages/exercicios";
 import { Analise } from "./pages/analise";
 import { Ajustes } from "./pages/ajustes";
 import { Ia } from "./pages/ia";
@@ -79,10 +78,10 @@ export default function App() {
           <Route path="/nutricao" element={<Nutricao />} />
           <Route path="/treino" element={<Treino />} />
           <Route path="/treino/rotina" element={<TreinoRotina />} />
-          <Route path="/treino/progressao" element={<TreinoProgressao />} />
-          <Route path="/treino/historico" element={<TreinoHistorico />} />
-          <Route path="/treino/exercicios" element={<TreinoExercicios />} />
-          <Route path="/treino/cardio" element={<TreinoCardio />} />
+          <Route path="/treino/progresso" element={<TreinoProgresso />} />
+          {/* Depois de /treino/sessao, que é rota literal fora deste layout. */}
+          <Route path="/treino/sessao/:id" element={<TreinoSessaoDetalhe />} />
+          <Route path="/exercicios" element={<Exercicios />} />
           <Route path="/analise" element={<Analise />} />
           <Route path="/mais" element={<Mais />} />
           <Route path="/alimentos" element={<Foods />} />

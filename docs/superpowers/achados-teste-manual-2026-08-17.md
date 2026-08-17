@@ -103,13 +103,15 @@ desalinhando o item.
 nem redirecionamento. O React Router avisa no console
 (`No routes matched location`) e a tela fica vazia.
 
-### B2 · Troca de tema anunciada e ausente — **média**
+### B2 · ~~Troca de tema anunciada e ausente~~ — **falso positivo**
 
-O README promete "tema claro e escuro, seguindo o do sistema quando você não
-escolheu". `ThemeToggle` está implementado em `src/lib/theme.tsx` e **não é
-montado em lugar nenhum**. `/ajustes` tem conta, banco, IA e "sair" — nenhum
-controle de tema. A funcionalidade só existe seguindo o sistema; escolher é
-impossível.
+**Este achado estava errado.** `ThemeToggle` está montado em `/mais`, e sempre
+esteve. O que falhou foi o teste: ele procurou o controle em `/ajustes`, e com
+um regex ancorado (`/^(escuro|claro|sistema)$/`) que não casaria nem se
+estivesse na tela certa — o rótulo real é "Mudar para o tema escuro".
+
+Fica registrado em vez de apagado: o modo como um teste mal escrito produz um
+achado convincente é a parte útil.
 
 ### B3 · Histórico não mostra nada de uma sessão só de aquecimento — **média**
 

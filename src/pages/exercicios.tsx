@@ -1,11 +1,11 @@
 import { BackLink, Page, PageHeader } from "@/components/ui/page";
 import { ExerciciosTab } from "@/components/treino/exercicios-tab";
 
-export function TreinoExercicios() {
+export function Exercicios() {
   return (
     <Page>
       <PageHeader
-        eyebrow={<BackLink to="/treino">Treino</BackLink>}
+        eyebrow={<BackLink to="/mais">Mais</BackLink>}
         title="Exercícios"
       >
         <p className="t-caption">

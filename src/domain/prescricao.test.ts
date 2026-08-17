@@ -199,3 +199,31 @@ describe("treinoDoDia e proximoTreino", () => {
     expect(proximoTreino(um, 1)?.nome).toBe("Full body");
   });
 });
+
+describe("planejar — cardio", () => {
+  const BIKE: Prescricao = { tipo: "cardio", duracao_min: 30, met: 7.5 };
+
+  it("devolve uma linha só, com a duração prescrita", () => {
+    const s = planejar(BIKE, []);
+    expect(s).toHaveLength(1);
+    expect(s[0].duracao_min).toBe(30);
+    expect(s[0].ordem).toBe(1);
+    expect(s[0].tipo).toBe("valida");
+    expect(s[0].amrap).toBe(false);
+  });
+
+  // Zerados de propósito: são campos que não se aplicam, e forjar um número
+  // neles faria o volume da sessão mentir.
+  it("não inventa reps nem carga", () => {
+    const [linha] = planejar(BIKE, []);
+    expect(linha.reps_alvo).toBe(0);
+    expect(linha.peso_kg).toBe(0);
+    expect(linha.reps_min).toBeNull();
+    expect(linha.pct).toBeNull();
+  });
+
+  it("não progride: o histórico não muda a prescrição", () => {
+    const comHistorico = planejar(BIKE, [sessao(0, [0]), sessao(0, [0])]);
+    expect(comHistorico).toEqual(planejar(BIKE, []));
+  });
+});

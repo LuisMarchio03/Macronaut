@@ -38,7 +38,7 @@ const DUPLA: ExercicioRotinaInput = {
   incremento_kg: 2.5,
   tm_kg: null,
   parte: null,
-  descanso_s: 90,
+  descanso_s: 90, duracao_min: null,
 };
 
 beforeEach(async () => {
@@ -113,7 +113,7 @@ describe("rotina", () => {
       incremento_kg: 2.5,
       tm_kg: 120,
       parte: "inferior",
-      descanso_s: 180,
+      descanso_s: 180, duracao_min: null,
     });
 
     const [e] = await listExercicios(db, USER, d.id);

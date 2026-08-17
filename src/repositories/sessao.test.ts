@@ -8,6 +8,8 @@ import {
   iniciarSessao,
   finalizarSessao,
   marcasAmrap,
+  registrarCardio,
+  ehCardio,
   montarPlanoDoDia,
   registrarSerie,
   sessaoEmAndamento,
@@ -283,11 +285,11 @@ describe("montarPlanoDoDia", () => {
     const d = await salvarDia(db, USER, r.id, 1, "Peito");
     const re1 = await adicionarExercicio(db, USER, d.id, {
       exercise_id: supino, prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12,
-      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 120,
+      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 120, duracao_min: null,
     });
     await adicionarExercicio(db, USER, d.id, {
       exercise_id: crucifixo, prescricao: "fixa", series: 4, reps_min: null, reps_max: 15,
-      peso_kg: 12, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 60,
+      peso_kg: 12, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 60, duracao_min: null,
     });
 
     const itens = await montarPlanoDoDia(db, USER, d.id, "2026-08-17");
@@ -309,7 +311,7 @@ describe("montarPlanoDoDia", () => {
     const d = await salvarDia(db, USER, r.id, 1, "Peito");
     await adicionarExercicio(db, USER, d.id, {
       exercise_id: supino, prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12,
-      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90,
+      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90, duracao_min: null,
     });
 
     const s = await createSession(db, USER, { data: "2026-08-10", nome: null });
@@ -328,5 +330,102 @@ describe("montarPlanoDoDia", () => {
     const r = await criarRotina(db, USER, "R");
     const d = await salvarDia(db, USER, r.id, 1, "Peito");
     expect(await montarPlanoDoDia(db, USER, d.id, "2026-08-17")).toEqual([]);
+  });
+});
+
+describe("cardio dentro da sessão", () => {
+  /** Um item de cardio de 30 min, MET 7,5 (bicicleta). */
+  async function comCardio() {
+    const bike = await exercicio("Bicicleta");
+    await db.execute({ sql: "UPDATE exercises SET met = 7.5, equipamento = 'cardio' WHERE id = ?", args: [bike] });
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17",
+      nome: "Cardio",
+      itens: [{
+        routine_exercise_id: null, exercise_id: bike, nome: "Bicicleta", descanso_s: null,
+        series: planejar({ tipo: "cardio", duracao_min: 30, met: 7.5 }, []),
+      }],
+    });
+    return { bike, sid };
+  }
+
+  it("materializa uma linha só, reconhecível como cardio", async () => {
+    const { sid } = await comCardio();
+    const plano = await getPlano(db, USER, sid);
+    expect(plano).toHaveLength(1);
+    expect(plano[0].duracao_min).toBe(30);
+    expect(plano[0].met).toBe(7.5);
+    expect(ehCardio(plano[0])).toBe(true);
+  });
+
+  // O ponto do desenho: cardio soma calorias no mesmo lugar que o cardio de
+  // sempre somava, e não contamina a tabela de levantamento de peso.
+  it("registrar grava em activity_sessions e NÃO em workout_sets", async () => {
+    const { sid } = await comCardio();
+    const [linha] = await getPlano(db, USER, sid);
+
+    await registrarCardio(db, USER, linha.id, { duracao_min: 30, kcal: 308 });
+
+    expect(await listSetsBySession(db, USER, sid)).toHaveLength(0);
+    const rs = await db.execute({
+      sql: "SELECT tipo, data, duracao_min, kcal FROM activity_sessions WHERE user_id = ?",
+      args: [USER],
+    });
+    expect(rs.rows).toHaveLength(1);
+    expect(rs.rows[0].tipo).toBe("Bicicleta");
+    expect(rs.rows[0].data).toBe("2026-08-17");
+    expect(Number(rs.rows[0].kcal)).toBe(308);
+
+    const depois = await getPlano(db, USER, sid);
+    expect(depois[0].activity_id).not.toBeNull();
+    expect(depois[0].duracao_feita_min).toBe(30);
+    expect(depois[0].kcal_feita).toBe(308);
+  });
+
+  it("desfazer apaga a atividade e zera o elo", async () => {
+    const { sid } = await comCardio();
+    const [linha] = await getPlano(db, USER, sid);
+    await registrarCardio(db, USER, linha.id, { duracao_min: 30, kcal: 308 });
+
+    await desfazerSerie(db, USER, linha.id);
+
+    const rs = await db.execute({ sql: "SELECT COUNT(*) AS n FROM activity_sessions WHERE user_id = ?", args: [USER] });
+    expect(Number(rs.rows[0].n)).toBe(0);
+    expect((await getPlano(db, USER, sid))[0].activity_id).toBeNull();
+  });
+
+  it("cardio conta no progresso da sessão em andamento", async () => {
+    const { sid } = await comCardio();
+    const [linha] = await getPlano(db, USER, sid);
+    expect((await sessaoEmAndamento(db, USER, "2026-08-17"))).toEqual({
+      session_id: sid, nome: "Cardio", total: 1, feitas: 0,
+    });
+    await registrarCardio(db, USER, linha.id, { duracao_min: 30, kcal: 308 });
+    expect((await sessaoEmAndamento(db, USER, "2026-08-17"))!.feitas).toBe(1);
+  });
+
+  it("um usuário não registra cardio no plano do outro", async () => {
+    const { sid } = await comCardio();
+    const [linha] = await getPlano(db, USER, sid);
+    await registrarCardio(db, OUTRO, linha.id, { duracao_min: 30, kcal: 308 });
+    const rs = await db.execute("SELECT COUNT(*) AS n FROM activity_sessions");
+    expect(Number(rs.rows[0].n)).toBe(0);
+  });
+
+  it("a rotina planeja cardio a partir da prescrição gravada", async () => {
+    const bike = await exercicio("Bicicleta");
+    await db.execute({ sql: "UPDATE exercises SET met = 7.5, equipamento = 'cardio' WHERE id = ?", args: [bike] });
+    const r = await criarRotina(db, USER, "R");
+    const d = await salvarDia(db, USER, r.id, 4, "Cardio");
+    await adicionarExercicio(db, USER, d.id, {
+      exercise_id: bike, prescricao: "cardio", series: 1, reps_min: null, reps_max: null,
+      peso_kg: null, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: null,
+      duracao_min: 45,
+    });
+
+    const itens = await montarPlanoDoDia(db, USER, d.id, "2026-08-17");
+    expect(itens).toHaveLength(1);
+    expect(itens[0].series).toHaveLength(1);
+    expect(itens[0].series[0].duracao_min).toBe(45);
   });
 });

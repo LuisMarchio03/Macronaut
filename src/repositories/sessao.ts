@@ -35,6 +35,25 @@ export interface PlanoSerie {
   /** O que foi efetivamente feito, quando já foi. */
   reps_feitas: number | null;
   peso_feito_kg: number | null;
+
+  /* ── cardio ──
+     Um item de cardio é uma linha só, com duração no lugar de reps e carga, e
+     que ao ser confirmada grava em `activity_sessions` — não em `workout_sets`,
+     onde vive levantamento de peso e onde uma linha de bike quebraria volume,
+     1RM e progressão de uma vez. */
+  /** Minutos prescritos. Não-nulo identifica a linha como cardio. */
+  duracao_min: number | null;
+  /** MET do exercício, do catálogo — o insumo da estimativa de calorias. */
+  met: number | null;
+  /** `activity_sessions` quando cumprida; NULL = pendente. */
+  activity_id: number | null;
+  duracao_feita_min: number | null;
+  kcal_feita: number | null;
+}
+
+/** Uma linha de cardio é a que tem duração prescrita. */
+export function ehCardio(p: PlanoSerie): boolean {
+  return p.duracao_min !== null;
 }
 
 export interface ItemPlanejado {
@@ -66,6 +85,11 @@ function mapPlano(r: Row): PlanoSerie {
     set_id: (r.set_id as number | null) ?? null,
     reps_feitas: (r.reps_feitas as number | null) ?? null,
     peso_feito_kg: (r.peso_feito_kg as number | null) ?? null,
+    duracao_min: (r.duracao_min as number | null) ?? null,
+    met: (r.met as number | null) ?? null,
+    activity_id: (r.activity_id as number | null) ?? null,
+    duracao_feita_min: (r.duracao_feita_min as number | null) ?? null,
+    kcal_feita: (r.kcal_feita as number | null) ?? null,
   };
 }
 
@@ -79,13 +103,13 @@ function linhasDoItem(
   return item.series.map((s, i) => ({
     sql: `INSERT INTO session_plan_sets
             (user_id, session_id, routine_exercise_id, exercise_id, ordem, serie_ordem,
-             peso_kg, reps_alvo, reps_min, tipo, amrap, pct, descanso_s)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             peso_kg, reps_alvo, reps_min, tipo, amrap, pct, descanso_s, duracao_min)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       userId, sessionId, item.routine_exercise_id, item.exercise_id,
       ordemInicial + i, s.ordem,
       s.peso_kg, s.reps_alvo, s.reps_min, s.tipo, s.amrap ? 1 : 0, s.pct,
-      item.descanso_s,
+      item.descanso_s, s.duracao_min,
     ] as (number | string | null)[],
   }));
 }
@@ -131,11 +155,13 @@ export async function getPlano(
   sessionId: number,
 ): Promise<PlanoSerie[]> {
   const rs = await db.execute({
-    sql: `SELECT p.*, e.nome AS exercicio_nome,
-                 ws.reps AS reps_feitas, ws.peso_kg AS peso_feito_kg
+    sql: `SELECT p.*, e.nome AS exercicio_nome, e.met AS met,
+                 ws.reps AS reps_feitas, ws.peso_kg AS peso_feito_kg,
+                 a.duracao_min AS duracao_feita_min, a.kcal AS kcal_feita
           FROM session_plan_sets p
-          LEFT JOIN exercises e     ON e.id  = p.exercise_id
-          LEFT JOIN workout_sets ws ON ws.id = p.set_id
+          LEFT JOIN exercises e          ON e.id  = p.exercise_id
+          LEFT JOIN workout_sets ws      ON ws.id = p.set_id
+          LEFT JOIN activity_sessions a  ON a.id  = p.activity_id
           WHERE p.user_id = ? AND p.session_id = ?
           ORDER BY p.ordem`,
     args: [userId, sessionId],
@@ -180,24 +206,80 @@ export async function registrarSerie(
   });
 }
 
-export async function desfazerSerie(db: Client, userId: number, planId: number): Promise<void> {
+/**
+ * Confirma um item de cardio.
+ *
+ * Grava em `activity_sessions` — a mesma tabela que o balanço energético e a
+ * análise já leem — e não em `workout_sets`. Cardio dentro de um treino tem
+ * que somar calorias no mesmo lugar que o cardio de sempre somava, senão o
+ * balanço passa a depender de por onde você registrou.
+ */
+export async function registrarCardio(
+  db: Client,
+  userId: number,
+  planId: number,
+  v: { duracao_min: number; kcal: number },
+): Promise<void> {
   const rs = await db.execute({
-    sql: "SELECT set_id FROM session_plan_sets WHERE id = ? AND user_id = ?",
+    sql: `SELECT p.session_id, s.data AS data, e.nome AS nome
+          FROM session_plan_sets p
+          JOIN workout_sessions s ON s.id = p.session_id
+          LEFT JOIN exercises e   ON e.id = p.exercise_id
+          WHERE p.id = ? AND p.user_id = ?`,
     args: [planId, userId],
   });
-  const setId = rs.rows.length ? ((rs.rows[0].set_id as number | null) ?? null) : null;
-  if (setId === null) return;
+  if (!rs.rows.length) return;
+  const linha = rs.rows[0];
 
-  await db.batch(
-    [
-      { sql: "DELETE FROM workout_sets WHERE id = ? AND user_id = ?", args: [setId, userId] },
-      {
-        sql: "UPDATE session_plan_sets SET set_id = NULL WHERE id = ? AND user_id = ?",
-        args: [planId, userId],
-      },
+  const ins = await db.execute({
+    sql: `INSERT INTO activity_sessions (user_id, data, tipo, duracao_min, kcal, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [
+      userId,
+      linha.data as string,
+      (linha.nome as string | null) ?? "Cardio",
+      v.duracao_min,
+      v.kcal,
+      new Date().toISOString(),
     ],
-    "write",
-  );
+  });
+
+  await db.execute({
+    sql: "UPDATE session_plan_sets SET activity_id = ? WHERE id = ? AND user_id = ?",
+    args: [Number(ins.lastInsertRowid), planId, userId],
+  });
+}
+
+export async function desfazerSerie(db: Client, userId: number, planId: number): Promise<void> {
+  const rs = await db.execute({
+    sql: "SELECT set_id, activity_id FROM session_plan_sets WHERE id = ? AND user_id = ?",
+    args: [planId, userId],
+  });
+  if (!rs.rows.length) return;
+  const setId = (rs.rows[0].set_id as number | null) ?? null;
+  const activityId = (rs.rows[0].activity_id as number | null) ?? null;
+  if (setId === null && activityId === null) return;
+
+  // Um dos dois elos existe, nunca os dois: uma linha de plano é série OU
+  // cardio. Desfazer apaga o registro e zera os dois por segurança.
+  const comandos = [];
+  if (setId !== null) {
+    comandos.push({
+      sql: "DELETE FROM workout_sets WHERE id = ? AND user_id = ?",
+      args: [setId, userId] as (number | string | null)[],
+    });
+  }
+  if (activityId !== null) {
+    comandos.push({
+      sql: "DELETE FROM activity_sessions WHERE id = ? AND user_id = ?",
+      args: [activityId, userId] as (number | string | null)[],
+    });
+  }
+  comandos.push({
+    sql: "UPDATE session_plan_sets SET set_id = NULL, activity_id = NULL WHERE id = ? AND user_id = ?",
+    args: [planId, userId] as (number | string | null)[],
+  });
+  await db.batch(comandos, "write");
 }
 
 /** Marca a sessão como encerrada. Idempotente: reencerrar não muda a hora. */
@@ -228,7 +310,7 @@ export async function sessaoEmAndamento(
   const rs = await db.execute({
     sql: `SELECT s.id AS session_id, s.nome AS nome,
                  COUNT(p.id) AS total,
-                 SUM(CASE WHEN p.set_id IS NOT NULL THEN 1 ELSE 0 END) AS feitas
+                 SUM(CASE WHEN p.set_id IS NOT NULL OR p.activity_id IS NOT NULL THEN 1 ELSE 0 END) AS feitas
           FROM workout_sessions s
           JOIN session_plan_sets p ON p.session_id = s.id
           WHERE s.user_id = ? AND s.data = ? AND s.concluida_em IS NULL
@@ -269,6 +351,9 @@ export async function marcasAmrap(
 
 /** A prescrição guardada na rotina, no formato que o domínio entende. */
 function prescricaoDe(e: ExercicioRotina): Prescricao {
+  if (e.prescricao === "cardio") {
+    return { tipo: "cardio", duracao_min: e.duracao_min ?? 30, met: e.met ?? 6 };
+  }
   if (e.prescricao === "531") {
     return {
       tipo: "531",

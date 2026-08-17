@@ -1,7 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import {
-  CalendarDays, ChevronRight, Dumbbell, HeartPulse, History, Play, TrendingUp,
-} from "lucide-react";
+import { CalendarDays, ChevronRight, Play, TrendingUp } from "lucide-react";
 import { Card, CardRow } from "@/components/ui/card";
 import { Page, PageHeader, SectionLabel } from "@/components/ui/page";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -15,12 +13,16 @@ import type { ItemPlanejado } from "@/repositories/sessao";
 import { dataPorExtenso, dataRelativa, diaSemana, hoje } from "@/lib/date";
 import { DIAS_DA_SEMANA } from "./treino-rotina";
 
+/**
+ * Dois destinos, não cinco.
+ *
+ * O hub era um menu de objetos — histórico, progressão, exercícios, cardio — e
+ * duas dessas telas respondiam a mesma pergunta. Agora são perguntas: o que eu
+ * treino na semana, e o que eu já fiz.
+ */
 const ATALHOS = [
   { to: "/treino/rotina", icone: CalendarDays, label: "Rotina", sub: "O que você treina em cada dia" },
-  { to: "/treino/progressao", icone: TrendingUp, label: "Progressão", sub: "Gráficos e recordes" },
-  { to: "/treino/historico", icone: History, label: "Histórico", sub: "Sessões anteriores" },
-  { to: "/treino/exercicios", icone: Dumbbell, label: "Exercícios", sub: "Biblioteca" },
-  { to: "/treino/cardio", icone: HeartPulse, label: "Cardio", sub: "Corrida, bike, caminhada" },
+  { to: "/treino/progresso", icone: TrendingUp, label: "Progresso", sub: "Sessões, cargas e consistência" },
 ];
 
 /**
@@ -156,7 +158,7 @@ export function Treino() {
         <div className="space-y-2">
           <SectionLabel
             action={
-              <Link to="/treino/historico" className="text-[0.8125rem] font-medium text-primary">
+              <Link to="/treino/progresso" className="text-[0.8125rem] font-medium text-primary">
                 Ver tudo
               </Link>
             }
@@ -167,7 +169,7 @@ export function Treino() {
             <ul className="divide-y divide-border">
               {recentes.slice(0, 3).map((s) => (
                 <li key={s.id}>
-                  <CardRow as={Link} to="/treino/historico">
+                  <CardRow as={Link} to={`/treino/sessao/${s.id}`}>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">{s.nome || "Sessão"}</span>
                       <span className="t-caption block">{dataRelativa(s.data)}</span>
