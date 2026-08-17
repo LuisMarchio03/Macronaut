@@ -1,6 +1,7 @@
 import type { Client, Row } from "@libsql/client";
 import type { TipoSerie, WorkoutSession, WorkoutSet } from "../domain/types";
 import type { SetAnalise } from "../domain/analise-treino";
+import type { SessaoAnterior } from "../domain/prescricao";
 
 function mapSession(r: Row): WorkoutSession {
   return {
@@ -260,4 +261,57 @@ export async function ultimaVezExercicio(
       rir: (r.rir as number | null) ?? null,
     })),
   };
+}
+
+/**
+ * As últimas `limite` sessões do exercício antes de `antesDe`, da mais recente
+ * para a mais antiga — o insumo de `planejar`.
+ *
+ * `ultimaVezExercicio` responde a mesma pergunta para uma sessão só e continua
+ * servindo o painel "última vez". A dupla progressão precisa de duas: uma falha
+ * isolada não derruba a carga, duas seguidas no mesmo peso derrubam.
+ */
+export async function historicoExercicio(
+  db: Client,
+  userId: number,
+  exercise_id: number,
+  antesDe: string,
+  limite = 3,
+): Promise<SessaoAnterior[]> {
+  const rs = await db.execute({
+    sql: `SELECT s.id AS session_id, s.data AS data
+          FROM workout_sets ws
+          JOIN workout_sessions s ON s.id = ws.session_id
+          WHERE ws.user_id = ? AND ws.exercise_id = ? AND s.data < ? AND ws.tipo <> 'aquecimento'
+          GROUP BY s.id
+          ORDER BY s.data DESC, s.id DESC
+          LIMIT ?`,
+    args: [userId, exercise_id, antesDe, limite],
+  });
+  if (!rs.rows.length) return [];
+
+  const sessoes = rs.rows.map((r) => ({
+    id: r.session_id as number,
+    data: r.data as string,
+  }));
+
+  const marcadores = sessoes.map(() => "?").join(", ");
+  const rs2 = await db.execute({
+    sql: `SELECT session_id, reps, peso_kg
+          FROM workout_sets
+          WHERE user_id = ? AND exercise_id = ? AND tipo <> 'aquecimento'
+            AND session_id IN (${marcadores})
+          ORDER BY ordem`,
+    args: [userId, exercise_id, ...sessoes.map((s) => s.id)],
+  });
+
+  const porSessao = new Map<number, { reps: number; peso_kg: number }[]>();
+  for (const r of rs2.rows) {
+    const id = r.session_id as number;
+    const lista = porSessao.get(id) ?? [];
+    lista.push({ reps: r.reps as number, peso_kg: r.peso_kg as number });
+    porSessao.set(id, lista);
+  }
+
+  return sessoes.map((s) => ({ data: s.data, sets: porSessao.get(s.id) ?? [] }));
 }
