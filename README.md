@@ -10,7 +10,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?logo=tailwindcss&logoColor=white)
 ![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?logo=turso&logoColor=black)
 ![PWA](https://img.shields.io/badge/PWA-instalável-5A0FC8?logo=pwa&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-797%20passando-3FB950)
+![Testes](https://img.shields.io/badge/testes-822%20passando-3FB950)
 
 </div>
 
@@ -63,10 +63,14 @@ continua o bloco de cima — é assim que uma refeição ganha vários alimentos
 - 💧 Hidratação por período do plano, ou total do dia sem plano
 
 **Treino**
-- 🏋️ Séries por exercício (reps × carga), com tipo e RIR
+- 📅 Rotina por dia da semana — segunda é peito, e o app sabe disso
+- 🎯 Sessão guiada: as séries já vêm com carga e reps; um toque registra
+- 📈 Dupla progressão: bateu o topo da faixa em todas as séries, a carga sobe
+- 🏋️ 5/3/1 disponível como prescrição de qualquer exercício da rotina
+- ⏱️ Cronômetro de descanso, e a sessão sobrevive a fechar o app
+- ➕ Exercício fora da rotina entra no meio do treino, pelo mesmo fluxo
 - 📋 Biblioteca de exercícios com grupos musculares
 - 🏃 Cardio com estimativa de kcal por MET e peso
-- 📈 Progressão: 1RM estimado e carga máxima ao longo do tempo
 
 **Análise**
 - 📊 Nutrição, peso e atividade por semana, mês, ano ou período escolhido
@@ -88,6 +92,7 @@ telas / componentes  →  hooks (TanStack Query)  →  repositories  →  Turso 
 | Pasta | O que vive lá |
 |---|---|
 | `src/domain/` | Regra de negócio pura: parsers do plano, TMB/TDEE, macros, e1RM, kcal por MET. Testada isolada. |
+| `src/domain/prescricao.ts` | Como a carga de hoje é decidida: dupla progressão, carga fixa, 5/3/1. Puro. |
 | `src/repositories/` | Todo SQL. A única camada que fala com o banco. |
 | `src/hooks/` | Wrappers do TanStack Query. |
 | `src/lib/planilha.ts` | A única camada que conhece o formato do arquivo importado. |
@@ -179,6 +184,8 @@ Mitigações, da mais fraca para a mais forte:
 - [ ] Edição de bloco do plano dentro do app (hoje a planilha é a fonte)
 - [ ] Casamento automático dos itens do plano com o catálogo de alimentos
 - [ ] Planos com variação por dia da semana
+- [ ] Segunda rodada do treino: cardio, biblioteca, histórico com detalhe e
+      progressão redesenhados (hoje ainda são as telas antigas)
 - [ ] Exportar / backup
 
 ## Licença

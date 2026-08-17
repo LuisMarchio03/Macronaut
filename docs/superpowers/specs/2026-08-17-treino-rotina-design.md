@@ -94,7 +94,7 @@ export interface SessaoAnterior {
 }
 
 export interface SeriePlanejada {
-  ordem: number;          // posição global na sessão
+  ordem: number;          // posição da série dentro do exercício, 1..n
   peso_kg: number;
   reps_alvo: number;      // o número a bater
   reps_min: number | null;// a faixa, quando há faixa
@@ -214,7 +214,8 @@ CREATE TABLE IF NOT EXISTS session_plan_sets (
   session_id          INTEGER NOT NULL,
   routine_exercise_id INTEGER,          -- NULL quando o exercício foi avulso
   exercise_id         INTEGER NOT NULL,
-  ordem               INTEGER NOT NULL, -- posição global na sessão
+  ordem               INTEGER NOT NULL, -- posição na sessão inteira
+  serie_ordem         INTEGER NOT NULL, -- posição dentro do exercício
   peso_kg             REAL NOT NULL,
   reps_alvo           INTEGER NOT NULL,
   reps_min            INTEGER,
@@ -235,12 +236,18 @@ série é inserir em `workout_sets` e gravar o id de volta; desfazer é apagar a
 série e zerar o elo. Com isso, "3×10 a 40 kg, você fez 10/10/8" é uma consulta,
 não uma reconstrução.
 
-Os dois `ordem` **não** significam a mesma coisa, de propósito.
+São **duas** colunas de ordem porque são duas perguntas diferentes, e uma
+coluna só respondendo as duas seria a origem de um bug silencioso.
 `session_plan_sets.ordem` é a posição na sessão inteira (1..N, exercícios em
-blocos contíguos), porque é ela que desenha a tela. `workout_sets.ordem`
-continua sendo a posição da série **dentro do exercício** (1..n), porque é o
-que `ultimaVezExercicio` já assume no seu `ORDER BY ordem` — mudar esse
-significado quebraria o histórico que já está gravado.
+blocos contíguos) e é ela que desenha a tela. `serie_ordem` é a posição da
+série **dentro do exercício** (1..n) e é o valor copiado para
+`workout_sets.ordem` no momento do registro — porque é isso que
+`ultimaVezExercicio` já assume no seu `ORDER BY ordem`, e mudar esse
+significado corromperia a leitura do histórico que já está gravado.
+
+`domain/prescricao.ts` só conhece a segunda: `planejar` devolve as séries de
+**um** exercício, numeradas de 1 a n. A ordem global é atribuída pelo
+repository ao materializar, que é quem sabe o que mais tem na sessão.
 
 **Sobre as tabelas do 5/3/1.** `strength_programs`, `program_lifts` e
 `program_sessions` saem de `schema.sql` junto com `repositories/programa.ts` e

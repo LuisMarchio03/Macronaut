@@ -1,7 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { BackLink, Page, PageHeader } from "@/components/ui/page";
 import { ProgressaoTab } from "@/components/treino/progressao-tab";
-import { useLevantamentos, useMarcasAmrap, useProgramaAtivo } from "@/hooks/use-programa";
+import { useExerciciosDaRotina, useRotinaAtiva } from "@/hooks/use-rotina";
+import { useMarcasAmrap } from "@/hooks/use-sessao";
 import { e1RMDaSerie } from "@/domain/531";
 
 /** Melhor marca de AMRAP de um levantamento, pelo 1RM estimado que ela dá. */
@@ -42,8 +43,11 @@ function RecordeDoLevantamento({
 }
 
 export function TreinoProgressao() {
-  const { data: programa } = useProgramaAtivo();
-  const { data: lifts = [] } = useLevantamentos(programa);
+  const { data: rotina } = useRotinaAtiva();
+  const { data: todos = [] } = useExerciciosDaRotina(rotina);
+  // Recorde de repetições num peso é o que a série até a falha do 5/3/1 mede;
+  // exercício de dupla progressão não tem AMRAP e não teria o que mostrar.
+  const lifts = todos.filter((e) => e.prescricao === "531");
 
   return (
     <Page>
