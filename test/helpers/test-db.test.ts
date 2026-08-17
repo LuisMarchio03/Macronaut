@@ -102,4 +102,63 @@ describe("createTestDb", () => {
     const rs = await db.execute("SELECT COUNT(*) AS n FROM meal_template_items");
     expect(rs.rows[0].n).toBe(0);
   });
+
+  it("cria as tabelas da rotina e do plano da sessão", async () => {
+    const db = await createTestDb();
+    const cols = async (t: string) =>
+      (await db.execute(`PRAGMA table_info(${t})`)).rows.map((r) => r.name as string);
+
+    expect(await cols("routines")).toEqual(
+      expect.arrayContaining(["id", "user_id", "nome", "ativa", "created_at"]),
+    );
+    expect(await cols("routine_days")).toEqual(
+      expect.arrayContaining(["id", "routine_id", "dia_semana", "nome"]),
+    );
+    expect(await cols("routine_exercises")).toEqual(
+      expect.arrayContaining([
+        "id", "day_id", "exercise_id", "ordem", "prescricao", "series",
+        "reps_min", "reps_max", "peso_kg", "incremento_kg", "tm_kg", "parte", "descanso_s",
+      ]),
+    );
+    expect(await cols("session_plan_sets")).toEqual(
+      expect.arrayContaining([
+        "id", "user_id", "session_id", "routine_exercise_id", "exercise_id",
+        "ordem", "serie_ordem", "peso_kg", "reps_alvo", "reps_min",
+        "tipo", "amrap", "pct", "descanso_s", "set_id",
+      ]),
+    );
+    db.close();
+  });
+
+  it("um dia da semana só pode ter um treino na mesma rotina", async () => {
+    const db = await createTestDb();
+    const r = await db.execute({
+      sql: "INSERT INTO routines (user_id, nome, ativa, created_at) VALUES (1, 'Minha rotina', 1, ?)",
+      args: [new Date().toISOString()],
+    });
+    const routineId = Number(r.lastInsertRowid);
+    await db.execute({
+      sql: "INSERT INTO routine_days (routine_id, dia_semana, nome) VALUES (?, 1, 'Peito')",
+      args: [routineId],
+    });
+    await expect(
+      db.execute({
+        sql: "INSERT INTO routine_days (routine_id, dia_semana, nome) VALUES (?, 1, 'Costas')",
+        args: [routineId],
+      }),
+    ).rejects.toThrow();
+    db.close();
+  });
+
+  // O 5/3/1 deixou de ser a espinha do módulo e virou um tipo de prescrição:
+  // o Training Max mora em routine_exercises. Banco antigo mantém as tabelas
+  // com os dados — nenhum DROP é emitido —, banco novo não as cria.
+  it("não cria mais as tabelas do programa 5/3/1", async () => {
+    const db = await createTestDb();
+    const rs = await db.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('strength_programs','program_lifts','program_sessions')",
+    );
+    expect(rs.rows).toHaveLength(0);
+    db.close();
+  });
 });
