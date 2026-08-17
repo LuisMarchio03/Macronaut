@@ -17,6 +17,7 @@ function mapRow(r: Row): Exercise {
     source: r.source as ExerciseSource,
     tipo: (r.tipo as TipoExercicio | null) ?? null,
     equipamento: (r.equipamento as Equipamento | null) ?? null,
+    met: (r.met as number | null) ?? null,
     created_at: r.created_at as string,
   };
 }

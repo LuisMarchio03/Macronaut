@@ -81,7 +81,7 @@ export interface FoodEntry {
 export type TipoSerie = "aquecimento" | "valida" | "drop" | "falha";
 export type ExerciseSource = "catalogo" | "custom";
 export type TipoExercicio = "composto" | "isolado";
-export type Equipamento = "barra" | "halter" | "maquina" | "polia" | "peso_corporal";
+export type Equipamento = "barra" | "halter" | "maquina" | "polia" | "peso_corporal" | "cardio";
 export type Regiao = "superior" | "inferior" | "core";
 export type Cadeia = "push" | "pull";
 
@@ -102,6 +102,8 @@ export interface Exercise {
   source: ExerciseSource;
   tipo: TipoExercicio | null;
   equipamento: Equipamento | null;
+  /** MET, só nos exercícios de cardio — o insumo da estimativa de calorias. */
+  met: number | null;
   created_at: string;
 }
 

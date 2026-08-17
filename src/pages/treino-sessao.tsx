@@ -523,14 +523,19 @@ export function TreinoSessao() {
                 exercicios={catalogo}
                 selecionado={null}
                 onSelecionar={(ex) => {
+                  // Escolher "Bicicleta" no meio do treino tem que dar cardio,
+                  // não três séries de bicicleta a zero quilo.
+                  const cardioEscolhido = ex.equipamento === "cardio";
                   adicionar.mutate({
                     sessionId,
                     item: {
                       routine_exercise_id: null,
                       exercise_id: ex.id,
                       nome: ex.nome,
-                      descanso_s: 90,
-                      series: planejar({ tipo: "dupla", ...AVULSO, peso_inicial_kg: 0 }, []),
+                      descanso_s: cardioEscolhido ? null : 90,
+                      series: cardioEscolhido
+                        ? planejar({ tipo: "cardio", duracao_min: 30, met: ex.met ?? 6 }, [])
+                        : planejar({ tipo: "dupla", ...AVULSO, peso_inicial_kg: 0 }, []),
                     },
                   });
                   setAdicionando(false);

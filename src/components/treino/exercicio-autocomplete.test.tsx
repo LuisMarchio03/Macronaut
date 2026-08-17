@@ -8,7 +8,7 @@ function ex(id: number, nome: string, grupo_nome: string | null, source: "catalo
   return {
     id, nome, grupo_nome, source,
     user_id: source === "custom" ? 1 : null,
-    grupo_muscular: null, grupo_id: null, tipo: null, equipamento: null,
+    grupo_muscular: null, grupo_id: null, tipo: null, equipamento: null, met: null,
     created_at: "2026-07-16T00:00:00.000Z",
   };
 }
