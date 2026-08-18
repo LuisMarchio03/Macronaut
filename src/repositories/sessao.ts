@@ -302,11 +302,18 @@ export async function finalizarSessao(
  * treino que já acabou — antes ele oferecia para sempre, inclusive com todas
  * as séries feitas.
  */
+export interface SessaoAberta {
+  session_id: number;
+  nome: string | null;
+  total: number;
+  feitas: number;
+}
+
 export async function sessaoEmAndamento(
   db: Client,
   userId: number,
   data: string,
-): Promise<{ session_id: number; nome: string | null; total: number; feitas: number } | null> {
+): Promise<SessaoAberta | null> {
   const rs = await db.execute({
     sql: `SELECT s.id AS session_id, s.nome AS nome,
                  COUNT(p.id) AS total,
