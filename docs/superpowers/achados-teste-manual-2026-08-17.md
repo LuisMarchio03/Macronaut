@@ -153,6 +153,10 @@ Com uma sessão aberta, o card de treino do dashboard diz "Peito e tríceps · V
 séries e cargas", sem o progresso nem o convite a retomar que o hub `/treino`
 mostra. Duas telas contando histórias diferentes sobre o mesmo estado.
 
+**Corrigido em 2026-08-18.** A rodada 2 entregou B3, B5, B6, B7 e B8, mas passou
+por cima deste — `dashboard.tsx` não foi tocado. Agora o card lê a mesma sessão
+em andamento que o hub lê e leva direto para ela.
+
 ---
 
 ## O que foi verificado e está correto
@@ -171,3 +175,21 @@ mostra. Duas telas contando histórias diferentes sobre o mesmo estado.
 - Análise: três abas e os períodos semana/mês/ano.
 - Navegação inferior, todas as cinco rotas.
 - Biblioteca de exercícios: 76 do catálogo, criação de exercício próprio.
+
+
+---
+
+## O que a rodada 2 deixou em aberto — fechado em 2026-08-18
+
+A rodada 2 entregou as telas e deixou de fora duas coisas que a própria spec
+pedia. Ambas fechadas:
+
+- **B9**, acima: o dashboard agora reflete a sessão em andamento.
+- **A Parte 7 da spec**, os testes de componente. `/treino/progresso` (292
+  linhas, três visões) e `/treino/sessao/:id` (197 linhas) tinham **zero**
+  cobertura, e cardio na tela da sessão só era testado no repositório. São 24
+  testes novos, incluindo o critério de aceite do cardio ligando as duas pontas
+  — a escrita da sessão e a leitura que a `/analise` faz do balanço energético.
+
+Nenhum dos testes novos encontrou defeito nas telas: elas fazem o que a spec
+diz. O que faltava era a prova de que continuam fazendo.

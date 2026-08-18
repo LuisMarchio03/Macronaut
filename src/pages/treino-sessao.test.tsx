@@ -10,6 +10,7 @@ import { iniciarSessao, getPlano, type ItemPlanejado } from "../repositories/ses
 import { listSetsBySession } from "../repositories/workouts";
 import { planejar } from "../domain/prescricao";
 import { hoje } from "../lib/date";
+import { upsertProfile } from "../repositories/profile";
 
 let db: Client;
 
@@ -266,5 +267,96 @@ describe("TreinoSessao", () => {
       });
       expect(rs.rows[0].concluida_em).not.toBeNull();
     });
+  });
+});
+
+/**
+ * Cardio dentro da sessão.
+ *
+ * O critério de aceite da spec é o balanço energético: 30 minutos de bicicleta
+ * registrados dentro do treino têm que valer as mesmas calorias que a tela de
+ * cardio antiga produzia — e nenhuma linha de bike pode cair em `workout_sets`,
+ * onde vive levantamento de peso e onde ela quebraria volume, 1RM e progressão.
+ */
+describe("TreinoSessao — cardio", () => {
+  async function comPeso(kg: number) {
+    await upsertProfile(db, 1, {
+      sexo: "M", data_nascimento: "1995-01-01", altura_cm: 180, peso_kg: kg,
+      fator_atividade: 1.55, objetivo: "manutencao",
+      meta_kcal: 2500, meta_prot_g: 180, meta_carb_g: 280, meta_gord_g: 70,
+    });
+  }
+
+  /** Como `seedExerciciosDeCardio` semeia: equipamento 'cardio' e o MET junto. */
+  async function exercicioDeCardio(nome: string, met: number): Promise<number> {
+    const rs = await db.execute({
+      sql: `INSERT INTO exercises (nome, source, equipamento, met, created_at)
+            VALUES (?, 'catalogo', 'cardio', ?, ?)`,
+      args: [nome, met, new Date().toISOString()],
+    });
+    return Number(rs.lastInsertRowid);
+  }
+
+  function bike(exercise_id: number): ItemPlanejado {
+    return {
+      routine_exercise_id: null,
+      exercise_id,
+      nome: "Bicicleta",
+      descanso_s: null,
+      series: planejar({ tipo: "cardio", duracao_min: 30, met: 7.5 }, []),
+    };
+  }
+
+  it("mostra duração e a kcal estimada pelo MET e pelo peso do perfil", async () => {
+    await comPeso(80);
+    const b = await exercicioDeCardio("Bicicleta", 7.5);
+    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    montar(sid);
+
+    expect(await screen.findByText("30 min")).toBeInTheDocument();
+    // 7,5 MET × 80 kg × 0,5 h = 300 kcal
+    expect(await screen.findByText(/≈ 300 kcal/)).toBeInTheDocument();
+  });
+
+  it("registrar grava em activity_sessions, e nada em workout_sets", async () => {
+    await comPeso(80);
+    const b = await exercicioDeCardio("Bicicleta", 7.5);
+    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /registrar bicicleta/i }));
+
+    await waitFor(async () => {
+      const at = await db.execute("SELECT tipo, duracao_min, kcal FROM activity_sessions");
+      expect(at.rows).toHaveLength(1);
+      expect(at.rows[0].tipo).toBe("Bicicleta");
+      expect(Number(at.rows[0].duracao_min)).toBe(30);
+      expect(Number(at.rows[0].kcal)).toBe(300);
+    });
+    expect(await listSetsBySession(db, 1, sid)).toHaveLength(0);
+  });
+
+  it("desfazer apaga a atividade registrada", async () => {
+    await comPeso(80);
+    const b = await exercicioDeCardio("Bicicleta", 7.5);
+    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /registrar bicicleta/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /desfazer bicicleta/i }));
+
+    await waitFor(async () => {
+      const at = await db.execute("SELECT COUNT(*) AS n FROM activity_sessions");
+      expect(Number(at.rows[0].n)).toBe(0);
+    });
+  });
+
+  // Sem peso não há estimativa honesta — o app pede o peso em vez de inventar.
+  it("sem perfil, pede o peso em vez de inventar um número", async () => {
+    const b = await exercicioDeCardio("Bicicleta", 7.5);
+    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    montar(sid);
+
+    expect(await screen.findByText(/defina seu peso nas metas/i)).toBeInTheDocument();
   });
 });

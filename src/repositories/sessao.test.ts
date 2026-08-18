@@ -18,6 +18,10 @@ import {
 import { addSet, createSession, listSetsBySession } from "./workouts";
 import { adicionarExercicio, criarRotina, salvarDia } from "./rotina";
 import { planejar } from "../domain/prescricao";
+import { listActivitySessionsByRange } from "./activities";
+import { balancoEnergetico } from "../domain/analise-balanco";
+import { kcalGastaPorDia } from "../domain/analise-atividade";
+import { estimativaKcal } from "../domain/treino";
 
 const USER = 1;
 const OUTRO = 2;
@@ -380,6 +384,27 @@ describe("cardio dentro da sessão", () => {
     expect(depois[0].activity_id).not.toBeNull();
     expect(depois[0].duracao_feita_min).toBe(30);
     expect(depois[0].kcal_feita).toBe(308);
+  });
+
+  /**
+   * O critério de aceite da spec, e a razão de cardio existir como item da
+   * sessão: 30 minutos de bicicleta registrados dentro do treino têm que valer
+   * no balanço energético o mesmo que valiam pela tela de cardio avulsa.
+   *
+   * Este teste liga as duas pontas — a escrita da sessão e a leitura que a
+   * `/analise` faz — porque nenhuma das duas sozinha prova isso.
+   */
+  it("o cardio da sessão chega ao balanço energético da análise", async () => {
+    const { sid } = await comCardio();
+    const [linha] = await getPlano(db, USER, sid);
+    const kcal = Math.round(estimativaKcal(7.5, 80, 30));
+
+    await registrarCardio(db, USER, linha.id, { duracao_min: 30, kcal });
+
+    const doPeriodo = await listActivitySessionsByRange(db, USER, "2026-08-01", "2026-08-31");
+    const balanco = balancoEnergetico(new Map([["2026-08-17", 2000]]), kcalGastaPorDia(doPeriodo));
+    expect(balanco.gasto).toBe(300);
+    expect(balanco.saldo).toBe(1700);
   });
 
   it("desfazer apaga a atividade e zera o elo", async () => {
