@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SheetConfirmar } from "@/components/ui/confirmar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BackLink, Page, PageHeader } from "@/components/ui/page";
 import { SkeletonList } from "@/components/ui/skeleton";
@@ -108,6 +109,7 @@ export function TreinoSessaoDetalhe() {
   const excluir = useDeleteSession();
 
   const [editando, setEditando] = useState<PlanoSerie | null>(null);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const sessao = sessoes.find((s) => s.id === sessionId);
 
   if (carregandoPlano) {
@@ -167,15 +169,23 @@ export function TreinoSessaoDetalhe() {
       <Button
         variant="ghost"
         block
-        onClick={() => {
-          if (sessionId === undefined) return;
-          excluir.mutate(sessionId, { onSuccess: () => navigate("/treino/progresso") });
-        }}
+        onClick={() => setConfirmandoExclusao(true)}
         className="text-destructive"
       >
         <Trash2 className="size-4" />
         Excluir esta sessão
       </Button>
+
+      <SheetConfirmar
+        aberto={confirmandoExclusao}
+        onFechar={() => setConfirmandoExclusao(false)}
+        titulo={`Excluir "${sessao?.nome || "esta sessão"}"?`}
+        descricao="O treino e todas as séries registradas nele somem. Não dá para desfazer."
+        onConfirmar={() => {
+          if (sessionId === undefined) return;
+          excluir.mutate(sessionId, { onSuccess: () => navigate("/treino/progresso") });
+        }}
+      />
 
       <SheetAjustarSerie
         aberto={editando !== null}

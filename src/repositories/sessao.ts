@@ -5,6 +5,23 @@ import { listExercicios, type ExercicioRotina } from "./rotina";
 import { createSession, historicoExercicio } from "./workouts";
 
 /**
+ * Os padrões de um exercício escolhido no meio do treino.
+ *
+ * Ele não está na rotina, então não há prescrição guardada — mas há histórico,
+ * e é dele que a carga sai. Só a faixa e o incremento são chute, e são o mesmo
+ * chute que a rotina usa quando o exercício é novo.
+ */
+export const AVULSO = {
+  series: 3,
+  reps_min: 8,
+  reps_max: 12,
+  incremento_kg: 2.5,
+  descanso_s: 90,
+  duracao_min: 30,
+  met_padrao: 6,
+} as const;
+
+/**
  * A sessão materializada: o plano congelado no banco no momento em que o
  * treino começou.
  *
@@ -221,7 +238,7 @@ export async function registrarCardio(
   v: { duracao_min: number; kcal: number },
 ): Promise<void> {
   const rs = await db.execute({
-    sql: `SELECT p.session_id, s.data AS data, e.nome AS nome
+    sql: `SELECT p.session_id, p.activity_id, s.data AS data, e.nome AS nome
           FROM session_plan_sets p
           JOIN workout_sessions s ON s.id = p.session_id
           LEFT JOIN exercises e   ON e.id = p.exercise_id
@@ -230,6 +247,18 @@ export async function registrarCardio(
   });
   if (!rs.rows.length) return;
   const linha = rs.rows[0];
+
+  // Já registrada: corrige a atividade existente em vez de criar uma segunda.
+  // Sem isto, ajustar "30 min" para "22 min" somava 30 + 22 no balanço
+  // energético do dia — o número que a correção existia para consertar.
+  const jaFeita = (linha.activity_id as number | null) ?? null;
+  if (jaFeita !== null) {
+    await db.execute({
+      sql: "UPDATE activity_sessions SET duracao_min = ?, kcal = ? WHERE id = ? AND user_id = ?",
+      args: [v.duracao_min, v.kcal, jaFeita, userId],
+    });
+    return;
+  }
 
   const ins = await db.execute({
     sql: `INSERT INTO activity_sessions (user_id, data, tipo, duracao_min, kcal, created_at)
@@ -248,6 +277,66 @@ export async function registrarCardio(
     sql: "UPDATE session_plan_sets SET activity_id = ? WHERE id = ? AND user_id = ?",
     args: [Number(ins.lastInsertRowid), planId, userId],
   });
+}
+
+/**
+ * Um exercício escolhido no meio do treino, já com a carga de hoje.
+ *
+ * A mesma regra do caminho da rotina (`montarPlanoDoDia`): cruza o histórico
+ * do exercício com a prescrição. A tela montava esse item sozinha e passava
+ * histórico VAZIO, então todo exercício avulso nascia a zero quilo mesmo com
+ * dez sessões dele no banco — e obrigava a redigitar a carga que o app já
+ * sabia. Escolher "Bicicleta" continua dando cardio, não três séries de
+ * bicicleta a zero quilo.
+ */
+export async function montarItemAvulso(
+  db: Client,
+  userId: number,
+  exerciseId: number,
+  data: string,
+): Promise<ItemPlanejado> {
+  const rs = await db.execute({
+    sql: "SELECT nome, equipamento, met FROM exercises WHERE id = ?",
+    args: [exerciseId],
+  });
+  const r = rs.rows[0];
+  const nome = (r?.nome as string | null) ?? "Exercício";
+
+  if ((r?.equipamento as string | null) === "cardio") {
+    return {
+      routine_exercise_id: null,
+      exercise_id: exerciseId,
+      nome,
+      descanso_s: null,
+      series: planejar(
+        {
+          tipo: "cardio",
+          duracao_min: AVULSO.duracao_min,
+          met: (r?.met as number | null) ?? AVULSO.met_padrao,
+        },
+        [],
+      ),
+    };
+  }
+
+  const anteriores = await historicoExercicio(db, userId, exerciseId, data);
+  return {
+    routine_exercise_id: null,
+    exercise_id: exerciseId,
+    nome,
+    descanso_s: AVULSO.descanso_s,
+    series: planejar(
+      {
+        tipo: "dupla",
+        series: AVULSO.series,
+        reps_min: AVULSO.reps_min,
+        reps_max: AVULSO.reps_max,
+        peso_inicial_kg: 0,
+        incremento_kg: AVULSO.incremento_kg,
+      },
+      anteriores,
+    ),
+  };
 }
 
 export async function desfazerSerie(db: Client, userId: number, planId: number): Promise<void> {

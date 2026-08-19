@@ -7,7 +7,7 @@ import { createTestDb } from "../../test/helpers/test-db";
 import { criarWrapper } from "../../test/helpers/query-wrapper";
 import { TreinoSessao } from "./treino-sessao";
 import { iniciarSessao, getPlano, type ItemPlanejado } from "../repositories/sessao";
-import { listSetsBySession } from "../repositories/workouts";
+import { addSet, createSession, listSetsBySession } from "../repositories/workouts";
 import { planejar } from "../domain/prescricao";
 import { hoje } from "../lib/date";
 import { upsertProfile } from "../repositories/profile";
@@ -358,5 +358,82 @@ describe("TreinoSessao — cardio", () => {
     montar(sid);
 
     expect(await screen.findByText(/defina seu peso nas metas/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Cardio é a única linha da sessão sem escape: as séries de peso têm o
+   * lápis, e a bike registrava sempre o prescrito. Pedalar 22 dos 30 minutos
+   * gravava 30 — e a kcal errada ia para o balanço energético.
+   */
+  it("ajustar cardio grava a duração e a kcal que de fato aconteceram", async () => {
+    await comPeso(80);
+    const b = await exercicioDeCardio("Bicicleta", 7.5);
+    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /ajustar bicicleta/i }));
+    const dur = await screen.findByLabelText(/duração/i);
+    await userEvent.clear(dur);
+    await userEvent.type(dur, "22");
+    await userEvent.click(await screen.findByRole("button", { name: /^registrar$/i }));
+
+    await waitFor(async () => {
+      const at = await db.execute("SELECT duracao_min, kcal FROM activity_sessions");
+      expect(at.rows).toHaveLength(1);
+      expect(Number(at.rows[0].duracao_min)).toBe(22);
+      // 7,5 MET × 80 kg × 22/60 h = 220 kcal
+      expect(Number(at.rows[0].kcal)).toBe(220);
+    });
+  });
+
+  /**
+   * O caminho da rotina cruza o histórico do exercício (`montarPlanoDoDia`); o
+   * de adicionar no meio do treino não cruzava, e todo exercício avulso nascia
+   * a zero quilo mesmo com dez sessões dele no banco.
+   */
+  it("exercício adicionado no meio do treino herda a carga do histórico", async () => {
+    const supino = await exercicio("Supino reto");
+    const antiga = await createSession(db, 1, { data: "2020-01-01", nome: "Antigo" });
+    for (const ordem of [1, 2, 3]) {
+      await addSet(db, 1, {
+        session_id: antiga.id, exercise_id: supino, ordem,
+        reps: 12, peso_kg: 40, tipo: "valida", rir: null, nota: null,
+      });
+    }
+
+    const rosca = await exercicio("Rosca direta");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(), nome: "Peito", itens: [item(rosca, 10, "Rosca direta")],
+    });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /adicionar exercício/i }));
+    await userEvent.type(await screen.findByRole("combobox"), "Supino");
+    await userEvent.click(await screen.findByRole("button", { name: /supino reto/i }));
+
+    await waitFor(async () => {
+      const novas = (await getPlano(db, 1, sid)).filter((p) => p.exercise_id === supino);
+      expect(novas).toHaveLength(3);
+      // 3×12 a 40 kg é o topo da faixa em todas: a dupla progressão sobe 2,5 kg.
+      expect(novas.map((p) => p.peso_kg)).toEqual([42.5, 42.5, 42.5]);
+    });
+  });
+
+  /**
+   * O cabeçalho lia sempre a sessão em andamento de HOJE, então abrir uma
+   * sessão antiga pela URL a rotulava com o nome do treino de hoje.
+   */
+  it("abrir uma sessão pela URL mostra o nome dela, não o da sessão de hoje", async () => {
+    const supino = await exercicio("Supino reto");
+    const antiga = await iniciarSessao(db, 1, {
+      data: "2020-01-01", nome: "Costas", itens: [item(supino, 40, "Supino reto")],
+    });
+    await iniciarSessao(db, 1, {
+      data: hoje(), nome: "Peito de hoje", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(antiga);
+
+    expect(await screen.findByText("Costas")).toBeInTheDocument();
+    expect(screen.queryByText("Peito de hoje")).not.toBeInTheDocument();
   });
 });

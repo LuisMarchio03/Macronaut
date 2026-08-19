@@ -8,6 +8,7 @@ import { DbProvider } from "../../lib/db-context";
 import { ExerciciosTab } from "./exercicios-tab";
 import { listExercises, seedExercicios } from "../../repositories/exercises";
 import { seedMuscleGroups } from "../../repositories/muscle-groups";
+import { seedExerciciosDeCardio } from "../../db/seed-cardio";
 import { createSession, addSet } from "../../repositories/workouts";
 
 const USER_ID = 1;
@@ -44,10 +45,17 @@ async function inserirExercicioCustom(nome: string, grupo: string | null): Promi
 async function montar(opts: {
   exercicios?: { nome: string; grupo: string | null }[];
   comCatalogo?: boolean;
+  comCardio?: boolean;
   exercicioEmUso?: boolean;
 } = {}) {
   await seedMuscleGroups(db);
   if (opts.comCatalogo) await seedExercicios(db);
+  if (opts.comCardio) {
+    // `seedExerciciosDeCardio` deriva de `activity_types`, que num banco de
+    // teste nasce vazio — o seed real roda depois do de tipos de atividade.
+    await db.execute("INSERT INTO activity_types (nome, met) VALUES ('Bicicleta', 7.5)");
+    await seedExerciciosDeCardio(db);
+  }
   for (const e of opts.exercicios ?? []) await inserirExercicioCustom(e.nome, e.grupo);
   if (opts.exercicioEmUso) {
     const exId = await inserirExercicioCustom("Exercício em uso", null);
@@ -147,4 +155,29 @@ it("avisa quando a exclusão é recusada por estar em uso", async () => {
   await montar({ exercicioEmUso: true });
   await userEvent.click(screen.getByLabelText(/^excluir /i));
   expect(await screen.findByText(/está em uso/i)).toBeInTheDocument();
+});
+
+
+/**
+ * Cardio não tem grupo muscular por design, e é `source='catalogo'` — ou seja,
+ * o usuário nem pode editar. Contá-lo como pendente produzia um aviso
+ * permanente ("12 exercícios estão sem grupo muscular") sem ação possível.
+ */
+it("cardio do catálogo não é contado como pendente de grupo", async () => {
+  await montar({ comCardio: true });
+  expect(screen.queryByText(/fora da análise/i)).not.toBeInTheDocument();
+  // controle positivo: o item de cardio está na lista, só não é uma pendência.
+  expect(screen.getByRole("listitem", { name: /bicicleta/i })).toBeInTheDocument();
+});
+
+it("cardio na lista se identifica como cardio, não como \"sem grupo muscular\"", async () => {
+  await montar({ comCardio: true });
+  const item = screen.getByRole("listitem", { name: /bicicleta/i });
+  expect(within(item).getByText(/cardio/i)).toBeInTheDocument();
+  expect(within(item).queryByText(/sem grupo muscular/i)).not.toBeInTheDocument();
+});
+
+it("ainda avisa sobre exercício do usuário sem grupo", async () => {
+  await montar({ comCardio: true, exercicios: [{ nome: "Zzz sem grupo", grupo: null }] });
+  expect(screen.getByText(/fica fora da análise/i)).toBeInTheDocument();
 });

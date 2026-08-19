@@ -42,8 +42,19 @@ const PADRAO: Omit<ExercicioRotinaInput, "exercise_id"> = {
   descanso_s: 90, duracao_min: null,
 };
 
-/** "3 × 8–12" na dupla, "3 × 15" na fixa, "5/3/1 · TM 120 kg" no método. */
+/**
+ * "3 × 8–12" na dupla, "3 × 15" na fixa, "5/3/1 · TM 120 kg" no método,
+ * "30 min" no cardio.
+ *
+ * O ramo do cardio vem primeiro porque cardio não tem série nem faixa de
+ * repetição: cair no ramo da dupla descrevia uma bicicleta de meia hora como
+ * "3 × 0–12".
+ */
 function resumoDaPrescricao(e: ExercicioRotina): string {
+  if (e.prescricao === "cardio") {
+    const min = e.duracao_min ?? 0;
+    return e.met !== null ? `${min} min · ${e.met} MET` : `${min} min`;
+  }
   if (e.prescricao === "531") return `5/3/1 · TM ${e.tm_kg ?? 0} kg`;
   if (e.prescricao === "fixa") return `${e.series} × ${e.reps_max ?? 0}`;
   return `${e.series} × ${e.reps_min ?? 0}–${e.reps_max ?? 0}`;
@@ -177,7 +188,9 @@ function Dia({
                     <span className="block truncate text-sm font-medium">{e.nome}</span>
                     <span className="t-caption block tabular-nums">
                       {resumoDaPrescricao(e)}
-                      {e.prescricao !== "531" && e.peso_kg ? ` · ${e.peso_kg} kg` : ""}
+                      {e.prescricao !== "531" && e.prescricao !== "cardio" && e.peso_kg
+                        ? ` · ${e.peso_kg} kg`
+                        : ""}
                     </span>
                   </button>
                   <button

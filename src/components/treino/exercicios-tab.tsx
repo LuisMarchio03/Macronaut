@@ -10,6 +10,24 @@ import {
 import { useMuscleGroups } from "../../hooks/use-muscle-groups";
 import type { Exercise } from "../../domain/types";
 
+/**
+ * Falta grupo muscular a este exercício?
+ *
+ * Cardio fica de fora: ele não tem grupo POR DESIGN (ver `seedExerciciosDeCardio`)
+ * e vem do catálogo, então o usuário nem poderia corrigir. Contá-lo como
+ * pendente produzia um aviso permanente e sem ação possível — "12 exercícios
+ * estão sem grupo muscular" num app onde nenhum dos 12 pode ganhar um.
+ */
+function ehPendente(e: Exercise): boolean {
+  return e.grupo_id == null && e.equipamento !== "cardio";
+}
+
+/** O que a linha diz do exercício abaixo do nome. */
+function descricaoDe(e: Exercise): string {
+  if (e.grupo_nome) return e.grupo_nome;
+  return e.equipamento === "cardio" ? "Cardio" : "sem grupo muscular";
+}
+
 export function ExerciciosTab() {
   const { data: exercicios = [] } = useExercises();
   const { data: grupos = [] } = useMuscleGroups();
@@ -78,11 +96,11 @@ export function ExerciciosTab() {
   // Pendentes primeiro: são os que o backfill não conseguiu casar e que ficam
   // fora da análise até o usuário resolver.
   const ordenados = [...exercicios].sort((a, b) => {
-    const pa = a.grupo_id == null ? 0 : 1;
-    const pb = b.grupo_id == null ? 0 : 1;
+    const pa = ehPendente(a) ? 0 : 1;
+    const pb = ehPendente(b) ? 0 : 1;
     return pa !== pb ? pa - pb : a.nome.localeCompare(b.nome);
   });
-  const nPendentes = exercicios.filter((e) => e.grupo_id == null).length;
+  const nPendentes = exercicios.filter(ehPendente).length;
 
   return (
     <div className="space-y-3">
@@ -118,12 +136,12 @@ export function ExerciciosTab() {
                   <span className="block truncate text-sm font-medium">{e.nome}</span>
                   <span
                     className={
-                      e.grupo_id == null
+                      ehPendente(e)
                         ? "block truncate text-[0.8125rem] text-primary"
                         : "t-caption block truncate"
                     }
                   >
-                    {e.grupo_nome ?? "sem grupo muscular"}
+                    {descricaoDe(e)}
                     {e.source === "catalogo" && " · catálogo"}
                   </span>
                 </span>

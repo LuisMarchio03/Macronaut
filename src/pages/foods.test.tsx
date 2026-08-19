@@ -38,3 +38,21 @@ it("cadastra um alimento custom", async () => {
   await user.click(screen.getByRole("button", { name: /^salvar$/i }));
   await waitFor(async () => expect(await listCustomFoods(db)).toHaveLength(1));
 });
+
+
+
+it("excluir um alimento pede confirmação antes de apagar", async () => {
+  const user = userEvent.setup();
+  await db.execute({
+    sql: `INSERT INTO foods (nome, source, base_qty_g, base_unit, kcal, prot_g, carb_g, gord_g, created_at)
+          VALUES ('Pão caseiro', 'custom', 50, 'g', 135, 4, 27, 1, ?)`,
+    args: [new Date().toISOString()],
+  });
+  renderPage();
+
+  await user.click(await screen.findByRole("button", { name: /excluir pão caseiro/i }));
+  expect(await listCustomFoods(db)).toHaveLength(1);
+
+  await user.click(await screen.findByRole("button", { name: /^excluir$/i }));
+  await waitFor(async () => expect(await listCustomFoods(db)).toHaveLength(0));
+});

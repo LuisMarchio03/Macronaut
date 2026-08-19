@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
+import { SheetConfirmar } from "../components/ui/confirmar";
 import { BackLink, Page, PageHeader } from "../components/ui/page";
 import { EmptyState } from "../components/ui/empty-state";
 import { FoodForm } from "../components/food-form";
@@ -14,6 +15,7 @@ export function Foods() {
   const atualizar = useUpdateFood();
   const remover = useDeleteFood();
   const [editando, setEditando] = useState<Food | "novo" | null>(null);
+  const [excluindo, setExcluindo] = useState<Food | null>(null);
 
   if (editando) {
     return (
@@ -83,7 +85,7 @@ export function Foods() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => remover.mutate(f.id)}
+                  onClick={() => setExcluindo(f)}
                   aria-label={`Excluir ${f.nome}`}
                   className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-tint-danger hover:text-destructive"
                 >
@@ -94,6 +96,16 @@ export function Foods() {
           </ul>
         </Card>
       )}
+
+      <SheetConfirmar
+        aberto={excluindo !== null}
+        onFechar={() => setExcluindo(null)}
+        titulo={`Excluir "${excluindo?.nome ?? ""}"?`}
+        descricao="O alimento sai do seu catálogo. Registros antigos que usam ele continuam no diário."
+        onConfirmar={() => {
+          if (excluindo) remover.mutate(excluindo.id);
+        }}
+      />
     </Page>
   );
 }

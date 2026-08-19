@@ -120,4 +120,30 @@ describe("Treino — o hub", () => {
       expect(screen.queryByRole("link", { name: morto })).not.toBeInTheDocument();
     }
   });
+
+  /**
+   * O resumo do card lê `peso_kg` para decidir o que dizer, e cardio tem peso
+   * zero de propósito — a leitura literal dava "1 séries · definir carga" para
+   * uma bicicleta de 30 minutos.
+   */
+  it("descreve cardio do dia por duração, não por carga a definir", async () => {
+    const r = await criarRotina(db, 1, "R");
+    const d = await salvarDia(db, 1, r.id, HOJE, "Cardio");
+    const rs = await db.execute({
+      sql: `INSERT INTO exercises (nome, source, equipamento, met, created_at)
+            VALUES ('Bicicleta', 'catalogo', 'cardio', 7.5, ?)`,
+      args: [new Date().toISOString()],
+    });
+    await adicionarExercicio(db, 1, d.id, {
+      exercise_id: Number(rs.lastInsertRowid),
+      prescricao: "cardio", series: 3, reps_min: null, reps_max: 12,
+      peso_kg: 0, incremento_kg: 2.5, tm_kg: null, parte: null,
+      descanso_s: 90, duracao_min: 30,
+    });
+    montar();
+
+    expect(await screen.findByText("Bicicleta")).toBeInTheDocument();
+    expect(await screen.findByText(/30 min/)).toBeInTheDocument();
+    expect(screen.queryByText(/definir carga/i)).not.toBeInTheDocument();
+  });
 });

@@ -179,6 +179,8 @@ describe("Detalhe da sessão — corrigir o passado", () => {
     montar(sid);
 
     await userEvent.click(await screen.findByRole("button", { name: /excluir esta sessão/i }));
+    // A exclusão passa por uma confirmação: apagar sessão não tem desfazer.
+    await userEvent.click(await screen.findByRole("button", { name: /^excluir$/i }));
 
     expect(await screen.findByText(/voltou ao progresso/i)).toBeInTheDocument();
     const rs = await db.execute("SELECT COUNT(*) AS n FROM workout_sessions");
@@ -208,5 +210,50 @@ describe("Detalhe da sessão — sessões anteriores a esta arquitetura", () => 
     montar(s.id);
 
     expect(await screen.findByText(/sessão sem registro/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Excluir uma sessão apaga o treino e todas as séries dele, e não há desfazer.
+   * Um toque só, sem pergunta, era o custo errado para uma ação irreversível.
+   */
+  it("excluir a sessão pede confirmação antes de apagar", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-07-20", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /excluir esta sessão/i }));
+
+    // Ainda existe: o toque abriu a pergunta, não executou a exclusão.
+    const antes = await db.execute({
+      sql: "SELECT COUNT(*) AS n FROM workout_sessions WHERE id=?", args: [sid],
+    });
+    expect(Number(antes.rows[0].n)).toBe(1);
+
+    await userEvent.click(await screen.findByRole("button", { name: /^excluir$/i }));
+
+    await waitFor(async () => {
+      const rs = await db.execute({
+        sql: "SELECT COUNT(*) AS n FROM workout_sessions WHERE id=?", args: [sid],
+      });
+      expect(Number(rs.rows[0].n)).toBe(0);
+    });
+  });
+
+  it("cancelar a confirmação deixa a sessão intacta", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-07-20", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /excluir esta sessão/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /cancelar/i }));
+
+    const rs = await db.execute({
+      sql: "SELECT COUNT(*) AS n FROM workout_sessions WHERE id=?", args: [sid],
+    });
+    expect(Number(rs.rows[0].n)).toBe(1);
   });
 });

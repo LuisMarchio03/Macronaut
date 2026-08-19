@@ -8,12 +8,25 @@ import {
   getPlano,
   iniciarSessao,
   marcasAmrap,
+  montarItemAvulso,
   montarPlanoDoDia,
   registrarCardio,
   registrarSerie,
   sessaoEmAndamento,
   type ItemPlanejado,
 } from "../repositories/sessao";
+import { getSession } from "../repositories/workouts";
+
+/** A sessão pela id da URL — o cabeçalho da tela da academia sai daqui. */
+export function useSessao(sessionId: number | undefined) {
+  const db = useDb();
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ["sessao", "por-id", sessionId],
+    queryFn: () => getSession(db, userId, sessionId!),
+    enabled: sessionId != null,
+  });
+}
 
 export function useSessaoEmAndamento(data: string) {
   const db = useDb();
@@ -110,11 +123,21 @@ export function useDesfazerSerie() {
   return useEscritaNaSessao((planId: number) => desfazerSerie(db, userId, planId));
 }
 
+/**
+ * Adiciona um exercício ao plano da sessão em andamento.
+ *
+ * Recebe a id do exercício, não o item montado: montar o item exige cruzar o
+ * histórico dele (`montarItemAvulso`), e uma tela que faz isso sozinha ou
+ * refaz a consulta ou — como fazia — chuta zero quilo.
+ */
 export function useAdicionarAoPlano() {
   const db = useDb();
   const userId = useUserId();
-  return useEscritaNaSessao((v: { sessionId: number; item: ItemPlanejado }) =>
-    adicionarAoPlano(db, userId, v.sessionId, v.item),
+  return useEscritaNaSessao(
+    async (v: { sessionId: number; exerciseId: number; data: string }) => {
+      const item = await montarItemAvulso(db, userId, v.exerciseId, v.data);
+      await adicionarAoPlano(db, userId, v.sessionId, item);
+    },
   );
 }
 

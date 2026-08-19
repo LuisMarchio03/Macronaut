@@ -32,20 +32,28 @@ const ATALHOS = [
  * aquecimento, e resumir pela primeira linha do array prometia "5 × 32,5 kg"
  * para um treino que sobe até 67,5. Carga zero não é uma carga — é a ausência
  * de uma, e o card convida a defini-la em vez de mostrar "0 kg".
+ *
+ * Cardio sai antes de tudo isso: peso e reps são zero nele DE PROPÓSITO (ver
+ * `planejarCardio`), então a leitura literal anunciava "definir carga" para
+ * uma bicicleta que já está inteiramente definida — em minutos.
  */
 function resumoDoItem(item: ItemPlanejado): string {
+  const cardio = item.series.find((s) => s.duracao_min !== null);
+  if (cardio) return `${cardio.duracao_min} min`;
+
   const trabalho = item.series.filter((s) => s.tipo !== "aquecimento");
   if (trabalho.length === 0) return "sem séries";
 
   const pesos = trabalho.map((s) => s.peso_kg);
   const maisPesada = Math.max(...pesos);
-  if (maisPesada === 0) return `${trabalho.length} séries · definir carga`;
+  const plural = trabalho.length === 1 ? "série" : "séries";
+  if (maisPesada === 0) return `${trabalho.length} ${plural} · definir carga`;
 
   const cargaUnica = pesos.every((p) => p === maisPesada);
   const repsUnicas = trabalho.every((s) => s.reps_alvo === trabalho[0].reps_alvo);
   return cargaUnica && repsUnicas
     ? `${trabalho.length} × ${trabalho[0].reps_alvo} × ${maisPesada} kg`
-    : `${trabalho.length} séries · até ${maisPesada} kg`;
+    : `${trabalho.length} ${plural} · até ${maisPesada} kg`;
 }
 
 export function Treino() {

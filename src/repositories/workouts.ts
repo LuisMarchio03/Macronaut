@@ -41,6 +41,25 @@ export async function createSession(
   return { id: Number(rs.lastInsertRowid), data: s.data, nome: s.nome, nota: null, created_at };
 }
 
+/**
+ * A sessão pela sua id.
+ *
+ * A tela da sessão lia sempre a sessão em andamento de HOJE para rotular o
+ * cabeçalho — o que estava certo enquanto `?s=` só apontava para ela, e virava
+ * mentira assim que a URL apontava para outra.
+ */
+export async function getSession(
+  db: Client,
+  userId: number,
+  id: number,
+): Promise<WorkoutSession | null> {
+  const rs = await db.execute({
+    sql: "SELECT * FROM workout_sessions WHERE id=? AND user_id=?",
+    args: [id, userId],
+  });
+  return rs.rows.length ? mapSession(rs.rows[0]) : null;
+}
+
 export async function getSessionByDate(
   db: Client,
   userId: number,

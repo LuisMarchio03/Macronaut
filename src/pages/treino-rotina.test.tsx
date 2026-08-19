@@ -216,4 +216,29 @@ describe("TreinoRotina", () => {
       expect(lista.map((e) => e.nome)).toEqual(["Crucifixo", "Supino reto"]);
     });
   });
+
+  /**
+   * Cardio não tem série nem faixa de repetição — descrevê-lo por elas dava
+   * "3 × 0–12" para uma bicicleta de 30 minutos.
+   */
+  it("descreve cardio por duração, não por séries e reps", async () => {
+    const r = await criarRotina(db, 1, "R");
+    const d = await salvarDia(db, 1, r.id, 1, "Cardio");
+    const rs = await db.execute({
+      sql: `INSERT INTO exercises (nome, source, equipamento, met, created_at)
+            VALUES ('Bicicleta', 'catalogo', 'cardio', 7.5, ?)`,
+      args: [new Date().toISOString()],
+    });
+    await adicionarExercicio(db, 1, d.id, {
+      exercise_id: Number(rs.lastInsertRowid),
+      prescricao: "cardio", series: 3, reps_min: null, reps_max: 12,
+      peso_kg: 0, incremento_kg: 2.5, tm_kg: null, parte: null,
+      descanso_s: 90, duracao_min: 30,
+    });
+    montar();
+
+    expect(await screen.findByText(/30 min/)).toBeInTheDocument();
+    expect(screen.queryByText(/0–12/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/× 0/)).not.toBeInTheDocument();
+  });
 });

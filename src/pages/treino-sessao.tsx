@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { CronometroDescanso } from "@/components/treino/cronometro-descanso";
 import { ExercicioAutocomplete } from "@/components/treino/exercicio-autocomplete";
+import { SheetAjustarCardio } from "@/components/treino/sheet-ajustar-cardio";
 import { SheetAjustarSerie } from "@/components/treino/sheet-ajustar-serie";
 import { useExercises } from "@/hooks/use-exercises";
 import { useProfile } from "@/hooks/use-profile";
@@ -16,10 +17,10 @@ import {
   useRegistrarCardio,
   useFinalizarSessao,
   useRegistrarSerie,
+  useSessao,
   useSessaoEmAndamento,
 } from "@/hooks/use-sessao";
 import { useHistoricoExercicio } from "@/hooks/use-workouts";
-import { planejar } from "@/domain/prescricao";
 import { e1RMDaSerie, ehRecorde, recordeNoPeso } from "@/domain/531";
 import { estimativaKcal, resumirSets } from "@/domain/treino";
 import type { TipoSerie } from "@/domain/types";
@@ -27,10 +28,6 @@ import { hoje } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { PlanoSerie } from "@/repositories/sessao";
 import { ehCardio } from "@/repositories/sessao";
-
-/** Exercício adicionado no meio do treino entra por dupla progressão, com os
- *  mesmos padrões da rotina — o ajuste da primeira série define a carga. */
-const AVULSO = { series: 3, reps_min: 8, reps_max: 12, incremento_kg: 2.5 };
 
 function Bolinha({ ok }: { ok: boolean }) {
   return (
@@ -238,11 +235,13 @@ function LinhaCardio({
   peso_kg,
   onRegistrar,
   onDesfazer,
+  onAjustar,
 }: {
   s: PlanoSerie;
   peso_kg: number | null;
   onRegistrar: (v: { duracao_min: number; kcal: number }) => void;
   onDesfazer: () => void;
+  onAjustar: () => void;
 }) {
   const ok = s.activity_id !== null;
   const duracao = s.duracao_min ?? 0;
@@ -250,13 +249,13 @@ function LinhaCardio({
     peso_kg !== null && s.met !== null ? Math.round(estimativaKcal(s.met, peso_kg, duracao)) : 0;
 
   return (
-    <li>
+    <li className="flex items-center gap-2">
       <button
         type="button"
         onClick={ok ? onDesfazer : () => onRegistrar({ duracao_min: duracao, kcal })}
         aria-label={`${ok ? "Desfazer" : "Registrar"} ${s.nome}`}
         className={cn(
-          "flex min-h-16 w-full items-center gap-3 rounded-xl border px-4 text-left transition-colors",
+          "flex min-h-16 flex-1 items-center gap-3 rounded-xl border px-4 text-left transition-colors",
           ok ? "border-success/40 bg-tint-success" : "border-border bg-card hover:bg-muted",
         )}
       >
@@ -273,6 +272,17 @@ function LinhaCardio({
                 : "defina seu peso nas metas para estimar as calorias"}
           </span>
         </span>
+      </button>
+      {/* O mesmo escape que as séries de peso têm: hoje o treino pode não ter
+          sido o que o plano dizia, e no cardio isso é a diferença entre uma
+          kcal certa e uma inventada no balanço energético. */}
+      <button
+        type="button"
+        onClick={onAjustar}
+        aria-label={`Ajustar ${s.nome}`}
+        className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
+      >
+        <Pencil className="size-4" />
       </button>
     </li>
   );
@@ -342,6 +352,7 @@ export function TreinoSessao() {
   const { data: emAndamento, isPending: carregandoSessao } = useSessaoEmAndamento(hoje());
   const sessionId = idDaUrl ? Number(idDaUrl) : (emAndamento?.session_id ?? undefined);
 
+  const { data: sessao } = useSessao(sessionId);
   const { data: plano = [], isPending: carregandoPlano } = usePlano(sessionId);
   const registrar = useRegistrarSerie();
   const desfazer = useDesfazerSerie();
@@ -353,6 +364,7 @@ export function TreinoSessao() {
 
   const [iExercicio, setIExercicio] = useState(0);
   const [ajustando, setAjustando] = useState<PlanoSerie | null>(null);
+  const [ajustandoCardio, setAjustandoCardio] = useState<PlanoSerie | null>(null);
   const [adicionando, setAdicionando] = useState(false);
   const [registros, setRegistros] = useState(0);
 
@@ -435,8 +447,10 @@ export function TreinoSessao() {
         >
           <X className="size-5" />
         </button>
+        {/* A sessão da URL, não a em andamento de hoje: abrir `?s=` de uma
+            sessão antiga rotulava a tela com o nome do treino de hoje. */}
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
-          {emAndamento?.nome ?? "Treino"}
+          {sessao?.nome ?? "Treino"}
         </span>
         <span className="t-caption shrink-0 tabular-nums">
           {feitas}/{plano.length}
@@ -463,6 +477,7 @@ export function TreinoSessao() {
                       setRegistros((n) => n + 1);
                     }}
                     onDesfazer={() => desfazer.mutate(s.id)}
+                    onAjustar={() => setAjustandoCardio(s)}
                   />
                 ))}
               </ul>
@@ -523,21 +538,11 @@ export function TreinoSessao() {
                 exercicios={catalogo}
                 selecionado={null}
                 onSelecionar={(ex) => {
-                  // Escolher "Bicicleta" no meio do treino tem que dar cardio,
-                  // não três séries de bicicleta a zero quilo.
-                  const cardioEscolhido = ex.equipamento === "cardio";
-                  adicionar.mutate({
-                    sessionId,
-                    item: {
-                      routine_exercise_id: null,
-                      exercise_id: ex.id,
-                      nome: ex.nome,
-                      descanso_s: cardioEscolhido ? null : 90,
-                      series: cardioEscolhido
-                        ? planejar({ tipo: "cardio", duracao_min: 30, met: ex.met ?? 6 }, [])
-                        : planejar({ tipo: "dupla", ...AVULSO, peso_inicial_kg: 0 }, []),
-                    },
-                  });
+                  // Só a id: quem monta o item é `montarItemAvulso`, que cruza
+                  // o histórico do exercício (a carga de hoje sai dele) e sabe
+                  // que "Bicicleta" tem que dar cardio, não três séries de
+                  // bicicleta a zero quilo.
+                  adicionar.mutate({ sessionId, exerciseId: ex.id, data: hoje() });
                   setAdicionando(false);
                 }}
               />
@@ -595,6 +600,18 @@ export function TreinoSessao() {
             : `Finalizar (${feitas} de ${plano.length})`}
         </Button>
       </footer>
+
+      <SheetAjustarCardio
+        aberto={ajustandoCardio !== null}
+        onFechar={() => setAjustandoCardio(null)}
+        serie={ajustandoCardio}
+        peso_kg={perfil?.peso_kg ?? null}
+        onRegistrar={(v) => {
+          if (!ajustandoCardio) return;
+          registrarCardio.mutate({ planId: ajustandoCardio.id, ...v });
+          setRegistros((n) => n + 1);
+        }}
+      />
 
       <SheetAjustarSerie
         aberto={ajustando !== null}
