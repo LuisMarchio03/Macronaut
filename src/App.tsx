@@ -1,4 +1,4 @@
-import { Routes, Route, Outlet, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AvisosDeFalha } from "./components/avisos-de-falha";
 import { BottomNav } from "./components/bottom-nav";
 import { QuickAdd } from "./components/quick-add";
@@ -10,6 +10,7 @@ import { Foods } from "./pages/foods";
 import { MealsConfig } from "./pages/meals-config";
 import { Onboarding } from "./pages/onboarding";
 import { Treino } from "./pages/treino";
+import { TreinoLayout } from "./pages/treino-layout";
 import { TreinoSessao } from "./pages/treino-sessao";
 import { TreinoRotina } from "./pages/treino-rotina";
 import { TreinoProgresso } from "./pages/treino-progresso";
@@ -76,12 +77,23 @@ export default function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/nutricao" element={<Nutricao />} />
-          <Route path="/treino" element={<Treino />} />
-          <Route path="/treino/rotina" element={<TreinoRotina />} />
-          <Route path="/treino/progresso" element={<TreinoProgresso />} />
-          {/* Depois de /treino/sessao, que é rota literal fora deste layout. */}
-          <Route path="/treino/sessao/:id" element={<TreinoSessaoDetalhe />} />
-          <Route path="/exercicios" element={<Exercicios />} />
+          {/* Quatro abas, uma tela. As rotas continuam sendo o endereço de
+              cada seção — é o que faz o voltar do celular funcionar e um link
+              de fora abrir na aba certa. */}
+          <Route path="/treino" element={<TreinoLayout />}>
+            <Route index element={<Treino />} />
+            <Route path="rotina" element={<TreinoRotina />} />
+            <Route path="progresso" element={<TreinoProgresso />} />
+            <Route path="exercicios" element={<Exercicios />} />
+            {/* Detalhe de sessão vive DENTRO das abas: é conteúdo com endereço
+                próprio (histórico, exclusão), não uma ação — e ficar sob a aba
+                mantém "Progresso" aceso enquanto você olha uma sessão dela. */}
+            <Route path="sessao/:id" element={<TreinoSessaoDetalhe />} />
+          </Route>
+          {/* A biblioteca virou aba do treino. O endereço antigo continua
+              respondendo: ele está em atalho de PWA instalado e no histórico
+              do navegador de quem já usava o app. */}
+          <Route path="/exercicios" element={<Navigate to="/treino/exercicios" replace />} />
           <Route path="/analise" element={<Analise />} />
           <Route path="/mais" element={<Mais />} />
           <Route path="/alimentos" element={<Foods />} />

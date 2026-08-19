@@ -106,18 +106,21 @@ describe("Treino — o hub", () => {
     expect(await screen.findByText(/0 de 3 séries/i)).toBeInTheDocument();
   });
 
-  // Dois destinos, não cinco: o hub deixou de ser um menu de objetos.
-  it("o hub tem só os atalhos de rotina e progresso", async () => {
+  /**
+   * "Hoje" é um painel, não um hub. A navegação do treino são as abas do
+   * layout — repeti-la aqui como lista de atalhos (o que a tela fazia) põe o
+   * mesmo destino duas vezes na mesma rolagem.
+   */
+  it("o painel de hoje não repete a navegação das abas", async () => {
+    const r = await criarRotina(db, 1, "R");
+    const d = await salvarDia(db, 1, r.id, HOJE, "Peito");
+    await adicionarExercicio(db, 1, d.id, { ...DUPLA, exercise_id: await exercicio("Supino reto") });
     montar();
-    for (const [nome, destino] of [
-      [/^rotina/i, "/treino/rotina"], // "Montar rotina" do estado vazio também casaria sem a âncora
-      [/^progresso/i, "/treino/progresso"],
-    ] as const) {
-      const link = await screen.findByRole("link", { name: nome });
-      expect(link).toHaveAttribute("href", destino);
-    }
-    for (const morto of [/histórico/i, /cardio/i]) {
-      expect(screen.queryByRole("link", { name: morto })).not.toBeInTheDocument();
+
+    // Controle positivo: o painel renderizou o treino de hoje.
+    expect(await screen.findByText("Peito")).toBeInTheDocument();
+    for (const aba of [/^rotina$/i, /^progresso$/i, /^exercícios$/i]) {
+      expect(screen.queryByRole("link", { name: aba })).not.toBeInTheDocument();
     }
   });
 

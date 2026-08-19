@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SheetConfirmar } from "@/components/ui/confirmar";
 import { EmptyState } from "@/components/ui/empty-state";
-import { BackLink, Page, PageHeader } from "@/components/ui/page";
+import { BackLink } from "@/components/ui/page";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { SheetAjustarSerie } from "@/components/treino/sheet-ajustar-serie";
 import { usePlano, useRegistrarSerie } from "@/hooks/use-sessao";
@@ -112,13 +112,7 @@ export function TreinoSessaoDetalhe() {
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const sessao = sessoes.find((s) => s.id === sessionId);
 
-  if (carregandoPlano) {
-    return (
-      <Page>
-        <SkeletonList rows={4} />
-      </Page>
-    );
-  }
+  if (carregandoPlano) return <SkeletonList rows={4} />;
 
   // Blocos por exercício, na ordem do plano.
   const blocos: { exercise_id: number; nome: string; series: PlanoSerie[] }[] = [];
@@ -129,11 +123,12 @@ export function TreinoSessaoDetalhe() {
   }
 
   return (
-    <Page>
-      <PageHeader
-        eyebrow={<BackLink to="/treino/progresso">Progresso</BackLink>}
-        title={sessao?.nome || "Sessão"}
-      >
+    <>
+      {/* Sem `PageHeader`: a tela já tem um, com as abas. Aqui é o cabeçalho
+          do conteúdo — e o link de volta diz de qual aba você veio. */}
+      <div>
+        <BackLink to="/treino/progresso">Progresso</BackLink>
+        <h2 className="t-title mt-0.5 truncate">{sessao?.nome || "Sessão"}</h2>
         {sessao && (
           <p className="t-caption tabular-nums">
             {dataPorExtenso(sessao.data)}
@@ -141,7 +136,7 @@ export function TreinoSessaoDetalhe() {
               ` · ${sessao.series} ${sessao.series === 1 ? "série" : "séries"} · ${Math.round(sessao.volume_kg).toLocaleString("pt-BR")} kg`}
           </p>
         )}
-      </PageHeader>
+      </div>
 
       {plano.length === 0 ? (
         sets.length === 0 ? (
@@ -202,6 +197,6 @@ export function TreinoSessaoDetalhe() {
           }
         }}
       />
-    </Page>
+    </>
   );
 }

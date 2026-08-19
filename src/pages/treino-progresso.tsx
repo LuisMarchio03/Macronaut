@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardRow } from "@/components/ui/card";
-import { BackLink, Page, PageHeader, SectionLabel } from "@/components/ui/page";
+import { SectionLabel } from "@/components/ui/page";
 import { Segmented } from "@/components/ui/segmented";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonList } from "@/components/ui/skeleton";
@@ -279,14 +279,14 @@ export function TreinoProgresso() {
   const [visao, setVisao] = useState<Visao>("sessoes");
 
   return (
-    <Page>
-      <PageHeader eyebrow={<BackLink to="/treino">Treino</BackLink>} title="Progresso">
-        <Segmented opcoes={VISOES} valor={visao} onChange={setVisao} rotulo="O que ver" />
-      </PageHeader>
+    <>
+      {/* Sub-aba, não aba: as três respondem "o que eu já fiz" com o mesmo
+          recorte de dados, e promovê-las a rota daria oito abas ao treino. */}
+      <Segmented opcoes={VISOES} valor={visao} onChange={setVisao} rotulo="O que ver" />
 
       {visao === "sessoes" && <VisaoSessoes />}
       {visao === "exercicios" && <VisaoExercicios />}
       {visao === "resumo" && <VisaoResumo />}
-    </Page>
+    </>
   );
 }

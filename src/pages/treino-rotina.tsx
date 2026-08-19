@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BackLink, Page, PageHeader } from "@/components/ui/page";
+
 import { SkeletonList } from "@/components/ui/skeleton";
 import { ExercicioAutocomplete } from "@/components/treino/exercicio-autocomplete";
 import { SheetPrescricao } from "@/components/treino/sheet-prescricao";
@@ -247,19 +247,11 @@ export function TreinoRotina() {
   const atualizar = useAtualizarExercicio();
   const [emEdicao, setEmEdicao] = useState<ExercicioRotina | null>(null);
 
-  if (isLoading) {
-    return (
-      <Page>
-        <SkeletonList rows={7} />
-      </Page>
-    );
-  }
+  if (isLoading) return <SkeletonList rows={7} />;
 
   if (!rotina) {
     return (
-      <Page>
-        <PageHeader eyebrow={<BackLink to="/treino">Treino</BackLink>} title="Rotina" />
-        <Card>
+      <Card>
           <EmptyState
             title="Nenhuma rotina ainda"
             description="Diga ao app o que você treina em cada dia da semana. Depois é só seguir — a carga de cada exercício ele calcula sozinho."
@@ -267,20 +259,17 @@ export function TreinoRotina() {
               <Button onClick={() => criar.mutate("Minha rotina")} disabled={criar.isPending}>
                 Criar rotina
               </Button>
-            }
-          />
-        </Card>
-      </Page>
+          }
+        />
+      </Card>
     );
   }
 
   return (
-    <Page>
-      <PageHeader eyebrow={<BackLink to="/treino">Treino</BackLink>} title="Rotina">
-        <p className="t-caption">
-          Dia sem nome é descanso. Cada exercício guarda como a carga dele é decidida.
-        </p>
-      </PageHeader>
+    <>
+      <p className="t-caption">
+        Dia sem nome é descanso. Cada exercício guarda como a carga dele é decidida.
+      </p>
 
       <div className="space-y-2">
         {[0, 1, 2, 3, 4, 5, 6].map((d) => {
@@ -307,6 +296,6 @@ export function TreinoRotina() {
           if (emEdicao) atualizar.mutate({ id: emEdicao.id, entrada });
         }}
       />
-    </Page>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
-import { CalendarDays, ChevronRight, Play, TrendingUp } from "lucide-react";
+import { CalendarDays, ChevronRight, Play } from "lucide-react";
 import { Card, CardRow } from "@/components/ui/card";
-import { Page, PageHeader, SectionLabel } from "@/components/ui/page";
+import { SectionLabel } from "@/components/ui/page";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
@@ -10,20 +10,8 @@ import { useIniciarSessao, usePlanoDoDia, useSessaoEmAndamento } from "@/hooks/u
 import { useListSessions } from "@/hooks/use-workouts";
 import { proximoTreino, treinoDoDia } from "@/domain/prescricao";
 import type { ItemPlanejado } from "@/repositories/sessao";
-import { dataPorExtenso, dataRelativa, diaSemana, hoje } from "@/lib/date";
+import { dataRelativa, diaSemana, hoje } from "@/lib/date";
 import { DIAS_DA_SEMANA } from "./treino-rotina";
-
-/**
- * Dois destinos, não cinco.
- *
- * O hub era um menu de objetos — histórico, progressão, exercícios, cardio — e
- * duas dessas telas respondiam a mesma pergunta. Agora são perguntas: o que eu
- * treino na semana, e o que eu já fiz.
- */
-const ATALHOS = [
-  { to: "/treino/rotina", icone: CalendarDays, label: "Rotina", sub: "O que você treina em cada dia" },
-  { to: "/treino/progresso", icone: TrendingUp, label: "Progresso", sub: "Sessões, cargas e consistência" },
-];
 
 /**
  * Como o card de hoje descreve um exercício.
@@ -56,6 +44,13 @@ function resumoDoItem(item: ItemPlanejado): string {
     : `${trabalho.length} ${plural} · até ${maisPesada} kg`;
 }
 
+/**
+ * O painel "Hoje": o que treinar agora, e nada mais.
+ *
+ * A lista de atalhos que morava no fim desta tela morreu com as abas — ela
+ * existia para levar a "Rotina" e "Progresso", que hoje estão no topo, sempre
+ * visíveis. Um destino repetido na mesma tela é uma decisão a mais para tomar.
+ */
 export function Treino() {
   const navigate = useNavigate();
   const data = hoje();
@@ -80,17 +75,15 @@ export function Treino() {
 
   if (isLoading) {
     return (
-      <Page>
+      <>
         <SkeletonCard />
         <SkeletonList rows={3} />
-      </Page>
+      </>
     );
   }
 
   return (
-    <Page>
-      <PageHeader eyebrow={dataPorExtenso(data)} title="Treino" />
-
+    <>
       {!rotina ? (
         <Card>
           <EmptyState
@@ -191,24 +184,6 @@ export function Treino() {
         </div>
       )}
 
-      <Card padded={false}>
-        <ul className="divide-y divide-border">
-          {ATALHOS.map((a) => (
-            <li key={a.to}>
-              <CardRow as={Link} to={a.to}>
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                  <a.icone className="size-[18px]" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{a.label}</span>
-                  <span className="t-caption block truncate">{a.sub}</span>
-                </span>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-              </CardRow>
-            </li>
-          ))}
-        </ul>
-      </Card>
-    </Page>
+    </>
   );
 }

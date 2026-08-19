@@ -4,7 +4,6 @@ import {
   Bot,
   ChevronRight,
   ClipboardList,
-  Dumbbell,
   LogOut,
   Settings,
   Target,
@@ -97,12 +96,6 @@ export function Mais() {
             icone={UtensilsCrossed}
             label="Refeições"
             sub="Nomes e horários do diário"
-          />
-          <ItemLista
-            to="/exercicios"
-            icone={Dumbbell}
-            label="Exercícios"
-            sub="Catálogo e exercícios próprios"
           />
           <ItemLista to="/metas" icone={Target} label="Metas" sub="Perfil e objetivo" />
         </ul>
