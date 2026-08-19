@@ -10,6 +10,12 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   { table: "foods", column: "fibra_g",   ddl: "ALTER TABLE foods ADD COLUMN fibra_g REAL" },
   { table: "foods", column: "sodio_mg",  ddl: "ALTER TABLE foods ADD COLUMN sodio_mg REAL" },
   { table: "foods", column: "categoria", ddl: "ALTER TABLE foods ADD COLUMN categoria TEXT" },
+  // O nome sem acento e em minúsculas, para a busca. `LIKE ... COLLATE NOCASE`
+  // do SQLite só é insensível a caixa em ASCII — não casa "acucar" com
+  // "Açúcar", e a TACO é toda acentuada. Coluna e não expressão porque o
+  // libSQL não tem `unaccent`, e normalizar em JS é a mesma função que a
+  // busca do exercício já usa.
+  { table: "foods", column: "nome_norm", ddl: "ALTER TABLE foods ADD COLUMN nome_norm TEXT" },
   { table: "food_measures", column: "source",     ddl: "ALTER TABLE food_measures ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'" },
   { table: "food_measures", column: "status",     ddl: "ALTER TABLE food_measures ADD COLUMN status TEXT NOT NULL DEFAULT 'confirmada'" },
   { table: "food_measures", column: "pof_codigo", ddl: "ALTER TABLE food_measures ADD COLUMN pof_codigo TEXT" },
@@ -68,6 +74,7 @@ const ADDITIVE_INDEXES: { ddl: string }[] = [
   { ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises (user_id, nome)" },
   { ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_source_nome ON exercises (source, nome)" },
   { ddl: "CREATE INDEX IF NOT EXISTS idx_food_measures_status ON food_measures (food_id, status)" },
+  { ddl: "CREATE INDEX IF NOT EXISTS idx_foods_nome_norm ON foods (nome_norm)" },
 ];
 
 /**

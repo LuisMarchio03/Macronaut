@@ -5,6 +5,7 @@ import { applySchema } from "./lib/apply-schema.ts";
 import { importarTaco, backfillNutrientes, type TacoItem } from "./seed-taco.ts";
 import { semearMedidas } from "./seed-medidas.ts";
 import type { MedidasDeAlimento } from "./build-medidas.ts";
+import { backfillNomeNorm } from "../src/repositories/foods.ts";
 import { seedActivityTypes } from "../src/repositories/activities.ts";
 import { seedMuscleGroups } from "../src/repositories/muscle-groups.ts";
 import { seedExercicios, backfillGrupos, backfillUserIds } from "../src/repositories/exercises.ts";
@@ -49,6 +50,10 @@ try {
   console.warn("Sem src/data/medidas.json; pulando medidas caseiras (rode scripts/build-medidas.ts).");
 }
 const nMedidas = await semearMedidas(db, medidas);
+
+// Depois da TACO: normaliza o nome de tudo que entrou, para a busca funcionar
+// sem acento. Idempotente — só toca em linha com `nome_norm` NULL.
+const nNomesNorm = await backfillNomeNorm(db);
 db.close();
 
 console.log(
@@ -56,5 +61,5 @@ console.log(
     `${nCardio} exercícios de cardio criados, ` +
     `${nBackfill} exercícios com grupo migrado, ${nBackfillUserIds} exercícios com dono migrado, ` +
     `${n} alimentos da TACO, ${nNutrientes} alimentos com nutrientes migrados` +
-    `, ${nMedidas} medidas caseiras da POF.`,
+    `, ${nMedidas} medidas caseiras da POF, ${nNomesNorm} nomes normalizados para busca.`,
 );

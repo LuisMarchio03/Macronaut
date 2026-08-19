@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS profile (
 CREATE TABLE IF NOT EXISTS foods (
   id                  INTEGER PRIMARY KEY AUTOINCREMENT,
   nome                TEXT NOT NULL,
+  nome_norm           TEXT,   -- nome sem acento e em minúsculas; é por onde a busca passa
   source              TEXT NOT NULL,
   marca               TEXT,
   base_qty_g          REAL NOT NULL DEFAULT 100,

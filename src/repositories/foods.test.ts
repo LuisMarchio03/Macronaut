@@ -3,6 +3,7 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import {
   searchFoods, getFoodsByIds, createFood, updateFood, deleteFood, listCustomFoods,
+  backfillNomeNorm,
 } from "./foods";
 
 let db: Client;
@@ -97,4 +98,46 @@ it("alimento antigo sem nutrientes continua legível (retrocompat)", async () =>
   const achados = await searchFoods(db, "Legado");
   expect(achados[0].fibra_g).toBeNull();
   expect(achados[0].base_unit).toBe("g"); // DEFAULT da coluna aditiva
+});
+
+/* ══ busca sem acento ═════════════════════════════════════════════════════
+   `LIKE ... COLLATE NOCASE` do SQLite só é insensível a caixa em ASCII: não
+   casa "acucar" com "Açúcar", nem sequer "AÇÚCAR" com "açúcar". Numa base de
+   590 alimentos com nome vindo da TACO — cheio de acento e em caixa alta —
+   isso significa não achar o alimento e cadastrar de novo o que já existe. */
+
+it("acha o alimento sem digitar o acento", async () => {
+  await createFood(db, { ...base, nome: "Açúcar mascavo" });
+  expect((await searchFoods(db, "acucar")).map((f) => f.nome)).toEqual(["Açúcar mascavo"]);
+  expect((await searchFoods(db, "AÇÚCAR")).map((f) => f.nome)).toEqual(["Açúcar mascavo"]);
+  expect((await searchFoods(db, "mascavo")).map((f) => f.nome)).toEqual(["Açúcar mascavo"]);
+});
+
+it("renomear mantém a busca sem acento coerente", async () => {
+  const a = await createFood(db, { ...base, nome: "Whey" });
+  await updateFood(db, a.id, { ...base, nome: "Proteína isolada" });
+  expect((await searchFoods(db, "proteina")).map((f) => f.nome)).toEqual(["Proteína isolada"]);
+  expect(await searchFoods(db, "whey")).toHaveLength(0);
+});
+
+/** Linha gravada antes da coluna existir continua encontrável pelo nome cru. */
+it("alimento sem nome normalizado ainda é achado pelo nome", async () => {
+  await db.execute({
+    sql: `INSERT INTO foods (nome, source, base_qty_g, base_unit, kcal, prot_g, carb_g, gord_g, created_at)
+          VALUES ('Arroz integral', 'taco', 100, 'g', 124, 2.6, 25.8, 1, ?)`,
+    args: [new Date().toISOString()],
+  });
+  expect((await searchFoods(db, "arroz")).map((f) => f.nome)).toEqual(["Arroz integral"]);
+});
+
+it("o backfill normaliza o que já estava no banco", async () => {
+  await db.execute({
+    sql: `INSERT INTO foods (nome, source, base_qty_g, base_unit, kcal, prot_g, carb_g, gord_g, created_at)
+          VALUES ('Feijão carioca', 'taco', 100, 'g', 76, 4.8, 13.6, 0.5, ?)`,
+    args: [new Date().toISOString()],
+  });
+  expect(await backfillNomeNorm(db)).toBe(1);
+  expect((await searchFoods(db, "feijao")).map((f) => f.nome)).toEqual(["Feijão carioca"]);
+  // Idempotente: rodar de novo não mexe em nada.
+  expect(await backfillNomeNorm(db)).toBe(0);
 });
