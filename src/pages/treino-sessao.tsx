@@ -7,6 +7,7 @@ import { CronometroDescanso } from "@/components/treino/cronometro-descanso";
 import { ExercicioAutocomplete } from "@/components/treino/exercicio-autocomplete";
 import { SheetAjustarCardio } from "@/components/treino/sheet-ajustar-cardio";
 import { SheetAjustarSerie } from "@/components/treino/sheet-ajustar-serie";
+import { SheetExercicio } from "@/components/treino/sheet-exercicio";
 import { useExercises } from "@/hooks/use-exercises";
 import { useProfile } from "@/hooks/use-profile";
 import {
@@ -365,6 +366,7 @@ export function TreinoSessao() {
   const [iExercicio, setIExercicio] = useState(0);
   const [ajustando, setAjustando] = useState<PlanoSerie | null>(null);
   const [ajustandoCardio, setAjustandoCardio] = useState<PlanoSerie | null>(null);
+  const [vendoFicha, setVendoFicha] = useState(false);
   const [adicionando, setAdicionando] = useState(false);
   const [registros, setRegistros] = useState(0);
 
@@ -461,7 +463,22 @@ export function TreinoSessao() {
         {atual ? (
           <>
             <div>
-              <h1 className="t-title">{atual.nome}</h1>
+              {/* O nome abre a ficha: "como faz isso mesmo?" é uma pergunta de
+                  academia, e a resposta estava a quatro toques e uma tela de
+                  distância — longe demais para quem está com a barra na mão. */}
+              {/* O botão vive DENTRO do h1: o nome do exercício continua sendo
+                  o título da tela para quem navega por cabeçalhos, e ganha a
+                  ação sem deixar de ser o que é. */}
+              <h1 className="t-title">
+                <button
+                  type="button"
+                  onClick={() => setVendoFicha(true)}
+                  aria-label={`Ver ficha de ${atual.nome}`}
+                  className="text-left"
+                >
+                  {atual.nome}
+                </button>
+              </h1>
               <UltimaVez exerciseId={atual.exercise_id} />
             </div>
 
@@ -600,6 +617,12 @@ export function TreinoSessao() {
             : `Finalizar (${feitas} de ${plano.length})`}
         </Button>
       </footer>
+
+      <SheetExercicio
+        aberto={vendoFicha}
+        onFechar={() => setVendoFicha(false)}
+        exercicio={catalogo.find((e) => e.id === atual?.exercise_id) ?? null}
+      />
 
       <SheetAjustarCardio
         aberto={ajustandoCardio !== null}

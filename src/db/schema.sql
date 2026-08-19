@@ -98,7 +98,11 @@ CREATE TABLE IF NOT EXISTS exercises (
   grupo_id        INTEGER REFERENCES muscle_groups (id),
   source          TEXT NOT NULL DEFAULT 'custom',   -- 'catalogo' | 'custom'
   tipo            TEXT,                             -- 'composto' | 'isolado'
-  equipamento     TEXT,                             -- 'barra'|'halter'|'maquina'|'polia'|'peso_corporal'
+  equipamento     TEXT,                             -- 'barra'|'halter'|'maquina'|'polia'|'peso_corporal'|'cardio'
+  met             REAL,                             -- só cardio
+  instrucoes      TEXT,                             -- passos da execução, um por linha
+  musculos_secundarios TEXT,                        -- nomes canônicos de muscle_groups, separados por vírgula
+  aliases         TEXT,                             -- outros nomes, separados por vírgula
   created_at      TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_exercises_nome ON exercises (nome);

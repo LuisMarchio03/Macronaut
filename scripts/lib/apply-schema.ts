@@ -40,6 +40,12 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   // Cardio virou exercício do catálogo, para a sessão continuar sendo UMA lista
   // ordenada. O MET mora aqui porque é do exercício, não da rotina.
   { table: "exercises", column: "met", ddl: "ALTER TABLE exercises ADD COLUMN met REAL" },
+  // A ficha do exercício: como executar, que músculos ele também pega, e por
+  // que outros nomes você o chama. Nulas em toda linha pré-existente, e o app
+  // funciona com as três nulas — é enriquecimento, não requisito.
+  { table: "exercises", column: "instrucoes",           ddl: "ALTER TABLE exercises ADD COLUMN instrucoes TEXT" },
+  { table: "exercises", column: "musculos_secundarios", ddl: "ALTER TABLE exercises ADD COLUMN musculos_secundarios TEXT" },
+  { table: "exercises", column: "aliases",              ddl: "ALTER TABLE exercises ADD COLUMN aliases TEXT" },
   { table: "routine_exercises", column: "duracao_min", ddl: "ALTER TABLE routine_exercises ADD COLUMN duracao_min REAL" },
   { table: "session_plan_sets", column: "duracao_min", ddl: "ALTER TABLE session_plan_sets ADD COLUMN duracao_min REAL" },
   // O elo do cardio com o realizado. Cardio grava em activity_sessions, não em

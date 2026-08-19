@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Pencil, X } from "lucide-react";
 import { Button } from "../ui/button";
+import { Card } from "../ui/card";
+import { SheetConfirmar } from "../ui/confirmar";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Card } from "../ui/card";
+import { SheetExercicio } from "./sheet-exercicio";
+import { SheetExercicioForm } from "./sheet-exercicio-form";
 import {
   useExercises, useCreateExercise, useUpdateExercise, useDeleteExercise,
 } from "../../hooks/use-exercises";
 import { useMuscleGroups } from "../../hooks/use-muscle-groups";
+import { casaBusca } from "../../domain/treino";
 import type { Exercise } from "../../domain/types";
 
 /**
@@ -28,33 +32,49 @@ function descricaoDe(e: Exercise): string {
   return e.equipamento === "cardio" ? "Cardio" : "sem grupo muscular";
 }
 
+/**
+ * A biblioteca de exercícios.
+ *
+ * Com uma dúzia de itens a lista era o conteúdo e bastava rolar. Com o
+ * catálogo cheio ela é palha: por isso a busca (que casa apelido, porque
+ * ninguém procura "Supino reto com barra" — procura "supino") e o filtro por
+ * grupo vêm antes da lista, não depois.
+ */
 export function ExerciciosTab() {
   const { data: exercicios = [] } = useExercises();
   const { data: grupos = [] } = useMuscleGroups();
   const criar = useCreateExercise();
   const atualizar = useUpdateExercise();
   const remover = useDeleteExercise();
+
+  const [busca, setBusca] = useState("");
+  const [grupoFiltro, setGrupoFiltro] = useState("");
+  const [vendo, setVendo] = useState<Exercise | null>(null);
   const [editando, setEditando] = useState<Exercise | "novo" | null>(null);
-  const [nome, setNome] = useState("");
-  const [grupoId, setGrupoId] = useState("");
+  const [excluindo, setExcluindo] = useState<Exercise | null>(null);
   const [aviso, setAviso] = useState("");
 
-  function abrir(e: Exercise | "novo") {
-    setEditando(e);
-    setNome(e === "novo" ? "" : e.nome);
-    setGrupoId(e === "novo" ? "" : e.grupo_id != null ? String(e.grupo_id) : "");
-    setAviso("");
-  }
+  const nPendentes = exercicios.filter(ehPendente).length;
 
-  async function salvar() {
-    if (!nome.trim()) return;
-    const dados = { nome: nome.trim(), grupo_id: grupoId ? Number(grupoId) : null };
+  // Pendentes primeiro: são os que o backfill não conseguiu casar e que ficam
+  // fora da análise até o usuário resolver.
+  const visiveis = useMemo(() => {
+    return exercicios
+      .filter((e) => casaBusca(e.nome, e.aliases, busca))
+      .filter((e) => grupoFiltro === "" || e.grupo_nome === grupoFiltro)
+      .sort((a, b) => {
+        const pa = ehPendente(a) ? 0 : 1;
+        const pb = ehPendente(b) ? 0 : 1;
+        return pa !== pb ? pa - pb : a.nome.localeCompare(b.nome);
+      });
+  }, [exercicios, busca, grupoFiltro]);
+
+  async function salvar(dados: Parameters<typeof criar.mutateAsync>[0]) {
     if (editando === "novo") await criar.mutateAsync(dados);
     else if (editando) {
       const r = await atualizar.mutateAsync({ id: editando.id, e: dados });
-      if (!r.ok) { setAviso(`"${nome}" não pode ser editado.`); return; }
+      if (!r.ok) setAviso(`"${dados.nome}" não pode ser editado.`);
     }
-    setEditando(null);
   }
 
   async function excluir(e: Exercise) {
@@ -67,72 +87,69 @@ export function ExerciciosTab() {
     );
   }
 
-  if (editando) {
-    return (
-      <Card
-        header={editando === "novo" ? "Novo exercício" : "Editar exercício"}
-        bodyClassName="space-y-3 px-4 pt-1 pb-4"
-      >
-        <div><Label htmlFor="ex-nome">Nome</Label>
-          <Input id="ex-nome" value={nome} onChange={(e) => setNome(e.target.value)} /></div>
-        <div><Label htmlFor="ex-grupo">Grupo muscular</Label>
-          <select id="ex-grupo" className="select-field"
-            value={grupoId} onChange={(e) => setGrupoId(e.target.value)}>
-            <option value="">Sem grupo</option>
-            {grupos.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
-          </select></div>
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" onClick={() => setEditando(null)}>
-            Cancelar
-          </Button>
-          <Button onClick={salvar} disabled={!nome.trim()}>
-            Salvar
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
-  // Pendentes primeiro: são os que o backfill não conseguiu casar e que ficam
-  // fora da análise até o usuário resolver.
-  const ordenados = [...exercicios].sort((a, b) => {
-    const pa = ehPendente(a) ? 0 : 1;
-    const pb = ehPendente(b) ? 0 : 1;
-    return pa !== pb ? pa - pb : a.nome.localeCompare(b.nome);
-  });
-  const nPendentes = exercicios.filter(ehPendente).length;
-
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="t-section">
-          Biblioteca
-        </h2>
-        <Button size="sm" onClick={() => abrir("novo")}>
+      <div className="flex items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <Label htmlFor="ex-busca">Buscar exercício</Label>
+          <Input
+            id="ex-busca"
+            value={busca}
+            placeholder="supino, agachamento…"
+            autoComplete="off"
+            onChange={(e) => setBusca(e.target.value)}
+          />
+        </div>
+        <Button onClick={() => setEditando("novo")}>
           <Plus className="size-4" /> Novo exercício
         </Button>
       </div>
+
+      <div>
+        <Label htmlFor="ex-filtro">Filtrar por grupo</Label>
+        <select
+          id="ex-filtro"
+          className="select-field"
+          value={grupoFiltro}
+          onChange={(e) => setGrupoFiltro(e.target.value)}
+        >
+          <option value="">Todos os grupos</option>
+          {grupos.map((g) => (
+            <option key={g.id} value={g.nome}>
+              {g.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {nPendentes > 0 && (
         <p className="rounded-md border border-primary/30 bg-tint-primary px-3 py-2 text-sm">
           {nPendentes} {nPendentes === 1 ? "exercício está" : "exercícios estão"} sem grupo muscular
           e <b>{nPendentes === 1 ? "fica" : "ficam"} fora da análise</b> até você escolher um.
         </p>
       )}
+
       {aviso && (
         <p role="alert" className="rounded-md border border-destructive/30 bg-tint-danger px-3 py-2 text-sm text-destructive">
           {aviso}
         </p>
       )}
+
       <Card
         header="Exercícios"
-        aside={exercicios.length > 0 ? String(exercicios.length) : undefined}
+        aside={visiveis.length > 0 ? String(visiveis.length) : undefined}
         padded={false}
       >
-        {exercicios.length > 0 ? (
+        {visiveis.length > 0 ? (
           <ul className="divide-y divide-border">
-            {ordenados.map((e) => (
-              <li key={e.id} aria-label={e.nome} className="flex items-center gap-1 px-4 py-1.5">
-                <span className="min-w-0 flex-1">
+            {visiveis.map((e) => (
+              <li key={e.id} aria-label={e.nome} className="flex items-center gap-1 pr-2 pl-2">
+                <button
+                  type="button"
+                  onClick={() => setVendo(e)}
+                  aria-label={`Ver ficha de ${e.nome}`}
+                  className="min-h-12 min-w-0 flex-1 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                >
                   <span className="block truncate text-sm font-medium">{e.nome}</span>
                   <span
                     className={
@@ -144,12 +161,12 @@ export function ExerciciosTab() {
                     {descricaoDe(e)}
                     {e.source === "catalogo" && " · catálogo"}
                   </span>
-                </span>
+                </button>
                 {e.source === "custom" && (
                   <>
                     <button
                       type="button"
-                      onClick={() => abrir(e)}
+                      onClick={() => setEditando(e)}
                       aria-label={`Editar ${e.nome}`}
                       className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
@@ -157,7 +174,7 @@ export function ExerciciosTab() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => excluir(e)}
+                      onClick={() => setExcluindo(e)}
                       aria-label={`Excluir ${e.nome}`}
                       className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-tint-danger hover:text-destructive"
                     >
@@ -168,10 +185,34 @@ export function ExerciciosTab() {
               </li>
             ))}
           </ul>
-        ) : (
+        ) : exercicios.length === 0 ? (
           <p className="t-caption px-4 pt-1 pb-4">Nenhum exercício cadastrado ainda.</p>
+        ) : (
+          <p className="t-caption px-4 pt-1 pb-4">
+            Nenhum exercício encontrado. Ajuste a busca ou o filtro — ou cadastre este como seu.
+          </p>
         )}
       </Card>
+
+      <SheetExercicio aberto={vendo !== null} onFechar={() => setVendo(null)} exercicio={vendo} />
+
+      <SheetExercicioForm
+        aberto={editando !== null}
+        onFechar={() => setEditando(null)}
+        exercicio={editando === "novo" ? null : editando}
+        grupos={grupos}
+        onSalvar={salvar}
+      />
+
+      <SheetConfirmar
+        aberto={excluindo !== null}
+        onFechar={() => setExcluindo(null)}
+        titulo={`Excluir "${excluindo?.nome ?? ""}"?`}
+        descricao="O exercício sai da sua biblioteca. Se ele já tem série registrada, a exclusão é recusada."
+        onConfirmar={() => {
+          if (excluindo) excluir(excluindo);
+        }}
+      />
     </div>
   );
 }

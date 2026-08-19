@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "../ui/input";
 import type { Exercise } from "../../domain/types";
-import { normalizar } from "../../domain/texto";
+import { casaBusca } from "../../domain/treino";
 
 export function ExercicioAutocomplete({
   exercicios, selecionado, onSelecionar, id,
@@ -41,9 +41,10 @@ export function ExercicioAutocomplete({
   // O pai pode trocar a seleção (ex.: ao limpar o formulário depois de gravar).
   useEffect(() => { setTexto(selecionado?.nome ?? ""); }, [selecionado]);
 
-  const busca = normalizar(texto);
-  const sugestoes =
-    busca.length === 0 ? exercicios : exercicios.filter((e) => normalizar(e.nome).includes(busca));
+  // `casaBusca` e não só o nome: ninguém digita "Supino reto com barra" no
+  // meio de um treino — digita "supino", ou "bench". Sem os apelidos, um
+  // catálogo de 170 é um catálogo em que você não acha o que procura.
+  const sugestoes = exercicios.filter((e) => casaBusca(e.nome, e.aliases, texto));
   const mostrar = aberto;
 
   return (

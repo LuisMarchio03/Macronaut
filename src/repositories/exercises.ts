@@ -1,10 +1,28 @@
 import type { Client, Row } from "@libsql/client";
 import type { Equipamento, Exercise, ExerciseSource, TipoExercicio } from "../domain/types";
-import { CATALOGO, GRUPOS } from "../db/catalogo-exercicios.ts";
+import { CATALOGO, GRUPOS, RENOMEADOS } from "../db/catalogo-exercicios.ts";
 import { normalizar } from "../domain/texto.ts";
 
 export type ResultadoEx = { ok: true } | { ok: false; reason: "em_uso" | "catalogo" };
-export type ExInput = { nome: string; grupo_id: number | null };
+
+/**
+ * O que se pode escrever num exercício seu.
+ *
+ * Cresceu para além de `nome` + `grupo_id`: sem `equipamento` não dava para
+ * cadastrar um cardio próprio (é ele que faz a sessão tratar o item como
+ * duração em vez de séries), e sem `instrucoes`/`aliases` a ficha e a busca
+ * do exercício ficavam vazias justamente nos exercícios que são só seus.
+ */
+export type ExInput = {
+  nome: string;
+  grupo_id: number | null;
+  tipo?: TipoExercicio | null;
+  equipamento?: Equipamento | null;
+  met?: number | null;
+  instrucoes?: string | null;
+  musculos_secundarios?: string | null;
+  aliases?: string | null;
+};
 
 function mapRow(r: Row): Exercise {
   return {
@@ -18,6 +36,9 @@ function mapRow(r: Row): Exercise {
     tipo: (r.tipo as TipoExercicio | null) ?? null,
     equipamento: (r.equipamento as Equipamento | null) ?? null,
     met: (r.met as number | null) ?? null,
+    instrucoes: (r.instrucoes as string | null) ?? null,
+    musculos_secundarios: (r.musculos_secundarios as string | null) ?? null,
+    aliases: (r.aliases as string | null) ?? null,
     created_at: r.created_at as string,
   };
 }
@@ -51,9 +72,16 @@ export async function createExercise(
 ): Promise<Exercise> {
   const created_at = new Date().toISOString();
   const rs = await db.execute({
-    sql: `INSERT INTO exercises (user_id, nome, grupo_id, source, created_at)
-          VALUES (?, ?, ?, 'custom', ?)`,
-    args: [userId, e.nome, e.grupo_id, created_at],
+    sql: `INSERT INTO exercises
+            (user_id, nome, grupo_id, source, tipo, equipamento, met,
+             instrucoes, musculos_secundarios, aliases, created_at)
+          VALUES (?, ?, ?, 'custom', ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      userId, e.nome, e.grupo_id,
+      e.tipo ?? null, e.equipamento ?? null, e.met ?? null,
+      e.instrucoes ?? null, e.musculos_secundarios ?? null, e.aliases ?? null,
+      created_at,
+    ],
   });
   const id = Number(rs.lastInsertRowid);
   const lido = await db.execute({
@@ -72,8 +100,16 @@ export async function updateExercise(
 ): Promise<ResultadoEx> {
   if (!(await editavelPor(db, userId, id))) return { ok: false, reason: "catalogo" };
   await db.execute({
-    sql: "UPDATE exercises SET nome=?, grupo_id=? WHERE id=? AND source='custom' AND user_id=?",
-    args: [e.nome, e.grupo_id, id, userId],
+    sql: `UPDATE exercises
+          SET nome=?, grupo_id=?, tipo=?, equipamento=?, met=?,
+              instrucoes=?, musculos_secundarios=?, aliases=?
+          WHERE id=? AND source='custom' AND user_id=?`,
+    args: [
+      e.nome, e.grupo_id,
+      e.tipo ?? null, e.equipamento ?? null, e.met ?? null,
+      e.instrucoes ?? null, e.musculos_secundarios ?? null, e.aliases ?? null,
+      id, userId,
+    ],
   });
   return { ok: true };
 }
@@ -134,6 +170,64 @@ async function idsDosGrupos(db: Client): Promise<Map<string, number>> {
 }
 
 /**
+ * Aplica `RENOMEADOS` antes do upsert, preservando o id da linha.
+ *
+ * Dois caminhos, conforme o nome novo já exista ou não:
+ *
+ *  - não existe → RENOMEIA a linha antiga. O id sobrevive, e com ele tudo que
+ *    aponta para ele.
+ *  - já existe (um seed rodou entre a versão antiga e esta, criando a linha
+ *    nova e deixando a velha para trás) → a velha é duplicata pura. Some, mas
+ *    SÓ se nada apontar para ela; se apontar, fica, porque juntar o histórico
+ *    de duas linhas é decisão de gente, não de seed.
+ *
+ * Nunca toca `source='custom'`: um exercício SEU chamado "Búlgaro com
+ * halteres" é seu, e não vira outra coisa porque o catálogo mudou de ideia.
+ */
+async function aplicarRenomeios(db: Client): Promise<number> {
+  const rs = await db.execute("SELECT id, nome FROM exercises WHERE source='catalogo'");
+  const porNome = new Map(rs.rows.map((r) => [r.nome as string, r.id as number]));
+
+  let mexidos = 0;
+  for (const [antigo, novo] of Object.entries(RENOMEADOS)) {
+    const id = porNome.get(antigo);
+    if (id === undefined) continue;
+
+    if (!porNome.has(novo)) {
+      await db.execute({
+        sql: "UPDATE exercises SET nome=? WHERE id=? AND source='catalogo'",
+        args: [novo, id],
+      });
+      porNome.delete(antigo);
+      porNome.set(novo, id);
+      mexidos++;
+      continue;
+    }
+
+    if (await estaEmUso(db, id)) continue;
+    await db.execute({
+      sql: "DELETE FROM exercises WHERE id=? AND source='catalogo'",
+      args: [id],
+    });
+    porNome.delete(antigo);
+    mexidos++;
+  }
+  return mexidos;
+}
+
+/** Alguma coisa aponta para este exercício? Treino feito, rotina ou plano de sessão. */
+async function estaEmUso(db: Client, id: number): Promise<boolean> {
+  const rs = await db.execute({
+    sql: `SELECT
+            (SELECT COUNT(*) FROM workout_sets      WHERE exercise_id=?) +
+            (SELECT COUNT(*) FROM routine_exercises WHERE exercise_id=?) +
+            (SELECT COUNT(*) FROM session_plan_sets WHERE exercise_id=?) AS n`,
+    args: [id, id, id],
+  });
+  return Number(rs.rows[0].n) > 0;
+}
+
+/**
  * Upsert do catálogo global. A chave é `(nome, source='catalogo')` — NUNCA `nome`
  * sozinho: `exercises` não tem índice único em `nome`, e casar só por nome
  * sobrescreveria um exercício `custom` homônimo do usuário.
@@ -143,22 +237,34 @@ export async function seedExercicios(db: Client): Promise<void> {
   const grupoId = await idsDosGrupos(db);
   const created_at = new Date().toISOString();
 
+  await aplicarRenomeios(db);
+
   const rs = await db.execute("SELECT id, nome FROM exercises WHERE source='catalogo'");
   const existentes = new Map(rs.rows.map((r) => [r.nome as string, r.id as number]));
 
   const stmts = CATALOGO.map((e) => {
     const gid = grupoId.get(e.grupo) ?? null;
     const id = existentes.get(e.nome);
+    const secundarios = e.secundarios?.join(", ") ?? null;
+    const aliases = e.aliases?.join(", ") ?? null;
+    const instrucoes = e.instrucoes?.join("\n") ?? null;
     return id === undefined
       ? {
-          sql: `INSERT INTO exercises (user_id, nome, grupo_id, source, tipo, equipamento, created_at)
-                VALUES (NULL, ?, ?, 'catalogo', ?, ?, ?)`,
-          args: [e.nome, gid, e.tipo, e.equipamento, created_at],
+          sql: `INSERT INTO exercises
+                  (user_id, nome, grupo_id, source, tipo, equipamento,
+                   musculos_secundarios, aliases, instrucoes, created_at)
+                VALUES (NULL, ?, ?, 'catalogo', ?, ?, ?, ?, ?, ?)`,
+          args: [e.nome, gid, e.tipo, e.equipamento, secundarios, aliases, instrucoes, created_at],
         }
       : {
-          sql: `UPDATE exercises SET grupo_id=?, tipo=?, equipamento=?
+          // A ficha do catálogo é reescrita a cada seed de propósito: ela é
+          // conteúdo NOSSO, versionado no código, e não edição do usuário —
+          // linha de catálogo é somente-leitura na UI.
+          sql: `UPDATE exercises
+                SET grupo_id=?, tipo=?, equipamento=?,
+                    musculos_secundarios=?, aliases=?, instrucoes=?
                 WHERE id=? AND source='catalogo'`,
-          args: [gid, e.tipo, e.equipamento, id],
+          args: [gid, e.tipo, e.equipamento, secundarios, aliases, instrucoes, id],
         };
   });
   await db.batch(stmts, "write");

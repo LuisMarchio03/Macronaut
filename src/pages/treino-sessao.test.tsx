@@ -437,3 +437,32 @@ describe("TreinoSessao — cardio", () => {
     expect(screen.queryByText("Peito de hoje")).not.toBeInTheDocument();
   });
 });
+
+describe("TreinoSessao — a ficha do exercício", () => {
+  /**
+   * "Como faz isso mesmo?" é pergunta de academia, com a barra na mão. A
+   * resposta estava a quatro toques e uma tela de distância.
+   */
+  it("o nome do exercício abre a ficha dele sem sair da sessão", async () => {
+    const rs = await db.execute({
+      sql: `INSERT INTO exercises (nome, source, tipo, equipamento, instrucoes, created_at)
+            VALUES ('Supino reto', 'catalogo', 'composto', 'barra', 'Deite no banco.', ?)`,
+      args: [new Date().toISOString()],
+    });
+    const supino = Number(rs.lastInsertRowid);
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /ver ficha de supino reto/i }));
+    expect(await screen.findByText("Deite no banco.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /google/i })).toBeInTheDocument();
+
+    // Modal, não destino: fechar devolve a sessão exatamente onde estava.
+    await userEvent.keyboard("{Escape}");
+    expect(
+      await screen.findByRole("button", { name: /registrar série 1 de supino reto/i }),
+    ).toBeInTheDocument();
+  });
+});

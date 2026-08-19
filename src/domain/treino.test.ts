@@ -1,7 +1,7 @@
-import { it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   estimativaKcal, e1RM, volumeSet, seriesEfetivas, duracaoSessaoMin,
-  resumirSets, rotuloRir,
+  resumirSets, rotuloRir, listaPorVirgula, passosDaExecucao, urlDeExecucao,
 } from "./treino";
 
 it("estimativaKcal = met * peso * duracao/60", () => {
@@ -96,4 +96,35 @@ it("rotuloRir: 0 a 3 mostra o número cru; 4 vira '4+' (spec: 4 = 4 ou mais)", (
   expect(rotuloRir(2)).toBe("2");
   expect(rotuloRir(3)).toBe("3");
   expect(rotuloRir(4)).toBe("4+");
+});
+
+describe("ficha do exercício", () => {
+  it("separa a lista por vírgula, ignorando espaço e vazio", () => {
+    expect(listaPorVirgula("Peito, Tríceps ,, Ombros")).toEqual(["Peito", "Tríceps", "Ombros"]);
+    expect(listaPorVirgula(null)).toEqual([]);
+    expect(listaPorVirgula("")).toEqual([]);
+  });
+
+  it("um passo por linha, sem linha em branco", () => {
+    expect(passosDaExecucao("Deite no banco.\n\nDesça a barra.\n  Empurre.  ")).toEqual([
+      "Deite no banco.",
+      "Desça a barra.",
+      "Empurre.",
+    ]);
+    expect(passosDaExecucao(null)).toEqual([]);
+  });
+
+  /**
+   * O termo importa: "Rosca scott" sozinho no Google devolve loja de
+   * equipamento antes de qualquer demonstração de execução.
+   */
+  it("a busca de execução leva o termo pronto e escapado", () => {
+    const g = urlDeExecucao("Rosca scott", "google");
+    expect(g).toContain("google.com/search");
+    expect(decodeURIComponent(g)).toContain("Rosca scott execução correta");
+
+    const y = urlDeExecucao("Supino reto com barra", "youtube");
+    expect(y).toContain("youtube.com/results");
+    expect(decodeURIComponent(y)).toContain("como fazer Supino reto com barra");
+  });
 });
