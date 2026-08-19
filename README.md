@@ -10,7 +10,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?logo=tailwindcss&logoColor=white)
 ![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?logo=turso&logoColor=black)
 ![PWA](https://img.shields.io/badge/PWA-instalável-5A0FC8?logo=pwa&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-883%20passando-3FB950)
+![Testes](https://img.shields.io/badge/testes-942%20passando-3FB950)
 
 </div>
 
@@ -59,21 +59,37 @@ continua o bloco de cima — é assim que uma refeição ganha vários alimentos
 **Nutrição**
 - 🎯 Meta de calorias (ou faixa, quando o plano define uma) e macros
 - 🍽️ Diário livre por refeição, com favoritas e "repetir"
-- 📚 Catálogo próprio + tabela **TACO** e medidas caseiras da **POF/IBGE**
+- 📚 Catálogo folheável: tabela **TACO** e os seus, com busca que ignora
+      acento — "acucar" acha "Açúcar" — e filtro por categoria
+- 🏷️ Ficha do alimento com fibra, sódio e as medidas caseiras da **POF/IBGE**,
+      cada uma com o peso e a caloria que ela vale
 - 💧 Hidratação por período do plano, ou total do dia sem plano
 
 **Treino**
+- 🗂️ Uma tela com quatro abas: **Hoje**, **Rotina**, **Progresso** e
+      **Exercícios** — as quatro perguntas que se faz sobre treino
 - 📅 Rotina por dia da semana — segunda é peito, e o app sabe disso
 - 🎯 Sessão guiada: as séries já vêm com carga e reps; um toque registra
 - 📈 Dupla progressão: bateu o topo da faixa em todas as séries, a carga sobe
 - 🏋️ 5/3/1 disponível como prescrição de qualquer exercício da rotina
 - ⏱️ Cronômetro de descanso, e a sessão sobrevive a fechar o app
-- ➕ Exercício fora da rotina entra no meio do treino, pelo mesmo fluxo
+- ➕ Exercício fora da rotina entra no meio do treino, já com a carga que o
+      histórico dele manda
 - 🏃 Cardio é um item do treino como qualquer outro — na rotina ou no meio da
-      sessão —, com kcal estimada por MET e peso
+      sessão —, com kcal estimada por MET e peso, e ajustável quando o dia foi
+      mais curto que o plano
 - 📈 **Progresso** numa tela só: sessões com o prescrito ao lado do realizado,
       carga por exercício ao longo do tempo, consistência contra a rotina e
       séries por grupo muscular na semana
+
+**Ficha de exercício**
+- 🧍 **170 exercícios** pré-cadastrados, com passo a passo da execução
+- 🩻 Mapa muscular: um desenho só, acendendo o músculo que faz o trabalho e os
+      que também entram — funciona offline, sem imagem de terceiro
+- 🔎 Busca por apelido: "supino" acha "Supino reto com barra", "bench" também
+- 🔗 "Ver execução" no Google e no YouTube, com o termo já montado
+- ✍️ Os seus exercícios têm os mesmos campos — inclusive equipamento e MET,
+      para cadastrar um cardio próprio
 
 **Análise**
 - 📊 Nutrição, peso e atividade por semana, mês, ano ou período escolhido
@@ -97,6 +113,8 @@ telas / componentes  →  hooks (TanStack Query)  →  repositories  →  Turso 
 | `src/domain/` | Regra de negócio pura: parsers do plano, TMB/TDEE, macros, e1RM, kcal por MET. Testada isolada. |
 | `src/domain/prescricao.ts` | Como a carga de hoje é decidida: dupla progressão, carga fixa, 5/3/1, cardio. Puro. |
 | `src/domain/consistencia.ts` | "Estou seguindo a rotina?" — treinos por semana e dias desde a última vez. Puro. |
+| `src/db/catalogo-exercicios.ts` | Os 170 exercícios com grupo, secundários, apelidos e execução. Conteúdo versionado; as invariantes dele são teste. |
+| `src/components/treino/mapa-muscular.tsx` | O boneco. Um desenho para o catálogo inteiro, dirigido pelos nomes de `muscle_groups`. |
 | `src/repositories/` | Todo SQL. A única camada que fala com o banco. |
 | `src/hooks/` | Wrappers do TanStack Query. |
 | `src/lib/planilha.ts` | A única camada que conhece o formato do arquivo importado. |
@@ -187,6 +205,7 @@ Mitigações, da mais fraca para a mais forte:
 - [ ] Proxy serverless para o token do Turso
 - [ ] Edição de bloco do plano dentro do app (hoje a planilha é a fonte)
 - [ ] Casamento automático dos itens do plano com o catálogo de alimentos
+- [ ] Fila para as medidas caseiras da POF que esperam desambiguação
 - [ ] Planos com variação por dia da semana
 - [ ] Exportar / backup
 
