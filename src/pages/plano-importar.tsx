@@ -14,7 +14,7 @@ import { Page, PageHeader, SectionLabel } from "@/components/ui/page";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { useImportarPlano } from "@/hooks/use-plano";
 import { montarRascunho, validarPlano } from "@/domain/plano-parse";
-import { ArquivoInvalido, ehCsv, lerAbas } from "@/lib/planilha";
+import { ArquivoInvalido, lerAbas } from "@/lib/planilha";
 import { traduzirErro } from "@/domain/erros";
 import { janelaHoraria } from "@/lib/date";
 import type { Problema, RascunhoPlano } from "@/domain/plano-types";
@@ -41,16 +41,10 @@ export function PlanoImportar() {
     setPrevia(null);
     setLendo(true);
     try {
-      const abas = await lerAbas(arquivo);
+      const { origem, ...abas } = await lerAbas(arquivo);
       const { rascunho, problemas } = montarRascunho(abas);
       const { erros, avisos } = validarPlano(rascunho, problemas);
-      setPrevia({
-        nomeArquivo: arquivo.name,
-        origem: ehCsv(arquivo.name) ? "csv" : "xlsx",
-        rascunho,
-        erros,
-        avisos,
-      });
+      setPrevia({ nomeArquivo: arquivo.name, origem, rascunho, erros, avisos });
     } catch (e) {
       setFalha(
         e instanceof ArquivoInvalido
@@ -114,9 +108,26 @@ export function PlanoImportar() {
             <span className="t-caption mt-1 max-w-[32ch]">
               Arraste aqui ou toque para escolher. Aceita .xlsx e .csv.
             </span>
+            {/* A lista traz extensão E tipo MIME porque no celular só a
+                extensão não basta: o seletor do Android e o "Arquivos" do iOS
+                consultam o tipo que o app de origem declarou, e o Drive
+                entrega .xlsx como `application/octet-stream`. Com a lista
+                curta anterior a planilha aparecia esmaecida e não dava para
+                escolher — de fora, "não acontece nada". */}
             <input
               type="file"
-              accept=".xlsx,.xlsm,.csv,.tsv"
+              accept={[
+                ".xlsx",
+                ".xlsm",
+                ".csv",
+                ".tsv",
+                ".txt",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.ms-excel",
+                "application/octet-stream",
+                "text/csv",
+                "text/plain",
+              ].join(",")}
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
