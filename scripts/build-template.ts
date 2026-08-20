@@ -11,14 +11,19 @@ import writeXlsxFile from "write-excel-file/node";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// Só o tipo: o parser em si é importado lá embaixo, sob demanda.
+import type { Grade } from "../src/domain/plano-types.ts";
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DESTINO = resolve(RAIZ, "public");
 
-type Celula = { value: string | number | null; fontWeight?: "bold"; wrap?: boolean; span?: number };
+// `value` opcional, não `null`: é assim que `write-excel-file` representa
+// célula vazia. As tabelas abaixo continuam escrevendo `t(null)`, que lê melhor
+// numa grade de texto — a conversão acontece aqui, num lugar só.
+type Celula = { value?: string | number; fontWeight?: "bold"; wrap?: boolean; span?: number };
 
 const t = (value: string | number | null, extra: Partial<Celula> = {}): Celula => ({
-  value,
+  value: value ?? undefined,
   ...extra,
 });
 const b = (value: string): Celula => t(value, { fontWeight: "bold" });
@@ -226,8 +231,11 @@ const [{ default: readXlsxFile }, { montarRascunho, validarPlano }] = await Prom
   import("../src/domain/plano-parse.ts"),
 ]);
 
+// Mesmo estreitamento que `src/lib/planilha.ts` faz: o tipo de célula do
+// `read-excel-file` admite coisas que uma planilha não produz, e `Grade` é o
+// que os parsers do plano falam.
 const abasLidas = new Map(
-  (await readXlsxFile(CAMINHO_XLSX, { trim: true })).map((a) => [a.sheet, a.data]),
+  (await readXlsxFile(CAMINHO_XLSX, { trim: true })).map((a) => [a.sheet, a.data as Grade]),
 );
 
 const { rascunho, problemas } = montarRascunho({
