@@ -10,7 +10,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?logo=tailwindcss&logoColor=white)
 ![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?logo=turso&logoColor=black)
 ![PWA](https://img.shields.io/badge/PWA-instalável-5A0FC8?logo=pwa&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-942%20passando-3FB950)
+![Testes](https://img.shields.io/badge/testes-972%20passando-3FB950)
 
 </div>
 
@@ -184,6 +184,35 @@ plugin do Vite (`vite-plugin-login-dev.ts`), reaproveitando a mesma função
 | `npm test` | Roda a suíte inteira |
 | `npm run db:setup` | Aplica o schema e os seeds |
 | `npm run create-user` | Cria um usuário |
+| `npm run db:limpar` | Apaga os dados de uso, preservando login e catálogos |
+
+### Recomeçar do zero sem perder os catálogos
+
+`npm run db:limpar` apaga o que a pessoa registrou — diário, plano, treinos,
+pesagens, água, conversas com a IA — e **preserva o login**, a TACO, as medidas
+da POF e os 170 exercícios do catálogo. Recriar o banco levaria minutos de seed
+para jogar fora conteúdo que não é de ninguém.
+
+Ele é **dry-run por padrão**: sem `--confirmar` só conta e mostra a tabela.
+
+```bash
+npm run db:limpar                      # relatório, não apaga nada
+npm run db:limpar -- --confirmar       # executa
+npm run db:limpar -- --email voce@exemplo.com --confirmar   # só um usuário
+npm run db:limpar -- --confirmar --sem-refeicoes            # sem recriar as refeições padrão
+```
+
+Para outro banco que não o do `.env.local` (produção, por exemplo), passe as
+variáveis na frente:
+
+```bash
+DB_URL=libsql://... DB_TOKEN=... node --experimental-strip-types scripts/limpar-dados.ts
+```
+
+A regra do que é dado de uso e o que é conteúdo mora em
+`scripts/lib/limpar-dados.ts`, e é o único código do repositório que apaga em
+lote — por isso tem teste próprio, que povoa todas as tabelas que a limpeza
+toca e confere o que sobrou.
 
 ## Segurança — leia antes de publicar
 
