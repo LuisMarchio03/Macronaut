@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDb } from "../lib/db-context";
 import {
   searchFoods, getFoodsByIds, createFood, updateFood, deleteFood, listCustomFoods,
+  listCategorias, listFoods,
 } from "../repositories/foods";
 import type { Food } from "../domain/types";
 
@@ -14,6 +15,20 @@ export function useFoods(termo: string) {
     queryFn: () => searchFoods(db, termo),
     enabled: termo.trim().length > 0,
   });
+}
+
+/** A base inteira, filtrada — a lista que a tela de alimentos folheia. */
+export function useCatalogoFoods(filtro: { termo?: string; categoria?: string; apenasMeus?: boolean }) {
+  const db = useDb();
+  return useQuery({
+    queryKey: ["foods-catalogo", filtro.termo ?? "", filtro.categoria ?? "", filtro.apenasMeus ?? false],
+    queryFn: () => listFoods(db, filtro),
+  });
+}
+
+export function useCategoriasFood() {
+  const db = useDb();
+  return useQuery({ queryKey: ["foods-categorias"], queryFn: () => listCategorias(db) });
 }
 
 export function useCustomFoods() {
@@ -43,6 +58,8 @@ export function useCreateFood() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["custom-foods"] });
       qc.invalidateQueries({ queryKey: ["foods"] });
+      qc.invalidateQueries({ queryKey: ["foods-catalogo"] });
+      qc.invalidateQueries({ queryKey: ["foods-categorias"] });
     },
   });
 }
@@ -56,6 +73,8 @@ export function useUpdateFood() {
       qc.invalidateQueries({ queryKey: ["custom-foods"] });
       qc.invalidateQueries({ queryKey: ["foods"] });
       qc.invalidateQueries({ queryKey: ["foods-by-ids"] });
+      qc.invalidateQueries({ queryKey: ["foods-catalogo"] });
+      qc.invalidateQueries({ queryKey: ["foods-categorias"] });
     },
   });
 }
@@ -69,6 +88,8 @@ export function useDeleteFood() {
       qc.invalidateQueries({ queryKey: ["custom-foods"] });
       qc.invalidateQueries({ queryKey: ["foods"] });
       qc.invalidateQueries({ queryKey: ["foods-by-ids"] });
+      qc.invalidateQueries({ queryKey: ["foods-catalogo"] });
+      qc.invalidateQueries({ queryKey: ["foods-categorias"] });
     },
   });
 }

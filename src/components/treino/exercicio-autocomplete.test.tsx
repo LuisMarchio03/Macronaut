@@ -8,7 +8,8 @@ function ex(id: number, nome: string, grupo_nome: string | null, source: "catalo
   return {
     id, nome, grupo_nome, source,
     user_id: source === "custom" ? 1 : null,
-    grupo_muscular: null, grupo_id: null, tipo: null, equipamento: null,
+    grupo_muscular: null, grupo_id: null, tipo: null, equipamento: null, met: null,
+    instrucoes: null, musculos_secundarios: null, aliases: null,
     created_at: "2026-07-16T00:00:00.000Z",
   };
 }
@@ -58,4 +59,12 @@ it("ignora acento de verdade, nao so caixa (bíceps casa com bíceps)", async ()
   render(<ExercicioAutocomplete exercicios={comAcento} selecionado={null} onSelecionar={vi.fn()} />);
   await userEvent.type(screen.getByRole("combobox"), "biceps");
   expect(screen.getByText("Rosca direta para bíceps")).toBeInTheDocument();
+});
+
+it("acha o exercício pelo apelido, não só pelo nome", async () => {
+  const comApelido = [{ ...LISTA[0], aliases: "supino, bench press" }];
+  render(<ExercicioAutocomplete exercicios={comApelido} selecionado={null} onSelecionar={() => {}} />);
+  const campo = screen.getByRole("combobox");
+  await userEvent.type(campo, "bench");
+  expect(screen.getByRole("button", { name: /supino reto com barra/i })).toBeInTheDocument();
 });

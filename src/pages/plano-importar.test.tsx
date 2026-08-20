@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
@@ -148,6 +149,47 @@ describe("planilha com problema", () => {
     await enviar("conteúdo qualquer", "dieta.pdf");
 
     expect(await screen.findByText(/Envie um arquivo \.xlsx ou \.csv/i)).toBeInTheDocument();
+  });
+
+  it("explica o arquivo vazio em vez de chamá-lo de corrompido", async () => {
+    renderPage();
+    await enviar("", "plano.xlsx");
+
+    expect(await screen.findByText(/veio vazio/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * No celular a planilha vem do Drive, do WhatsApp ou do "Arquivos", e muitas
+ * vezes chega sem extensão no nome. Enquanto o formato era decidido pelo nome,
+ * escolher o arquivo certo não produzia prévia nem erro — nada acontecia.
+ */
+describe("arquivo escolhido no celular", () => {
+  const TEMPLATE = readFileSync("public/template-macronaut.xlsx");
+
+  async function enviarBytes(nome: string) {
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const f = new File([new Uint8Array(TEMPLATE)], nome, { type: "application/octet-stream" });
+    await userEvent.upload(input, f, { applyAccept: false });
+  }
+
+  it("lê o .xlsx que chegou sem extensão no nome", async () => {
+    renderPage();
+    await enviarBytes("documento");
+
+    expect(await screen.findByText("O que vai entrar")).toBeInTheDocument();
+    expect(screen.getByText("MEU PLANO ALIMENTAR")).toBeInTheDocument();
+  });
+
+  it("grava esse plano com a origem xlsx, não csv", async () => {
+    renderPage();
+    await enviarBytes("documento");
+
+    await userEvent.click(await screen.findByRole("button", { name: /^importar$/i }));
+
+    await expect
+      .poll(async () => (await getPlanoAtivo(db, 1))?.origem, { timeout: 8000 })
+      .toBe("xlsx");
   });
 });
 

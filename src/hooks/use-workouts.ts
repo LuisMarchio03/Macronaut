@@ -4,7 +4,7 @@ import type { TipoSerie } from "../domain/types";
 import {
   createSession, getSessionByDate, listSessions, deleteSession,
   addSet, listSetsBySession, deleteSet, setsForExercise, updateSet,
-  ultimaVezExercicio, updateSession, type SetInput,
+  ultimaVezExercicio, updateSession, historicoExercicio, type SetInput,
 } from "../repositories/workouts";
 
 export function useSessionByDate(data: string) {
@@ -135,5 +135,20 @@ export function useUpdateSession(data: string) {
       qc.invalidateQueries({ queryKey: ["session", data] });
       qc.invalidateQueries({ queryKey: ["sessions"] });
     },
+  });
+}
+
+/** As últimas sessões do exercício — o insumo da prescrição de hoje. */
+export function useHistoricoExercicio(
+  exerciseId: number | undefined,
+  antesDe: string,
+  limite = 3,
+) {
+  const db = useDb();
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ["historico-exercicio", userId, exerciseId, antesDe, limite],
+    queryFn: () => historicoExercicio(db, userId, exerciseId as number, antesDe, limite),
+    enabled: exerciseId != null,
   });
 }

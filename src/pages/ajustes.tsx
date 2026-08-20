@@ -10,8 +10,18 @@ import { useDb, useUserId } from "../lib/db-context";
 import { useAiConfig } from "../hooks/use-ai-config";
 import { setGeminiKey } from "../repositories/ai";
 
+/** Esconde o meio do host: `libsql://macronaut-org.turso.io` → `libsql://mac…io`. */
+function resumirUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return url;
+  }
+}
+
 export function Ajustes() {
-  const { logout } = useAuth();
+  const { logout, session } = useAuth();
   const db = useDb();
   const userId = useUserId();
   const qc = useQueryClient();
@@ -37,6 +47,46 @@ export function Ajustes() {
   return (
     <Page>
       <PageHeader eyebrow={<BackLink to="/mais">Mais</BackLink>} title="Ajustes" />
+
+      {/* Saber a QUAL banco o app está falando não é curiosidade: sem isso,
+          "não funcionou" e "está apontando pro banco errado" são
+          indistinguíveis da tela. */}
+      <Card header="Conta e dados" padded={false}>
+        <dl className="divide-y divide-border">
+          <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
+            <dt className="t-caption shrink-0">Conta</dt>
+            <dd className="min-w-0 truncate text-sm font-medium">
+              {session?.email ?? "—"}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
+            <dt className="t-caption shrink-0">Banco de dados</dt>
+            <dd className="min-w-0 truncate text-sm font-medium" title={session?.dbUrl}>
+              {session ? resumirUrl(session.dbUrl) : "—"}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
+            <dt className="t-caption shrink-0">Assistente de IA</dt>
+            <dd className="text-sm font-medium">
+              {config?.gemini_enabled || config?.aloy_enabled
+                ? [config?.gemini_enabled && "Gemini", config?.aloy_enabled && "Aloy"]
+                    .filter(Boolean)
+                    .join(" · ")
+                : "Desligado"}
+            </dd>
+          </div>
+        </dl>
+      </Card>
+
+      {!config?.gemini_enabled && !config?.aloy_enabled && (
+        <Card>
+          <p className="t-caption">
+            O assistente é ligado por fora do app, com{" "}
+            <span className="font-mono text-[0.75rem]">npm run ai:flags</span>. Depois de
+            ligar, a chave do Gemini se cadastra aqui.
+          </p>
+        </Card>
+      )}
 
       {config?.gemini_enabled && (
         <Card header="Chave do Gemini">

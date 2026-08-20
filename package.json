@@ -15,6 +15,7 @@
     "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest",
     "db:setup": "node --experimental-strip-types --env-file=.env.local scripts/setup-db.ts",
     "create-user": "node --experimental-strip-types --env-file=.env.local scripts/create-user.ts",
+    "db:limpar": "node --experimental-strip-types --env-file=.env.local scripts/limpar-dados.ts",
     "ai:flags": "node --experimental-strip-types --env-file=.env.local scripts/ai-flags.ts",
     "ai:gateway": "node --experimental-strip-types --env-file=.env.local server/ai-gateway.ts",
     "build:template": "node --experimental-strip-types scripts/build-template.ts"

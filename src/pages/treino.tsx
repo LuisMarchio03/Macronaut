@@ -1,48 +1,189 @@
-import { useState } from "react";
-import { Dumbbell, ChartNoAxesCombined } from "lucide-react";
-import { Page, PageHeader, SectionLabel } from "@/components/ui/page";
-import { Segmented } from "@/components/ui/segmented";
-import { TreinoTab } from "../components/treino/treino-tab";
-import { CardioTab } from "../components/treino/cardio-tab";
-import { ProgressaoTab } from "../components/treino/progressao-tab";
-import { ExerciciosTab } from "../components/treino/exercicios-tab";
-import { DateNav } from "../components/date-nav";
+import { Link, useNavigate } from "react-router-dom";
+import { CalendarDays, ChevronRight, Play } from "lucide-react";
+import { Card, CardRow } from "@/components/ui/card";
+import { SectionLabel } from "@/components/ui/page";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
+import { useDiasDaRotina, useRotinaAtiva } from "@/hooks/use-rotina";
+import { useIniciarSessao, usePlanoDoDia, useSessaoEmAndamento } from "@/hooks/use-sessao";
+import { useListSessions } from "@/hooks/use-workouts";
+import { proximoTreino, treinoDoDia } from "@/domain/prescricao";
+import type { ItemPlanejado } from "@/repositories/sessao";
+import { dataRelativa, diaSemana, hoje } from "@/lib/date";
+import { DIAS_DA_SEMANA } from "./treino-rotina";
 
-type AbaKey = "treino" | "progressao";
+/**
+ * Como o card de hoje descreve um exercício.
+ *
+ * Só as séries de trabalho entram: o 5/3/1 começa por três séries de
+ * aquecimento, e resumir pela primeira linha do array prometia "5 × 32,5 kg"
+ * para um treino que sobe até 67,5. Carga zero não é uma carga — é a ausência
+ * de uma, e o card convida a defini-la em vez de mostrar "0 kg".
+ *
+ * Cardio sai antes de tudo isso: peso e reps são zero nele DE PROPÓSITO (ver
+ * `planejarCardio`), então a leitura literal anunciava "definir carga" para
+ * uma bicicleta que já está inteiramente definida — em minutos.
+ */
+function resumoDoItem(item: ItemPlanejado): string {
+  const cardio = item.series.find((s) => s.duracao_min !== null);
+  if (cardio) return `${cardio.duracao_min} min`;
 
-const ABAS = [
-  { valor: "treino" as const, label: "Treino", icone: Dumbbell },
-  { valor: "progressao" as const, label: "Progressão", icone: ChartNoAxesCombined },
-];
+  const trabalho = item.series.filter((s) => s.tipo !== "aquecimento");
+  if (trabalho.length === 0) return "sem séries";
 
+  const pesos = trabalho.map((s) => s.peso_kg);
+  const maisPesada = Math.max(...pesos);
+  const plural = trabalho.length === 1 ? "série" : "séries";
+  if (maisPesada === 0) return `${trabalho.length} ${plural} · definir carga`;
+
+  const cargaUnica = pesos.every((p) => p === maisPesada);
+  const repsUnicas = trabalho.every((s) => s.reps_alvo === trabalho[0].reps_alvo);
+  return cargaUnica && repsUnicas
+    ? `${trabalho.length} × ${trabalho[0].reps_alvo} × ${maisPesada} kg`
+    : `${trabalho.length} ${plural} · até ${maisPesada} kg`;
+}
+
+/**
+ * O painel "Hoje": o que treinar agora, e nada mais.
+ *
+ * A lista de atalhos que morava no fim desta tela morreu com as abas — ela
+ * existia para levar a "Rotina" e "Progresso", que hoje estão no topo, sempre
+ * visíveis. Um destino repetido na mesma tela é uma decisão a mais para tomar.
+ */
 export function Treino() {
-  const [aba, setAba] = useState<AbaKey>("treino");
+  const navigate = useNavigate();
+  const data = hoje();
+  const hojeSemana = diaSemana(data);
+
+  const { data: rotina, isLoading } = useRotinaAtiva();
+  const { data: dias = [] } = useDiasDaRotina(rotina);
+  const dia = treinoDoDia(dias, hojeSemana);
+  const proximo = proximoTreino(dias, hojeSemana);
+
+  const { data: plano = [] } = usePlanoDoDia(dia?.id, data);
+  const { data: emAndamento } = useSessaoEmAndamento(data);
+  const { data: recentes = [] } = useListSessions();
+  const iniciar = useIniciarSessao();
+
+  function comecar(itens: ItemPlanejado[]) {
+    iniciar.mutate(
+      { data, nome: dia?.nome ?? "Treino livre", itens },
+      { onSuccess: (id) => navigate(`/treino/sessao?s=${id}`) },
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <>
+        <SkeletonCard />
+        <SkeletonList rows={3} />
+      </>
+    );
+  }
 
   return (
-    <Page>
-      <PageHeader title="Treino">
-        <DateNav />
-      </PageHeader>
+    <>
+      {!rotina ? (
+        <Card>
+          <EmptyState
+            icon={<CalendarDays className="size-6" />}
+            title="Nenhuma rotina configurada"
+            description="Diga ao app o que você treina em cada dia da semana. Depois é só abrir e seguir — a carga de cada exercício ele calcula sozinho, e sobe quando você bater a meta."
+            action={<ButtonLink to="/treino/rotina">Montar rotina</ButtonLink>}
+          />
+        </Card>
+      ) : emAndamento ? (
+        <Card tone="primary">
+          <p className="t-caption">Sessão em andamento</p>
+          <h2 className="t-title mt-0.5">{emAndamento.nome ?? "Treino"}</h2>
+          <p className="t-caption mt-1 tabular-nums">
+            {emAndamento.feitas} de {emAndamento.total} séries
+          </p>
+          <ButtonLink to={`/treino/sessao?s=${emAndamento.session_id}`} block className="mt-4">
+            <Play className="size-4" />
+            Retomar treino
+          </ButtonLink>
+        </Card>
+      ) : dia ? (
+        <Card tone="primary">
+          <p className="t-caption">{DIAS_DA_SEMANA[hojeSemana]}</p>
+          <h2 className="t-title mt-0.5">{dia.nome}</h2>
 
-      <Segmented opcoes={ABAS} valor={aba} onChange={setAba} rotulo="Visão do treino" />
+          {plano.length > 0 ? (
+            <ul className="mt-3 space-y-1">
+              {plano.map((item) => (
+                <li
+                  key={item.routine_exercise_id ?? item.exercise_id}
+                  className="flex items-baseline justify-between gap-3 text-sm"
+                >
+                  <span className="min-w-0 truncate">{item.nome}</span>
+                  <span className="t-caption shrink-0 tabular-nums">{resumoDoItem(item)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="t-caption mt-2">
+              Este dia ainda não tem exercício. Adicione na rotina, ou comece e monte na hora.
+            </p>
+          )}
 
-      {aba === "treino" ? (
-        <>
-          <TreinoTab />
-          <div className="space-y-2">
-            <SectionLabel>Cardio</SectionLabel>
-            <CardioTab />
-          </div>
-        </>
+          <Button block className="mt-4" onClick={() => comecar(plano)} disabled={iniciar.isPending}>
+            <Play className="size-4" />
+            Começar treino
+          </Button>
+        </Card>
       ) : (
-        <>
-          <ProgressaoTab />
-          <div className="space-y-2">
-            <SectionLabel>Biblioteca de exercícios</SectionLabel>
-            <ExerciciosTab />
-          </div>
-        </>
+        <Card>
+          <p className="t-caption">{DIAS_DA_SEMANA[hojeSemana]}</p>
+          <h2 className="t-title mt-0.5">Descanso</h2>
+          {proximo ? (
+            <p className="t-caption mt-1">
+              Próximo: {DIAS_DA_SEMANA[proximo.dia_semana].toLowerCase()} · {proximo.nome}
+            </p>
+          ) : (
+            <p className="t-caption mt-1">Sua rotina ainda não tem nenhum dia de treino.</p>
+          )}
+          <button
+            type="button"
+            onClick={() => comecar([])}
+            disabled={iniciar.isPending}
+            className="mt-3 min-h-11 text-[0.8125rem] font-medium text-primary"
+          >
+            Treinar mesmo assim
+          </button>
+        </Card>
       )}
-    </Page>
+
+      {recentes.length > 0 && (
+        <div className="space-y-2">
+          <SectionLabel
+            action={
+              <Link to="/treino/progresso" className="text-[0.8125rem] font-medium text-primary">
+                Ver tudo
+              </Link>
+            }
+          >
+            Últimas sessões
+          </SectionLabel>
+          <Card padded={false}>
+            <ul className="divide-y divide-border">
+              {recentes.slice(0, 3).map((s) => (
+                <li key={s.id}>
+                  <CardRow as={Link} to={`/treino/sessao/${s.id}`}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{s.nome || "Sessão"}</span>
+                      <span className="t-caption block">{dataRelativa(s.data)}</span>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  </CardRow>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      )}
+
+    </>
   );
 }

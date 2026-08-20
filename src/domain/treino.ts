@@ -1,3 +1,4 @@
+import { normalizar } from "./texto";
 import type { ProgressoPonto, TipoSerie } from "./types";
 
 export function estimativaKcal(met: number, peso_kg: number, duracao_min: number): number {
@@ -70,4 +71,63 @@ export function duracaoSessaoMin(sets: { created_at: string }[]): number {
   if (sets.length === 0) return 0;
   const ts = sets.map((s) => Date.parse(s.created_at));
   return Math.round((Math.max(...ts) - Math.min(...ts)) / 60_000);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   A FICHA DO EXERCÍCIO
+
+   Três campos de texto livre viram três listas. Puro de propósito: é
+   formatação de conteúdo, e a tela não deve saber que "secundários"
+   é uma string separada por vírgula no banco.
+   ══════════════════════════════════════════════════════════════════ */
+
+/** "Peito, Tríceps" → ["Peito", "Tríceps"]. Vazio e nulo dão lista vazia. */
+export function listaPorVirgula(texto: string | null | undefined): string[] {
+  if (!texto) return [];
+  return texto
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+/** As instruções guardam um passo por linha. Linha em branco não é passo. */
+export function passosDaExecucao(instrucoes: string | null | undefined): string[] {
+  if (!instrucoes) return [];
+  return instrucoes
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+/**
+ * Onde ver a execução do exercício.
+ *
+ * O app não hospeda vídeo nem foto: manda para onde a resposta já existe e
+ * está atualizada. A busca leva o termo pronto — "execução correta" no Google,
+ * "como fazer" no YouTube — porque o nome sozinho ("Rosca scott") devolve
+ * loja de equipamento antes de qualquer demonstração.
+ */
+export function urlDeExecucao(nome: string, onde: "google" | "youtube"): string {
+  return onde === "google"
+    ? `https://www.google.com/search?q=${encodeURIComponent(`${nome} execução correta`)}`
+    : `https://www.youtube.com/results?search_query=${encodeURIComponent(`como fazer ${nome}`)}`;
+}
+
+/**
+ * O exercício responde por este termo de busca?
+ *
+ * Casa nome E apelidos, sem acento e sem caixa. Ninguém procura "Supino reto
+ * com barra" na academia — procura "supino", ou "bench". Sem os apelidos, um
+ * catálogo grande vira um catálogo em que você não acha nada e cadastra de
+ * novo o que já existe.
+ */
+export function casaBusca(
+  nome: string,
+  aliases: string | null | undefined,
+  termo: string,
+): boolean {
+  const t = normalizar(termo);
+  if (t === "") return true;
+  if (normalizar(nome).includes(t)) return true;
+  return listaPorVirgula(aliases).some((a) => normalizar(a).includes(t));
 }

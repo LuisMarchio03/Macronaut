@@ -523,3 +523,110 @@ it("integração: banco LEGADO, pipeline completo fecha o vazamento entre usuár
 
   legacyDb.close();
 });
+
+/* ══ renomeio de entrada do catálogo ══════════════════════════════════════
+   O seed casa por nome. Sem migração, renomear uma entrada do catálogo criava
+   a linha nova e deixava a antiga órfã: duas entradas do mesmo movimento no
+   autocomplete, e a rotina do usuário apontando para a que não recebe mais
+   ficha nenhuma. */
+
+it("renomear no catálogo preserva o id, e com ele a rotina e o histórico", async () => {
+  await seedMuscleGroups(db);
+  const created_at = new Date().toISOString();
+  const ins = await db.execute({
+    sql: `INSERT INTO exercises (user_id, nome, source, created_at)
+          VALUES (NULL, 'Búlgaro com halteres', 'catalogo', ?)`,
+    args: [created_at],
+  });
+  const idAntigo = Number(ins.lastInsertRowid);
+
+  await seedExercicios(db);
+
+  const rs = await db.execute({
+    sql: "SELECT nome FROM exercises WHERE id=?",
+    args: [idAntigo],
+  });
+  expect(rs.rows[0].nome).toBe("Agachamento búlgaro com halteres");
+
+  // E não sobrou a linha antiga: o nome velho não existe mais no catálogo.
+  const velho = await db.execute(
+    "SELECT COUNT(*) AS n FROM exercises WHERE nome='Búlgaro com halteres' AND source='catalogo'",
+  );
+  expect(Number(velho.rows[0].n)).toBe(0);
+});
+
+it("o renomeio não toca num exercício SEU de mesmo nome", async () => {
+  await seedMuscleGroups(db);
+  const uid = await addUser(db, "eu@local");
+  const meu = await createExercise(db, uid, { nome: "Búlgaro com halteres", grupo_id: null });
+
+  await seedExercicios(db);
+
+  const rs = await db.execute({ sql: "SELECT nome, source FROM exercises WHERE id=?", args: [meu.id] });
+  expect(rs.rows[0]).toMatchObject({ nome: "Búlgaro com halteres", source: "custom" });
+});
+
+it("o seed grava a ficha do catálogo: secundários, apelidos e execução", async () => {
+  await seedMuscleGroups(db);
+  await seedExercicios(db);
+
+  const rs = await db.execute(
+    "SELECT musculos_secundarios AS sec, aliases, instrucoes FROM exercises WHERE nome='Supino reto com barra'",
+  );
+  expect(rs.rows[0].sec).toContain("Tríceps");
+  expect(rs.rows[0].aliases).toContain("bench");
+  expect(String(rs.rows[0].instrucoes).split("\n").length).toBeGreaterThanOrEqual(2);
+});
+
+it("reaplicar o seed reescreve a ficha do catálogo sem duplicar linha", async () => {
+  await seedMuscleGroups(db);
+  await seedExercicios(db);
+  const antes = await db.execute("SELECT COUNT(*) AS n FROM exercises WHERE source='catalogo'");
+  await seedExercicios(db);
+  const depois = await db.execute("SELECT COUNT(*) AS n FROM exercises WHERE source='catalogo'");
+  expect(Number(depois.rows[0].n)).toBe(Number(antes.rows[0].n));
+});
+
+it("com o nome novo já criado, a linha antiga sem uso some", async () => {
+  await seedMuscleGroups(db);
+  await seedExercicios(db); // cria "Agachamento búlgaro com halteres"
+  await db.execute({
+    sql: `INSERT INTO exercises (user_id, nome, source, created_at)
+          VALUES (NULL, 'Búlgaro com halteres', 'catalogo', ?)`,
+    args: [new Date().toISOString()],
+  });
+
+  await seedExercicios(db);
+
+  const rs = await db.execute(
+    "SELECT COUNT(*) AS n FROM exercises WHERE nome='Búlgaro com halteres'",
+  );
+  expect(Number(rs.rows[0].n)).toBe(0);
+});
+
+/** Juntar o histórico de duas linhas é decisão de gente, não de seed. */
+it("com o nome novo já criado, a linha antiga EM USO fica", async () => {
+  await seedMuscleGroups(db);
+  await seedExercicios(db);
+  const uid = await addUser(db, "eu@local");
+  const ins = await db.execute({
+    sql: `INSERT INTO exercises (user_id, nome, source, created_at)
+          VALUES (NULL, 'Búlgaro com halteres', 'catalogo', ?)`,
+    args: [new Date().toISOString()],
+  });
+  const idAntigo = Number(ins.lastInsertRowid);
+  const sessao = await db.execute({
+    sql: "INSERT INTO workout_sessions (user_id, data, created_at) VALUES (?, '2026-08-01', ?)",
+    args: [uid, new Date().toISOString()],
+  });
+  await db.execute({
+    sql: `INSERT INTO workout_sets (user_id, session_id, exercise_id, ordem, reps, peso_kg, created_at)
+          VALUES (?, ?, ?, 1, 10, 40, ?)`,
+    args: [uid, Number(sessao.lastInsertRowid), idAntigo, new Date().toISOString()],
+  });
+
+  await seedExercicios(db);
+
+  const rs = await db.execute({ sql: "SELECT nome FROM exercises WHERE id=?", args: [idAntigo] });
+  expect(rs.rows[0].nome).toBe("Búlgaro com halteres");
+});

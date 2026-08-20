@@ -14,7 +14,8 @@ import { Page, PageHeader, SectionLabel } from "@/components/ui/page";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { useImportarPlano } from "@/hooks/use-plano";
 import { montarRascunho, validarPlano } from "@/domain/plano-parse";
-import { ArquivoInvalido, ehCsv, lerAbas } from "@/lib/planilha";
+import { ArquivoInvalido, lerAbas } from "@/lib/planilha";
+import { traduzirErro } from "@/domain/erros";
 import { janelaHoraria } from "@/lib/date";
 import type { Problema, RascunhoPlano } from "@/domain/plano-types";
 
@@ -40,16 +41,10 @@ export function PlanoImportar() {
     setPrevia(null);
     setLendo(true);
     try {
-      const abas = await lerAbas(arquivo);
+      const { origem, ...abas } = await lerAbas(arquivo);
       const { rascunho, problemas } = montarRascunho(abas);
       const { erros, avisos } = validarPlano(rascunho, problemas);
-      setPrevia({
-        nomeArquivo: arquivo.name,
-        origem: ehCsv(arquivo.name) ? "csv" : "xlsx",
-        rascunho,
-        erros,
-        avisos,
-      });
+      setPrevia({ nomeArquivo: arquivo.name, origem, rascunho, erros, avisos });
     } catch (e) {
       setFalha(
         e instanceof ArquivoInvalido
@@ -113,9 +108,26 @@ export function PlanoImportar() {
             <span className="t-caption mt-1 max-w-[32ch]">
               Arraste aqui ou toque para escolher. Aceita .xlsx e .csv.
             </span>
+            {/* A lista traz extensão E tipo MIME porque no celular só a
+                extensão não basta: o seletor do Android e o "Arquivos" do iOS
+                consultam o tipo que o app de origem declarou, e o Drive
+                entrega .xlsx como `application/octet-stream`. Com a lista
+                curta anterior a planilha aparecia esmaecida e não dava para
+                escolher — de fora, "não acontece nada". */}
             <input
               type="file"
-              accept=".xlsx,.xlsm,.csv,.tsv"
+              accept={[
+                ".xlsx",
+                ".xlsm",
+                ".csv",
+                ".tsv",
+                ".txt",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.ms-excel",
+                "application/octet-stream",
+                "text/csv",
+                "text/plain",
+              ].join(",")}
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -255,13 +267,31 @@ export function PlanoImportar() {
             </Card>
           </div>
 
+          {/* A falha de gravação aparece AQUI, junto do botão que o usuário
+              acabou de apertar. Antes ela sumia: o botão voltava de
+              "Importando…" para "Importar" e nada mais acontecia. */}
+          {importar.isError && (
+            <Card tone="danger" header="Não consegui gravar o plano">
+              <p className="text-sm">{traduzirErro(importar.error).titulo}</p>
+              <p className="t-caption mt-1">{traduzirErro(importar.error).acao}</p>
+              <details className="mt-2">
+                <summary className="t-caption cursor-pointer font-medium text-primary">
+                  Detalhe técnico
+                </summary>
+                <p className="mt-1 rounded-md bg-muted px-2 py-1.5 font-mono text-[0.75rem] break-words">
+                  {traduzirErro(importar.error).original}
+                </p>
+              </details>
+            </Card>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <Button variant="outline" onClick={() => setPrevia(null)}>
               Escolher outro
             </Button>
             <Button disabled={!podeImportar || importar.isPending} onClick={confirmar}>
               <Check className="size-4" />
-              {importar.isPending ? "Importando…" : "Importar"}
+              {importar.isPending ? "Importando…" : importar.isError ? "Tentar de novo" : "Importar"}
             </Button>
           </div>
 

@@ -8,6 +8,7 @@ import { DbProvider } from "../../lib/db-context";
 import { ExerciciosTab } from "./exercicios-tab";
 import { listExercises, seedExercicios } from "../../repositories/exercises";
 import { seedMuscleGroups } from "../../repositories/muscle-groups";
+import { seedExerciciosDeCardio } from "../../db/seed-cardio";
 import { createSession, addSet } from "../../repositories/workouts";
 
 const USER_ID = 1;
@@ -44,10 +45,17 @@ async function inserirExercicioCustom(nome: string, grupo: string | null): Promi
 async function montar(opts: {
   exercicios?: { nome: string; grupo: string | null }[];
   comCatalogo?: boolean;
+  comCardio?: boolean;
   exercicioEmUso?: boolean;
 } = {}) {
   await seedMuscleGroups(db);
   if (opts.comCatalogo) await seedExercicios(db);
+  if (opts.comCardio) {
+    // `seedExerciciosDeCardio` deriva de `activity_types`, que num banco de
+    // teste nasce vazio — o seed real roda depois do de tipos de atividade.
+    await db.execute("INSERT INTO activity_types (nome, met) VALUES ('Bicicleta', 7.5)");
+    await seedExerciciosDeCardio(db);
+  }
   for (const e of opts.exercicios ?? []) await inserirExercicioCustom(e.nome, e.grupo);
   if (opts.exercicioEmUso) {
     const exId = await inserirExercicioCustom("Exercício em uso", null);
@@ -80,7 +88,7 @@ it("cadastra um exercício", async () => {
   const user = userEvent.setup();
   await montar();
   await user.click(screen.getByRole("button", { name: /novo exerc/i }));
-  await user.type(screen.getByLabelText(/nome/i), "Supino");
+  await user.type(screen.getByLabelText(/^nome$/i), "Supino");
   await user.click(screen.getByRole("button", { name: /^salvar$/i }));
   await waitFor(async () => expect(await listExercises(db, USER_ID)).toHaveLength(1));
 });
@@ -104,7 +112,7 @@ it("exercício sem grupo sobe ao topo marcado como pendente", async () => {
 
 it("exercício de catálogo não tem botão de editar nem excluir", async () => {
   await montar({ comCatalogo: true });
-  const item = screen.getByRole("listitem", { name: /supino reto com barra/i });
+  const item = screen.getByRole("listitem", { name: "Supino reto com barra" });
   expect(within(item).queryByLabelText(/^editar /i)).not.toBeInTheDocument();
   expect(within(item).queryByLabelText(/^excluir /i)).not.toBeInTheDocument();
   // controle positivo: o item de catálogo aparece e está marcado como tal —
@@ -134,7 +142,7 @@ it("o formulário usa select de grupo, não texto livre", async () => {
 it("cria exercício com o grupo escolhido", async () => {
   const { db } = await montar();
   await userEvent.click(screen.getByRole("button", { name: /novo exercício/i }));
-  await userEvent.type(screen.getByLabelText(/nome/i), "Meu supino");
+  await userEvent.type(screen.getByLabelText(/^nome$/i), "Meu supino");
   await userEvent.selectOptions(screen.getByLabelText(/grupo muscular/i), "Peito");
   await userEvent.click(screen.getByRole("button", { name: /salvar/i }));
 
@@ -146,5 +154,109 @@ it("cria exercício com o grupo escolhido", async () => {
 it("avisa quando a exclusão é recusada por estar em uso", async () => {
   await montar({ exercicioEmUso: true });
   await userEvent.click(screen.getByLabelText(/^excluir /i));
+  await userEvent.click(await screen.findByRole("button", { name: /^excluir$/i }));
   expect(await screen.findByText(/está em uso/i)).toBeInTheDocument();
+});
+
+/* ══ a biblioteca com 170 exercícios ══════════════════════════════════════
+   Com 12 itens a lista era o conteúdo. Com 170 ela é um monte de palha, e
+   achar "rosca scott" rolando é pior do que não ter catálogo nenhum. */
+
+it("a busca filtra por nome, sem acento e sem caixa", async () => {
+  await montar({ comCatalogo: true });
+  await userEvent.type(screen.getByLabelText(/buscar exercício/i), "agachamento");
+  expect(screen.getByRole("listitem", { name: "Agachamento livre" })).toBeInTheDocument();
+  expect(screen.queryByRole("listitem", { name: "Supino reto com barra" })).not.toBeInTheDocument();
+});
+
+/** Ninguém procura "Supino reto com barra" na academia: procura "supino". */
+it("a busca acha pelo apelido, não só pelo nome de catálogo", async () => {
+  await montar({ comCatalogo: true });
+  await userEvent.type(screen.getByLabelText(/buscar exercício/i), "bench");
+  expect(screen.getByRole("listitem", { name: "Supino reto com barra" })).toBeInTheDocument();
+});
+
+it("o filtro de grupo mostra só os daquele grupo", async () => {
+  await montar({ comCatalogo: true });
+  await userEvent.selectOptions(screen.getByLabelText(/filtrar por grupo/i), "Peito");
+  expect(screen.getByRole("listitem", { name: "Supino reto com barra" })).toBeInTheDocument();
+  expect(screen.queryByRole("listitem", { name: "Agachamento livre" })).not.toBeInTheDocument();
+});
+
+it("busca sem resultado se explica em vez de mostrar lista vazia", async () => {
+  await montar({ comCatalogo: true });
+  await userEvent.type(screen.getByLabelText(/buscar exercício/i), "zzzzzz");
+  expect(screen.getByText(/nenhum exercício encontrado/i)).toBeInTheDocument();
+});
+
+it("tocar num exercício abre a ficha dele", async () => {
+  await montar({ comCatalogo: true });
+  await userEvent.click(screen.getByRole("button", { name: "Ver ficha de Supino reto com barra" }));
+  expect(await screen.findByRole("img", { name: /trabalha peito/i })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /youtube/i })).toBeInTheDocument();
+});
+
+/* ══ o formulário ═════════════════════════════════════════════════════════ */
+
+it("cadastrar um cardio próprio grava equipamento e MET", async () => {
+  const { db } = await montar();
+  await userEvent.click(screen.getByRole("button", { name: /novo exercício/i }));
+  await userEvent.type(screen.getByLabelText(/^nome$/i), "Escada");
+  await userEvent.selectOptions(screen.getByLabelText(/equipamento/i), "cardio");
+  const met = await screen.findByLabelText(/met/i);
+  await userEvent.clear(met);
+  await userEvent.type(met, "9");
+  await userEvent.click(screen.getByRole("button", { name: /^salvar$/i }));
+
+  await waitFor(async () => {
+    const rs = await db.execute("SELECT nome, equipamento, met FROM exercises WHERE source='custom'");
+    expect(rs.rows[0]).toMatchObject({ nome: "Escada", equipamento: "cardio", met: 9 });
+  });
+});
+
+it("grava a execução, os apelidos e os músculos secundários", async () => {
+  const { db } = await montar();
+  await userEvent.click(screen.getByRole("button", { name: /novo exercício/i }));
+  await userEvent.type(screen.getByLabelText(/^nome$/i), "Minha remada");
+  await userEvent.selectOptions(screen.getByLabelText(/grupo muscular/i), "Costas");
+  await userEvent.click(screen.getByRole("button", { name: /também trabalha bíceps/i }));
+  await userEvent.type(screen.getByLabelText(/outros nomes/i), "remadinha");
+  await userEvent.type(screen.getByLabelText(/como executar/i), "Puxe até o umbigo.");
+  await userEvent.click(screen.getByRole("button", { name: /^salvar$/i }));
+
+  await waitFor(async () => {
+    const rs = await db.execute(
+      "SELECT musculos_secundarios AS sec, aliases, instrucoes FROM exercises WHERE source='custom'",
+    );
+    expect(rs.rows[0]).toMatchObject({
+      sec: "Bíceps",
+      aliases: "remadinha",
+      instrucoes: "Puxe até o umbigo.",
+    });
+  });
+});
+
+
+/**
+ * Cardio não tem grupo muscular por design, e é `source='catalogo'` — ou seja,
+ * o usuário nem pode editar. Contá-lo como pendente produzia um aviso
+ * permanente ("12 exercícios estão sem grupo muscular") sem ação possível.
+ */
+it("cardio do catálogo não é contado como pendente de grupo", async () => {
+  await montar({ comCardio: true });
+  expect(screen.queryByText(/fora da análise/i)).not.toBeInTheDocument();
+  // controle positivo: o item de cardio está na lista, só não é uma pendência.
+  expect(screen.getByRole("listitem", { name: /bicicleta/i })).toBeInTheDocument();
+});
+
+it("cardio na lista se identifica como cardio, não como \"sem grupo muscular\"", async () => {
+  await montar({ comCardio: true });
+  const item = screen.getByRole("listitem", { name: /bicicleta/i });
+  expect(within(item).getByText(/cardio/i)).toBeInTheDocument();
+  expect(within(item).queryByText(/sem grupo muscular/i)).not.toBeInTheDocument();
+});
+
+it("ainda avisa sobre exercício do usuário sem grupo", async () => {
+  await montar({ comCardio: true, exercicios: [{ nome: "Zzz sem grupo", grupo: null }] });
+  expect(screen.getByText(/fica fora da análise/i)).toBeInTheDocument();
 });

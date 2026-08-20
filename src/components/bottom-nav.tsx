@@ -2,7 +2,8 @@ import { NavLink, useLocation } from "react-router-dom";
 import { House, UtensilsCrossed, Dumbbell, ChartColumn, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Rotas que vivem sob "Mais" e devem acendê-lo. */
+/** Rotas que vivem sob "Mais" e devem acendê-lo.
+ *  `/exercicios` saiu daqui: a biblioteca virou aba do treino. */
 const SOB_MAIS = ["/alimentos", "/refeicoes", "/metas", "/ia", "/ajustes", "/plano"];
 
 type ItemNav = {

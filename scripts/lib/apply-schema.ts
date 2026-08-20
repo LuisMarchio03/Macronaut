@@ -10,6 +10,12 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   { table: "foods", column: "fibra_g",   ddl: "ALTER TABLE foods ADD COLUMN fibra_g REAL" },
   { table: "foods", column: "sodio_mg",  ddl: "ALTER TABLE foods ADD COLUMN sodio_mg REAL" },
   { table: "foods", column: "categoria", ddl: "ALTER TABLE foods ADD COLUMN categoria TEXT" },
+  // O nome sem acento e em minúsculas, para a busca. `LIKE ... COLLATE NOCASE`
+  // do SQLite só é insensível a caixa em ASCII — não casa "acucar" com
+  // "Açúcar", e a TACO é toda acentuada. Coluna e não expressão porque o
+  // libSQL não tem `unaccent`, e normalizar em JS é a mesma função que a
+  // busca do exercício já usa.
+  { table: "foods", column: "nome_norm", ddl: "ALTER TABLE foods ADD COLUMN nome_norm TEXT" },
   { table: "food_measures", column: "source",     ddl: "ALTER TABLE food_measures ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'" },
   { table: "food_measures", column: "status",     ddl: "ALTER TABLE food_measures ADD COLUMN status TEXT NOT NULL DEFAULT 'confirmada'" },
   { table: "food_measures", column: "pof_codigo", ddl: "ALTER TABLE food_measures ADD COLUMN pof_codigo TEXT" },
@@ -29,6 +35,29 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   // `created_at` daria a resposta errada para quem registra à noite a água que
   // bebeu de manhã — o registro é do dia, não do instante.
   { table: "water_log", column: "block_id", ddl: "ALTER TABLE water_log ADD COLUMN block_id INTEGER" },
+  // Qual percentual do Training Max a série cumpria, e se era a AMRAP. O que
+  // já foi registrado antes do programa continua válido com as duas nulas.
+  { table: "workout_sets", column: "prescribed_pct", ddl: "ALTER TABLE workout_sets ADD COLUMN prescribed_pct REAL" },
+  { table: "workout_sets", column: "amrap", ddl: "ALTER TABLE workout_sets ADD COLUMN amrap INTEGER" },
+  // Quando o usuário disse que o treino acabou. NULL = em andamento. Explícito
+  // e não derivado: uma sessão pode terminar com séries por fazer, e derivar
+  // "acabou" de "não sobrou nada pendente" nunca deixaria essa sessão fechar.
+  { table: "workout_sessions", column: "concluida_em", ddl: "ALTER TABLE workout_sessions ADD COLUMN concluida_em TEXT" },
+  // Cardio virou exercício do catálogo, para a sessão continuar sendo UMA lista
+  // ordenada. O MET mora aqui porque é do exercício, não da rotina.
+  { table: "exercises", column: "met", ddl: "ALTER TABLE exercises ADD COLUMN met REAL" },
+  // A ficha do exercício: como executar, que músculos ele também pega, e por
+  // que outros nomes você o chama. Nulas em toda linha pré-existente, e o app
+  // funciona com as três nulas — é enriquecimento, não requisito.
+  { table: "exercises", column: "instrucoes",           ddl: "ALTER TABLE exercises ADD COLUMN instrucoes TEXT" },
+  { table: "exercises", column: "musculos_secundarios", ddl: "ALTER TABLE exercises ADD COLUMN musculos_secundarios TEXT" },
+  { table: "exercises", column: "aliases",              ddl: "ALTER TABLE exercises ADD COLUMN aliases TEXT" },
+  { table: "routine_exercises", column: "duracao_min", ddl: "ALTER TABLE routine_exercises ADD COLUMN duracao_min REAL" },
+  { table: "session_plan_sets", column: "duracao_min", ddl: "ALTER TABLE session_plan_sets ADD COLUMN duracao_min REAL" },
+  // O elo do cardio com o realizado. Cardio grava em activity_sessions, não em
+  // workout_sets: lá vive levantamento de peso, e contaminar aquela tabela
+  // quebraria volume, 1RM e progressão de uma vez.
+  { table: "session_plan_sets", column: "activity_id", ddl: "ALTER TABLE session_plan_sets ADD COLUMN activity_id INTEGER" },
 ];
 
 /**
@@ -45,7 +74,24 @@ const ADDITIVE_INDEXES: { ddl: string }[] = [
   { ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises (user_id, nome)" },
   { ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_source_nome ON exercises (source, nome)" },
   { ddl: "CREATE INDEX IF NOT EXISTS idx_food_measures_status ON food_measures (food_id, status)" },
+  { ddl: "CREATE INDEX IF NOT EXISTS idx_foods_nome_norm ON foods (nome_norm)" },
 ];
+
+/**
+ * A tabela existe?
+ *
+ * `applyAdditiveColumns` roda depois do schema, quando toda tabela já foi
+ * criada — mas ela também é chamada isolada (em teste, e num banco legado que
+ * nunca teve as tabelas novas). Sem esta guarda, um `ALTER TABLE` numa tabela
+ * inexistente aborta a aplicação inteira no meio.
+ */
+async function tableExists(db: Client, table: string): Promise<boolean> {
+  const rs = await db.execute({
+    sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+    args: [table],
+  });
+  return rs.rows.length > 0;
+}
 
 async function columnExists(db: Client, table: string, column: string): Promise<boolean> {
   const rs = await db.execute(`PRAGMA table_info(${table})`); // table é literal interno, sem input externo
@@ -54,6 +100,7 @@ async function columnExists(db: Client, table: string, column: string): Promise<
 
 export async function applyAdditiveColumns(db: Client): Promise<void> {
   for (const m of ADDITIVE_COLUMNS) {
+    if (!(await tableExists(db, m.table))) continue;
     if (!(await columnExists(db, m.table, m.column))) await db.execute(m.ddl);
   }
   for (const idx of ADDITIVE_INDEXES) {

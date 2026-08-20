@@ -16,6 +16,7 @@ import { useMeals } from "@/hooks/use-meals";
 import { useTodayEntries, useFoodsForEntries } from "@/hooks/use-today-entries";
 import { useWaterToday } from "@/hooks/use-water-today";
 import { useSessionByDate } from "@/hooks/use-workouts";
+import { useSessaoEmAndamento } from "@/hooks/use-sessao";
 import { useAiConfig } from "@/hooks/use-ai-config";
 import {
   useAddAgua,
@@ -33,9 +34,38 @@ import { useDataAtiva } from "@/lib/data-context";
 import { minutosAgora } from "@/lib/date";
 import type { Macros } from "@/domain/types";
 import type { PlanBlock, PlanSwap } from "@/domain/plano-types";
+import type { SessaoAberta } from "@/repositories/sessao";
 
 const META_AGUA_PADRAO_ML = 3000;
 const ZERO: Macros = { kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0 };
+
+/**
+ * O card de treino do dashboard conta a mesma história que o hub `/treino`.
+ *
+ * Com um treino aberto, o dashboard dizia "Ver séries e cargas" e levava ao
+ * hub — que por sua vez oferecia retomar. Duas telas, dois estados diferentes
+ * do mesmo dia. Agora a sessão em andamento manda, e o atalho é para ela.
+ */
+function cardDeTreino(
+  emAndamento: SessaoAberta | null | undefined,
+  registrado: { nome: string | null } | null | undefined,
+): { to: string; titulo: string; legenda: string } {
+  if (emAndamento) {
+    return {
+      to: `/treino/sessao?s=${emAndamento.session_id}`,
+      titulo: emAndamento.nome || "Treino",
+      legenda: `Em andamento · ${emAndamento.feitas} de ${emAndamento.total} séries`,
+    };
+  }
+  if (registrado) {
+    return {
+      to: "/treino",
+      titulo: registrado.nome || "Treino registrado",
+      legenda: "Ver séries e cargas",
+    };
+  }
+  return { to: "/treino", titulo: "Nenhum treino hoje", legenda: "Registrar uma sessão" };
+}
 
 export function Dashboard() {
   const { data, ehHoje } = useDataAtiva();
@@ -44,6 +74,7 @@ export function Dashboard() {
   const { data: foods } = useFoodsForEntries(entries);
   const { data: totalAgua = 0 } = useWaterToday(data);
   const { data: treinoHoje } = useSessionByDate(data);
+  const { data: sessaoAberta } = useSessaoEmAndamento(data);
   const { data: meals = [] } = useMeals();
   const { data: aiConfig } = useAiConfig();
 
@@ -59,6 +90,7 @@ export function Dashboard() {
   const [trocando, setTrocando] = useState<PlanBlock | null>(null);
 
   const iaDisponivel = aiConfig?.aloy_enabled || aiConfig?.gemini_enabled;
+  const treino = cardDeTreino(sessaoAberta, treinoHoje);
 
   const meta: Macros = perfil.data
     ? {
@@ -237,17 +269,13 @@ export function Dashboard() {
       <div className="space-y-2">
         <SectionLabel>Treino</SectionLabel>
         <Card padded={false}>
-          <CardRow as={Link} to="/treino">
+          <CardRow as={Link} to={treino.to}>
             <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               <Dumbbell className="size-4" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">
-                {treinoHoje ? treinoHoje.nome || "Treino registrado" : "Nenhum treino hoje"}
-              </span>
-              <span className="t-caption block truncate">
-                {treinoHoje ? "Ver séries e cargas" : "Registrar uma sessão"}
-              </span>
+              <span className="block truncate text-sm font-medium">{treino.titulo}</span>
+              <span className="t-caption block truncate tabular-nums">{treino.legenda}</span>
             </span>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           </CardRow>

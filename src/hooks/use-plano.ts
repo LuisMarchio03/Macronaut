@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDb, useUserId } from "../lib/db-context";
+import { TRATADO_NA_TELA } from "../lib/query-client";
 import {
   addAguaNoBloco,
   aguaPorBloco,
@@ -99,6 +100,8 @@ export function useImportarPlano() {
   const userId = useUserId();
   const qc = useQueryClient();
   return useMutation({
+    // A tela de import mostra a falha ao lado do botão, com detalhe técnico.
+    meta: TRATADO_NA_TELA,
     mutationFn: ({
       rascunho,
       origem,

@@ -81,7 +81,7 @@ export interface FoodEntry {
 export type TipoSerie = "aquecimento" | "valida" | "drop" | "falha";
 export type ExerciseSource = "catalogo" | "custom";
 export type TipoExercicio = "composto" | "isolado";
-export type Equipamento = "barra" | "halter" | "maquina" | "polia" | "peso_corporal";
+export type Equipamento = "barra" | "halter" | "maquina" | "polia" | "peso_corporal" | "cardio";
 export type Regiao = "superior" | "inferior" | "core";
 export type Cadeia = "push" | "pull";
 
@@ -102,6 +102,27 @@ export interface Exercise {
   source: ExerciseSource;
   tipo: TipoExercicio | null;
   equipamento: Equipamento | null;
+  /** MET, só nos exercícios de cardio — o insumo da estimativa de calorias. */
+  met: number | null;
+
+  /* ── ficha do exercício ──
+     O que a tela de detalhe mostra, e o que faz a busca achar o exercício
+     pelo nome que VOCÊ usa. Tudo opcional: exercício que você cadastrou tem
+     só nome e grupo, e continua funcionando. */
+  /** Como executar, em passos. Uma linha por passo, separadas por `\n`. */
+  instrucoes: string | null;
+  /**
+   * Grupos que o exercício também recruta, pelos nomes canônicos de
+   * `muscle_groups`, separados por vírgula.
+   *
+   * TEXT e não tabela de ligação de propósito: ninguém CONSULTA por músculo
+   * secundário — a análise conta série por `grupo_id`, o primário. Aqui é
+   * legenda de desenho, e uma tabela a mais para desenhar um boneco seria
+   * estrutura sem pergunta que a justifique.
+   */
+  musculos_secundarios: string | null;
+  /** Outros nomes do mesmo exercício ("supino, bench"), separados por vírgula. */
+  aliases: string | null;
   created_at: string;
 }
 

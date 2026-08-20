@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS profile (
 CREATE TABLE IF NOT EXISTS foods (
   id                  INTEGER PRIMARY KEY AUTOINCREMENT,
   nome                TEXT NOT NULL,
+  nome_norm           TEXT,   -- nome sem acento e em minúsculas; é por onde a busca passa
   source              TEXT NOT NULL,
   marca               TEXT,
   base_qty_g          REAL NOT NULL DEFAULT 100,
@@ -98,7 +99,11 @@ CREATE TABLE IF NOT EXISTS exercises (
   grupo_id        INTEGER REFERENCES muscle_groups (id),
   source          TEXT NOT NULL DEFAULT 'custom',   -- 'catalogo' | 'custom'
   tipo            TEXT,                             -- 'composto' | 'isolado'
-  equipamento     TEXT,                             -- 'barra'|'halter'|'maquina'|'polia'|'peso_corporal'
+  equipamento     TEXT,                             -- 'barra'|'halter'|'maquina'|'polia'|'peso_corporal'|'cardio'
+  met             REAL,                             -- só cardio
+  instrucoes      TEXT,                             -- passos da execução, um por linha
+  musculos_secundarios TEXT,                        -- nomes canônicos de muscle_groups, separados por vírgula
+  aliases         TEXT,                             -- outros nomes, separados por vírgula
   created_at      TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_exercises_nome ON exercises (nome);
@@ -312,3 +317,88 @@ CREATE TABLE IF NOT EXISTS plan_checks (
   FOREIGN KEY (swap_id)  REFERENCES plan_swaps (id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_plan_checks_dia ON plan_checks (user_id, data);
+
+-- ═══════════════════════════════════════════════════════════════════
+-- ROTINA DE TREINO
+--
+-- A espinha do módulo. Sete dias da semana; dia sem entrada é
+-- descanso — a ausência é o dado, e não um registro de "descanso" que
+-- precisaria ser criado e mantido em sincronia.
+--
+-- As tabelas do programa 5/3/1 (strength_programs, program_lifts,
+-- program_sessions) saíram daqui: o Training Max virou coluna de
+-- routine_exercises, e a posição no ciclo passou a ser derivada das
+-- sessões do próprio exercício. Num banco que já existe elas continuam
+-- lá com os dados — remover do schema não emite DROP, de propósito.
+-- ═══════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS routines (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  nome       TEXT NOT NULL,
+  ativa      INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_routines_user ON routines (user_id, ativa);
+
+CREATE TABLE IF NOT EXISTS routine_days (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  routine_id INTEGER NOT NULL,
+  dia_semana INTEGER NOT NULL CHECK (dia_semana BETWEEN 0 AND 6),  -- 0 = domingo
+  nome       TEXT NOT NULL,
+  UNIQUE (routine_id, dia_semana),
+  FOREIGN KEY (routine_id) REFERENCES routines (id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS routine_exercises (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  day_id        INTEGER NOT NULL,
+  exercise_id   INTEGER NOT NULL,
+  ordem         INTEGER NOT NULL,
+  prescricao    TEXT NOT NULL DEFAULT 'dupla',  -- 'dupla' | 'fixa' | '531'
+  series        INTEGER NOT NULL DEFAULT 3,
+  reps_min      INTEGER,
+  reps_max      INTEGER,
+  -- 'fixa': a carga. 'dupla': o ponto de partida, até haver histórico.
+  peso_kg       REAL,
+  incremento_kg REAL NOT NULL DEFAULT 2.5,
+  tm_kg         REAL,       -- só '531'
+  parte         TEXT,       -- só '531': 'superior' | 'inferior'
+  descanso_s    INTEGER,
+  FOREIGN KEY (day_id)      REFERENCES routine_days (id) ON DELETE CASCADE,
+  FOREIGN KEY (exercise_id) REFERENCES exercises (id)
+);
+CREATE INDEX IF NOT EXISTS idx_routine_ex_day ON routine_exercises (day_id, ordem);
+
+-- O plano congelado de uma sessão.
+--
+-- Tabela separada de workout_sets de propósito: meia dúzia de consultas já
+-- lê workout_sets como "o que foi feito" (setsForAnalise, setsForExercise,
+-- ultimaVezExercicio, o histórico, a progressão, o balanço energético). Uma
+-- coluna `feito` ali obrigaria todas a filtrar, e a que ficasse de fora
+-- contaria série planejada como treino realizado — num número que ninguém
+-- confere.
+--
+-- `ordem` é a posição na sessão inteira (é ela que desenha a tela);
+-- `serie_ordem` é a posição dentro do exercício e é o que vai para
+-- workout_sets.ordem, que `ultimaVezExercicio` já assume no seu ORDER BY.
+CREATE TABLE IF NOT EXISTS session_plan_sets (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id             INTEGER NOT NULL,
+  session_id          INTEGER NOT NULL,
+  routine_exercise_id INTEGER,          -- NULL quando o exercício foi avulso
+  exercise_id         INTEGER NOT NULL,
+  ordem               INTEGER NOT NULL,
+  serie_ordem         INTEGER NOT NULL,
+  peso_kg             REAL NOT NULL,
+  reps_alvo           INTEGER NOT NULL,
+  reps_min            INTEGER,
+  tipo                TEXT NOT NULL DEFAULT 'valida',
+  amrap               INTEGER NOT NULL DEFAULT 0,
+  pct                 REAL,
+  descanso_s          INTEGER,
+  set_id              INTEGER,          -- workout_sets; NULL = ainda não feita
+  FOREIGN KEY (session_id)  REFERENCES workout_sessions (id) ON DELETE CASCADE,
+  FOREIGN KEY (exercise_id) REFERENCES exercises (id)
+);
+CREATE INDEX IF NOT EXISTS idx_plan_sets_session ON session_plan_sets (user_id, session_id, ordem);

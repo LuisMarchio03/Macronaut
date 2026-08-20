@@ -4,7 +4,7 @@ import { createTestDb } from "../../test/helpers/test-db";
 import {
   createSession, getSessionByDate, listSessions, deleteSession,
   addSet, listSetsBySession, deleteSet, setsForExercise, updateSet,
-  listSessionsByRange, setsForAnalise, ultimaVezExercicio, updateSession,
+  listSessionsByRange, setsForAnalise, ultimaVezExercicio, updateSession, historicoExercicio,
 } from "./workouts";
 import { createExercise } from "./exercises";
 import { seedMuscleGroups } from "./muscle-groups";
@@ -216,5 +216,40 @@ describe("workouts repo", () => {
         { data: "2026-07-16", reps: 5, peso_kg: 10, grupo: null, tipo: "aquecimento", rir: null },
       ]),
     );
+  });
+});
+
+describe("historicoExercicio", () => {
+  it("devolve as sessões da mais recente para a mais antiga, sem aquecimento", async () => {
+    const s1 = await createSession(db, 1, { data: "2026-08-01", nome: null });
+    await addSet(db, 1, set({ session_id: s1.id, ordem: 1, reps: 10, peso_kg: 40 }));
+    await addSet(db, 1, set({ session_id: s1.id, ordem: 2, reps: 9, peso_kg: 40 }));
+
+    const s2 = await createSession(db, 1, { data: "2026-08-08", nome: null });
+    await addSet(db, 1, set({ session_id: s2.id, ordem: 1, reps: 5, peso_kg: 20, tipo: "aquecimento" }));
+    await addSet(db, 1, set({ session_id: s2.id, ordem: 2, reps: 12, peso_kg: 40 }));
+
+    const hist = await historicoExercicio(db, 1, 1, "2026-08-15");
+    expect(hist.map((h) => h.data)).toEqual(["2026-08-08", "2026-08-01"]);
+    expect(hist[0].sets).toEqual([{ reps: 12, peso_kg: 40 }]);
+    expect(hist[1].sets).toEqual([
+      { reps: 10, peso_kg: 40 },
+      { reps: 9, peso_kg: 40 },
+    ]);
+  });
+
+  it("respeita o limite e ignora sessões a partir de `antesDe`", async () => {
+    for (const data of ["2026-08-01", "2026-08-08", "2026-08-15", "2026-08-22"]) {
+      const s = await createSession(db, 1, { data, nome: null });
+      await addSet(db, 1, set({ session_id: s.id, reps: 5, peso_kg: 60 }));
+    }
+    const hist = await historicoExercicio(db, 1, 1, "2026-08-22", 2);
+    expect(hist.map((h) => h.data)).toEqual(["2026-08-15", "2026-08-08"]);
+  });
+
+  it("não enxerga o histórico de outro usuário", async () => {
+    const s = await createSession(db, 2, { data: "2026-08-01", nome: null });
+    await addSet(db, 2, set({ session_id: s.id, reps: 10, peso_kg: 30 }));
+    expect(await historicoExercicio(db, 1, 1, "2026-08-15")).toEqual([]);
   });
 });

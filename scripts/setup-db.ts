@@ -5,10 +5,12 @@ import { applySchema } from "./lib/apply-schema.ts";
 import { importarTaco, backfillNutrientes, type TacoItem } from "./seed-taco.ts";
 import { semearMedidas } from "./seed-medidas.ts";
 import type { MedidasDeAlimento } from "./build-medidas.ts";
+import { backfillNomeNorm } from "../src/repositories/foods.ts";
 import { seedActivityTypes } from "../src/repositories/activities.ts";
 import { seedMuscleGroups } from "../src/repositories/muscle-groups.ts";
 import { seedExercicios, backfillGrupos, backfillUserIds } from "../src/repositories/exercises.ts";
 import { CATALOGO } from "../src/db/catalogo-exercicios.ts";
+import { seedExerciciosDeCardio } from "../src/db/seed-cardio.ts";
 
 const url = process.env.DB_URL;
 if (!url) throw new Error("DB_URL não definida");
@@ -23,6 +25,7 @@ const db = createClient({ url, authToken: token });
 await seedActivityTypes(db);
 await seedMuscleGroups(db);
 await seedExercicios(db);
+const nCardio = await seedExerciciosDeCardio(db);
 const nBackfill = await backfillGrupos(db);
 const nBackfillUserIds = await backfillUserIds(db);
 
@@ -47,11 +50,16 @@ try {
   console.warn("Sem src/data/medidas.json; pulando medidas caseiras (rode scripts/build-medidas.ts).");
 }
 const nMedidas = await semearMedidas(db, medidas);
+
+// Depois da TACO: normaliza o nome de tudo que entrou, para a busca funcionar
+// sem acento. Idempotente — só toca em linha com `nome_norm` NULL.
+const nNomesNorm = await backfillNomeNorm(db);
 db.close();
 
 console.log(
   `Banco pronto: schema aplicado, tipos de atividade e ${CATALOGO.length} exercícios seedados, ` +
+    `${nCardio} exercícios de cardio criados, ` +
     `${nBackfill} exercícios com grupo migrado, ${nBackfillUserIds} exercícios com dono migrado, ` +
     `${n} alimentos da TACO, ${nNutrientes} alimentos com nutrientes migrados` +
-    `, ${nMedidas} medidas caseiras da POF.`,
+    `, ${nMedidas} medidas caseiras da POF, ${nNomesNorm} nomes normalizados para busca.`,
 );

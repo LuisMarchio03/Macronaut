@@ -8,6 +8,7 @@ import {
   minutosAgora,
   horaCurta,
   janelaHoraria,
+  diaSemana,
 } from "./date";
 
 afterEach(() => vi.useRealTimers());
@@ -96,5 +97,25 @@ describe("janelaHoraria", () => {
     expect(janelaHoraria("12:00", null)).toBe("12h");
     expect(janelaHoraria(null, "13:00")).toBe("13h");
     expect(janelaHoraria(null, null)).toBe("");
+  });
+});
+
+describe("diaSemana", () => {
+  it("devolve o dia da semana com 0 = domingo", () => {
+    expect(diaSemana("2026-08-16")).toBe(0); // domingo
+    expect(diaSemana("2026-08-17")).toBe(1); // segunda
+    expect(diaSemana("2026-08-22")).toBe(6); // sábado
+  });
+
+  // `new Date("2026-08-17").getDay()` lê a string como UTC. Rodando a oeste de
+  // Greenwich isso cai no dia anterior e responde domingo no lugar de segunda —
+  // a implementação ingênua falha aqui, a que usa `local` passa em qualquer fuso.
+  it("concorda com a data construída no fuso local", () => {
+    for (const [ano, mes, dia] of [
+      [2026, 8, 16], [2026, 8, 17], [2026, 1, 1], [2026, 12, 31],
+    ] as const) {
+      const iso = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+      expect(diaSemana(iso)).toBe(new Date(ano, mes - 1, dia).getDay());
+    }
   });
 });
