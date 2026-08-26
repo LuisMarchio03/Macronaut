@@ -241,4 +241,37 @@ describe("TreinoRotina", () => {
     expect(screen.queryByText(/0–12/)).not.toBeInTheDocument();
     expect(screen.queryByText(/× 0/)).not.toBeInTheDocument();
   });
+
+  /**
+   * A lista de sugestões é `absolute` e abre ABAIXO do input, que é o último
+   * bloco do Card. O Card clipa com `overflow-hidden` para respeitar o raio —
+   * e clipava a lista inteira junto, sugestões e o "Nenhum exercício" com ela.
+   * Da tela: digitar não fazia nada acontecer.
+   *
+   * jsdom não faz layout, então nenhum teste de "aparece na tela" pega isto.
+   * O que dá para afirmar é o que causava o corte: enquanto a busca está
+   * aberta, nenhum ancestral do campo pode estar clipando.
+   */
+  it("com a busca aberta, nenhum ancestral clipa a lista de sugestões", async () => {
+    const r = await criarRotina(db, 1, "R");
+    const d = await salvarDia(db, 1, r.id, 1, "Peito");
+    await exercicio("Supino reto com barra");
+    montar();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /adicionar exercício em segunda/i }),
+    );
+    const campo = await screen.findByLabelText(/^exercício$/i);
+
+    const clipando: string[] = [];
+    for (let el = campo.parentElement; el; el = el.parentElement) {
+      const cls = el.className;
+      if (typeof cls === "string" && /\boverflow-hidden\b/.test(cls)) {
+        clipando.push(el.tagName.toLowerCase() + "." + cls);
+      }
+    }
+    expect(clipando, `ancestrais com overflow-hidden: ${clipando.join(" | ")}`).toEqual([]);
+    expect(d).toBeTruthy();
+  });
+
 });

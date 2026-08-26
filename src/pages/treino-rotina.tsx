@@ -98,7 +98,13 @@ function Dia({
   }
 
   return (
-    <Card padded={false}>
+    // O Card clipa com `overflow-hidden` para o conteúdo respeitar o raio. A
+    // lista do autocomplete é `absolute` e abre abaixo do input, que é o
+    // último bloco daqui — então ela caía fora da section e era cortada
+    // inteira, sugestões e "Nenhum exercício" junto: da tela, digitar não
+    // fazia nada. O clipe sai só enquanto a busca está aberta, para o raio
+    // continuar valendo no estado normal.
+    <Card padded={false} className={adicionando ? "overflow-visible" : undefined}>
       <div className="flex items-center gap-2 px-4 pt-3 pb-1">
         <span className="t-caption w-16 shrink-0">{rotulo}</span>
         {editandoNome ? (
