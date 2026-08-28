@@ -40,6 +40,27 @@ export interface ItemCatalogo {
   aliases?: readonly string[];
   /** A execução, um passo por item. */
   instrucoes?: readonly string[];
+  /**
+   * Que fração do peso do corpo o movimento levanta. Flexão ≈ 0,64 (o resto
+   * apoia nos pés), barra fixa = 1,00 (o corpo inteiro pendurado).
+   *
+   * É uma ESTIMATIVA de literatura, e serve a uma comparação relativa — "esta
+   * semana movi mais que a passada" —, não a um número absoluto de fisiologia.
+   * Só nos de peso corporal: em barra e máquina a carga é o dado.
+   */
+  fracao?: number;
+  /**
+   * MET do movimento, para a estimativa de caloria da calistenia. 8,0 é
+   * "calisthenics, vigorous effort" do Compendium of Physical Activities;
+   * 3,8 é a versão leve.
+   *
+   * Semear MET em exercício de peso corporal é seguro: cardio é reconhecido
+   * por `equipamento === 'cardio'` (em `montarItemAvulso`) e por
+   * `duracao_min IS NOT NULL` (em `ehCardio`), nunca pela presença de MET.
+   */
+  met?: number;
+  /** 'segundos' nos isométricos. Ausente = repetições. */
+  medida?: "segundos";
 }
 
 /**
@@ -198,6 +219,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Flexão de braço", grupo: "Peito", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.64, met: 8,
     secundarios: ["Tríceps", "Core"],
     aliases: ["flexão", "push up", "flexao"],
     instrucoes: [
@@ -208,6 +230,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Flexão inclinada", grupo: "Peito", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.55, met: 5.5,
     secundarios: ["Tríceps", "Ombros"],
     aliases: ["flexão no banco"],
     instrucoes: [
@@ -217,6 +240,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Flexão diamante", grupo: "Peito", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.7, met: 8,
     secundarios: ["Tríceps"],
     aliases: ["diamante", "diamond push up"],
     instrucoes: [
@@ -226,6 +250,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Paralelas", grupo: "Peito", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 1.0, met: 8,
     secundarios: ["Tríceps", "Ombros"],
     aliases: ["dips", "mergulho", "mergulho nas paralelas"],
     instrucoes: [
@@ -248,6 +273,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   // ══ Costas ══════════════════════════════════════════════════════════════
   {
     nome: "Barra fixa pronada", grupo: "Costas", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 1.0, met: 8,
     secundarios: ["Bíceps", "Antebraço"],
     aliases: ["barra", "barra fixa", "pull up", "pullup"],
     instrucoes: [
@@ -258,6 +284,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Barra fixa supinada", grupo: "Costas", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 1.0, met: 8,
     secundarios: ["Bíceps"],
     aliases: ["chin up", "barra supinada"],
     instrucoes: [
@@ -267,6 +294,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Barra fixa neutra", grupo: "Costas", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 1.0, met: 8,
     secundarios: ["Bíceps", "Antebraço"],
     aliases: ["barra neutra", "pegada neutra"],
     instrucoes: [
@@ -378,6 +406,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Remada australiana", grupo: "Costas", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.55, met: 5.5,
     secundarios: ["Bíceps", "Core"],
     aliases: ["australiana", "inverted row", "remada invertida"],
     instrucoes: [
@@ -684,6 +713,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Mergulho no banco", grupo: "Tríceps", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.55, met: 5.5,
     secundarios: ["Peito", "Ombros"],
     aliases: ["banco", "mergulho banco", "bench dip"],
     instrucoes: [
@@ -694,6 +724,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Paralelas para tríceps", grupo: "Tríceps", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 1.0, met: 8,
     secundarios: ["Peito", "Ombros"],
     aliases: ["dips triceps", "mergulho paralelas"],
     instrucoes: [
@@ -1013,6 +1044,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Hiperextensão lombar", grupo: "Posterior", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.45, met: 3.8,
     secundarios: ["Glúteos", "Core"],
     aliases: ["hiperextensão", "banco romano", "extensão lombar"],
     instrucoes: [
@@ -1034,6 +1066,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Elevação pélvica unilateral", grupo: "Glúteos", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.4, met: 3.8,
     secundarios: ["Posterior"],
     instrucoes: [
       "Mesma posição, uma perna só, a outra suspensa com o joelho dobrado.",
@@ -1042,6 +1075,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Ponte de glúteo", grupo: "Glúteos", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.35, met: 3.8,
     secundarios: ["Posterior"],
     aliases: ["ponte", "glute bridge"],
     instrucoes: [
@@ -1124,6 +1158,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   // ══ Core ════════════════════════════════════════════════════════════════
   {
     nome: "Abdominal supra no solo", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.35, met: 3.8,
     aliases: ["abdominal", "crunch", "supra"],
     instrucoes: [
       "Deitado, joelhos dobrados, mãos ao lado da cabeça sem puxar o pescoço.",
@@ -1132,6 +1167,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Abdominal infra no banco", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.4, met: 3.8,
     aliases: ["infra", "abdominal infra"],
     instrucoes: [
       "Deitado no banco segurando a borda atrás da cabeça.",
@@ -1156,6 +1192,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Elevação de pernas suspenso", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.45, met: 5.5,
     secundarios: ["Antebraço"],
     aliases: ["elevação de pernas", "hanging leg raise", "pernas na barra"],
     instrucoes: [
@@ -1165,6 +1202,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Elevação de pernas no solo", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.4, met: 3.8,
     instrucoes: [
       "Deitado, mãos sob o quadril para proteger a lombar.",
       "Desça as pernas só até onde a lombar continuar colada no chão.",
@@ -1172,6 +1210,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Prancha", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.6, met: 3.8, medida: "segundos",
     secundarios: ["Ombros"],
     aliases: ["prancha", "plank"],
     instrucoes: [
@@ -1182,6 +1221,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Prancha lateral", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.55, met: 3.8, medida: "segundos",
     secundarios: ["Ombros"],
     aliases: ["prancha lateral", "side plank"],
     instrucoes: [
@@ -1191,6 +1231,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Rotação russa", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.3, met: 3.8,
     aliases: ["russian twist", "rotação russa", "abdominal russo"],
     instrucoes: [
       "Sentado com o tronco inclinado para trás e os pés no chão ou suspensos.",
@@ -1199,6 +1240,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Roda abdominal", grupo: "Core", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.55, met: 5.5,
     secundarios: ["Ombros", "Costas"],
     aliases: ["ab wheel", "roda", "rodinha"],
     instrucoes: [
@@ -1208,6 +1250,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Escalador", grupo: "Core", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.6, met: 8,
     secundarios: ["Ombros", "Quadríceps"],
     aliases: ["mountain climber", "escalador"],
     instrucoes: [
@@ -1236,6 +1279,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Flexão com os pés elevados", grupo: "Peito", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.7, met: 8,
     secundarios: ["Ombros", "Tríceps", "Core"],
     aliases: ["flexão declinada"],
     instrucoes: [
@@ -1349,6 +1393,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Agachamento sissy", grupo: "Quadríceps", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.65, met: 5.5,
     secundarios: ["Core"],
     aliases: ["sissy squat"],
     instrucoes: [
@@ -1374,6 +1419,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Flexora nórdica", grupo: "Posterior", tipo: "composto", equipamento: "peso_corporal",
+    fracao: 0.75, met: 5.5,
     secundarios: ["Glúteos"],
     aliases: ["nórdico", "nordic curl"],
     instrucoes: [
@@ -1392,6 +1438,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Abdução deitado de lado", grupo: "Glúteos", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.2, met: 3.8,
     instrucoes: [
       "Deitado de lado, quadril empilhado e tronco sem rodar para trás.",
       "Suba a perna de cima até uns 45°, liderando com o calcanhar.",
@@ -1406,6 +1453,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Abdominal bicicleta", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.35, met: 5.5,
     aliases: ["bicicleta"],
     instrucoes: [
       "Deitado, leve o cotovelo ao joelho oposto alternando os lados.",
@@ -1414,6 +1462,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Dead bug", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.25, met: 3.8,
     aliases: ["dead bug", "inseto morto"],
     instrucoes: [
       "Deitado, braços para cima e joelhos a 90°.",
@@ -1422,6 +1471,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Prancha alta", grupo: "Core", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.55, met: 3.8, medida: "segundos",
     secundarios: ["Ombros"],
     instrucoes: [
       "Como a prancha, mas com as mãos no chão sob os ombros.",
@@ -1430,6 +1480,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Encolhimento na barra fixa", grupo: "Trapézio", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 1.0, met: 3.8,
     secundarios: ["Costas", "Antebraço"],
     instrucoes: [
       "Pendurado na barra com os braços estendidos.",
@@ -1438,6 +1489,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Rolo de punho", grupo: "Antebraço", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 0.05, met: 3.8,
     aliases: ["wrist roller"],
     instrucoes: [
       "Braços estendidos à frente segurando o rolo, peso pendurado por uma corda.",
@@ -1446,6 +1498,7 @@ export const CATALOGO: readonly ItemCatalogo[] = [
   },
   {
     nome: "Pegada isométrica na barra", grupo: "Antebraço", tipo: "isolado", equipamento: "peso_corporal",
+    fracao: 1.0, met: 3.8, medida: "segundos",
     secundarios: ["Trapézio"],
     aliases: ["dead hang", "pendurado na barra"],
     instrucoes: [
@@ -1475,6 +1528,63 @@ export const CATALOGO: readonly ItemCatalogo[] = [
     instrucoes: [
       "Polia baixa com barra reta, cotovelos colados ao tronco.",
       "Suba até o antebraço passar a vertical e desça até estender.",
+    ],
+  },
+  {
+    nome: "Agachamento livre sem peso", grupo: "Quadríceps", tipo: "composto",
+    equipamento: "peso_corporal", fracao: 0.65, met: 5.5,
+    secundarios: ["Glúteos", "Posterior", "Core"],
+    // Sem "agachamento" nem "agachamento livre": são apelidos do de barra, e
+    // `casaBusca` já casa este pelo nome, que contém a palavra inteira.
+    aliases: ["air squat", "agachamento sem peso"],
+    instrucoes: [
+      "Pés na largura dos ombros, pontas levemente para fora.",
+      "Desça empurrando o quadril para trás, joelho acompanhando a linha do pé.",
+      "Desça até a coxa passar da paralela, se o tornozelo deixar; suba pelo calcanhar.",
+    ],
+  },
+  {
+    nome: "Afundo sem peso", grupo: "Quadríceps", tipo: "composto",
+    equipamento: "peso_corporal", fracao: 0.65, met: 5.5,
+    secundarios: ["Glúteos", "Posterior"],
+    // "afundo"/"avanço"/"lunge" são do afundo com halteres; o nome daqui já
+    // contém "Afundo", que é por onde a busca acha.
+    aliases: ["afundo sem peso", "avanço sem peso"],
+    instrucoes: [
+      "Passo à frente firme; o tronco fica ereto, não se inclina para a perna da frente.",
+      "Desça até o joelho de trás quase tocar o chão.",
+      "Volte empurrando o calcanhar da perna da frente.",
+    ],
+  },
+  {
+    nome: "Burpee", grupo: "Core", tipo: "composto",
+    equipamento: "peso_corporal", fracao: 0.7, met: 8,
+    secundarios: ["Peito", "Quadríceps", "Ombros"],
+    aliases: ["burpees"],
+    instrucoes: [
+      "Do agachamento, jogue os pés para trás e caia na posição de flexão.",
+      "Faça a flexão — ou pule ela, se o objetivo é ritmo — e volte os pés ao agachamento.",
+      "Termine com um salto e as mãos acima da cabeça.",
+    ],
+  },
+  {
+    nome: "Polichinelo", grupo: "Panturrilha", tipo: "composto",
+    equipamento: "peso_corporal", fracao: 0.15, met: 8,
+    secundarios: ["Ombros"],
+    aliases: ["jumping jack", "polichinelos"],
+    instrucoes: [
+      "Salte abrindo as pernas e levando as mãos acima da cabeça.",
+      "Volte no mesmo salto, sem travar o joelho na aterrissagem.",
+    ],
+  },
+  {
+    nome: "Agachamento com salto", grupo: "Quadríceps", tipo: "composto",
+    equipamento: "peso_corporal", fracao: 0.75, met: 8,
+    secundarios: ["Glúteos", "Panturrilha"],
+    aliases: ["jump squat", "agachamento pliométrico"],
+    instrucoes: [
+      "Agache até a coxa perto da paralela e salte com força.",
+      "Aterrisse na ponta do pé e desça para o próximo agachamento absorvendo o impacto.",
     ],
   },
 ];

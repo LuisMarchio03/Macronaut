@@ -76,3 +76,35 @@ it("é um catálogo de verdade, não uma amostra", () => {
     expect(CATALOGO.filter((e) => e.grupo === g.nome).length).toBeGreaterThanOrEqual(3);
   }
 });
+
+/* ══ a calistenia ═════════════════════════════════════════════════════════
+   O módulo mede volume por fração do peso do corpo e caloria por MET. Um
+   exercício de peso corporal sem os dois entra nele como um buraco: aparece
+   na lista e não soma em número nenhum. */
+
+it("todo exercício de peso corporal tem fração corporal e MET", () => {
+  const sem = CATALOGO.filter(
+    (e) => e.equipamento === "peso_corporal" && (e.fracao === undefined || e.met === undefined),
+  );
+  expect(sem.map((e) => e.nome)).toEqual([]);
+});
+
+it("a fração corporal fica entre 0 e 1", () => {
+  for (const e of CATALOGO) {
+    if (e.fracao === undefined) continue;
+    expect(e.fracao).toBeGreaterThan(0);
+    expect(e.fracao).toBeLessThanOrEqual(1);
+  }
+});
+
+// Flexão e abdominal já estavam; agachamento, não — o único de peso corporal
+// era o sissy, que não é o que ninguém faz solto na sala de casa.
+it("tem os movimentos de peso corporal que se faz solto no dia", () => {
+  const nomes = CATALOGO.map((e) => e.nome);
+  for (const n of [
+    "Agachamento livre sem peso", "Afundo sem peso", "Burpee",
+    "Polichinelo", "Agachamento com salto",
+  ]) {
+    expect(nomes).toContain(n);
+  }
+});

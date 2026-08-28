@@ -36,6 +36,8 @@ function mapRow(r: Row): Exercise {
     tipo: (r.tipo as TipoExercicio | null) ?? null,
     equipamento: (r.equipamento as Equipamento | null) ?? null,
     met: (r.met as number | null) ?? null,
+    fracao_corporal: (r.fracao_corporal as number | null) ?? null,
+    medida: (r.medida as "reps" | "segundos" | null) ?? null,
     instrucoes: (r.instrucoes as string | null) ?? null,
     musculos_secundarios: (r.musculos_secundarios as string | null) ?? null,
     aliases: (r.aliases as string | null) ?? null,
@@ -252,22 +254,56 @@ export async function seedExercicios(db: Client): Promise<void> {
       ? {
           sql: `INSERT INTO exercises
                   (user_id, nome, grupo_id, source, tipo, equipamento,
-                   musculos_secundarios, aliases, instrucoes, created_at)
-                VALUES (NULL, ?, ?, 'catalogo', ?, ?, ?, ?, ?, ?)`,
-          args: [e.nome, gid, e.tipo, e.equipamento, secundarios, aliases, instrucoes, created_at],
+                   musculos_secundarios, aliases, instrucoes, met, fracao_corporal, medida, created_at)
+                VALUES (NULL, ?, ?, 'catalogo', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [e.nome, gid, e.tipo, e.equipamento, secundarios, aliases, instrucoes,
+                 e.met ?? null, e.fracao ?? null, e.medida ?? null, created_at],
         }
       : {
           // A ficha do catálogo é reescrita a cada seed de propósito: ela é
           // conteúdo NOSSO, versionado no código, e não edição do usuário —
           // linha de catálogo é somente-leitura na UI.
+          // `met` NÃO entra no UPDATE: `seedExerciciosDeCardio` semeia o MET
+          // do cardio por outro caminho, e escrever NULL aqui apagaria o MET
+          // de toda bicicleta já cadastrada. Quem já existe recebe MET e
+          // fração por `backfillCalistenia`, que só preenche o que está NULL.
           sql: `UPDATE exercises
                 SET grupo_id=?, tipo=?, equipamento=?,
-                    musculos_secundarios=?, aliases=?, instrucoes=?
+                    musculos_secundarios=?, aliases=?, instrucoes=?,
+                    fracao_corporal=?, medida=?
                 WHERE id=? AND source='catalogo'`,
-          args: [gid, e.tipo, e.equipamento, secundarios, aliases, instrucoes, id],
+          args: [gid, e.tipo, e.equipamento, secundarios, aliases, instrucoes,
+                 e.fracao ?? null, e.medida ?? null, id],
         };
   });
   await db.batch(stmts, "write");
+}
+
+/**
+ * Preenche MET e fração corporal dos exercícios de peso corporal que já
+ * existiam antes da calistenia.
+ *
+ * Só onde está NULL: nunca sobrescreve valor já gravado — a mesma regra de
+ * `backfillGrupos`, e o que protege o MET do cardio e qualquer correção feita
+ * à mão. Devolve quantas linhas foram tocadas.
+ */
+export async function backfillCalistenia(db: Client): Promise<number> {
+  const doCorpo = CATALOGO.filter((e) => e.equipamento === "peso_corporal");
+  if (doCorpo.length === 0) return 0;
+
+  const rs = await db.batch(
+    doCorpo.map((e) => ({
+      sql: `UPDATE exercises
+            SET met = COALESCE(met, ?),
+                fracao_corporal = COALESCE(fracao_corporal, ?),
+                medida = COALESCE(medida, ?)
+            WHERE nome = ? AND source = 'catalogo'
+              AND (met IS NULL OR fracao_corporal IS NULL)`,
+      args: [e.met ?? null, e.fracao ?? null, e.medida ?? null, e.nome] as (number | string | null)[],
+    })),
+    "write",
+  );
+  return rs.reduce((acc, r) => acc + r.rowsAffected, 0);
 }
 
 /**

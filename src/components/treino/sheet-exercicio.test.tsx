@@ -15,6 +15,8 @@ function ex(p: Partial<Exercise> = {}): Exercise {
     tipo: "composto",
     equipamento: "barra",
     met: null,
+    fracao_corporal: null,
+    medida: null,
     instrucoes: "Deite no banco com os pés no chão.\nDesça a barra até o meio do peito.\nEmpurre até estender os cotovelos.",
     musculos_secundarios: "Tríceps, Ombros",
     aliases: "supino, bench press",
