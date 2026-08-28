@@ -51,6 +51,31 @@ describe("workouts repo", () => {
     expect(await listSessions(db, 1)).toHaveLength(0);
   });
 
+  // O plano e o cardio da sessão viviam noutras tabelas e ficavam para trás:
+  // linhas de `session_plan_sets` órfãs e uma atividade que seguia contando
+  // caloria de um treino apagado.
+  it("deleteSession leva junto o plano e o cardio da sessão", async () => {
+    const s = await createSession(db, 1, { data: "2026-07-07", nome: null });
+    const at = await db.execute({
+      sql: `INSERT INTO activity_sessions (user_id, data, tipo, duracao_min, kcal, created_at)
+            VALUES (1, '2026-07-07', 'Bicicleta', 30, 300, 't')`,
+      args: [],
+    });
+    await db.execute({
+      sql: `INSERT INTO session_plan_sets
+              (user_id, session_id, exercise_id, ordem, serie_ordem, peso_kg, reps_alvo, activity_id)
+            VALUES (1, ?, 1, 1, 1, 0, 0, ?)`,
+      args: [s.id, Number(at.lastInsertRowid)],
+    });
+
+    await deleteSession(db, 1, s.id);
+
+    const plano = await db.execute("SELECT COUNT(*) AS n FROM session_plan_sets");
+    expect(Number(plano.rows[0].n)).toBe(0);
+    const atividades = await db.execute("SELECT COUNT(*) AS n FROM activity_sessions");
+    expect(Number(atividades.rows[0].n)).toBe(0);
+  });
+
   it("listSessionsByRange filtra por range e usuário", async () => {
     await createSession(db, 1, { data: "2026-07-05", nome: null });
     await createSession(db, 1, { data: "2026-07-06", nome: "A" });
@@ -191,6 +216,17 @@ describe("workouts repo", () => {
     const lida = await getSessionByDate(db, 1, "2026-07-16");
     expect(lida?.nota).toBe("ombro incomodou");
     expect(lida?.nome).toBe("Treino A");
+  });
+
+  // Treino registrado atrasado: a data é a única coisa que a tela não podia
+  // corrigir, e sem ela a sessão fica no dia errado para sempre.
+  it("updateSession corrige a data da sessão", async () => {
+    const s = await createSession(db, 1, { data: "2026-07-16", nome: "Treino A" });
+
+    await updateSession(db, 1, s.id, { data: "2026-07-15" });
+
+    expect(await getSessionByDate(db, 1, "2026-07-15")).not.toBeNull();
+    expect(await getSessionByDate(db, 1, "2026-07-16")).toBeNull();
   });
 
   it("updateSession não altera sessão de outro usuário", async () => {

@@ -13,7 +13,7 @@ import {
   registrarSerie,
   type ItemPlanejado,
 } from "../repositories/sessao";
-import { addSet, createSession, listSetsBySession } from "../repositories/workouts";
+import { addSet, createSession, getSession, listSetsBySession } from "../repositories/workouts";
 import { planejar } from "../domain/prescricao";
 
 /**
@@ -255,5 +255,96 @@ describe("Detalhe da sessão — sessões anteriores a esta arquitetura", () => 
       sql: "SELECT COUNT(*) AS n FROM workout_sessions WHERE id=?", args: [sid],
     });
     expect(Number(rs.rows[0].n)).toBe(1);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   EDITAR A SESSÃO REGISTRADA
+
+   Corrigir uma série já dava; trocar o exercício errado, tirar o que não foi
+   feito e consertar o dia em que o treino caiu, não. A única ação disponível
+   era excluir a sessão inteira — que leva junto tudo que estava certo.
+   ══════════════════════════════════════════════════════════════════ */
+
+describe("Detalhe da sessão — editar", () => {
+  it("remove um exercício da sessão", async () => {
+    const supino = await exercicio("Supino reto");
+    const rosca = await exercicio("Rosca direta");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17",
+      nome: "Peito",
+      itens: [item(supino, 40, "Supino reto"), item(rosca, 12, "Rosca direta")],
+    });
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar exercício supino reto/i }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /remover da sessão/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /^remover$/i }));
+
+    await waitFor(async () => {
+      const plano = await getPlano(db, USER, sid);
+      expect(plano.every((p) => p.nome === "Rosca direta")).toBe(true);
+    });
+  });
+
+  it("troca o exercício de um bloco", async () => {
+    const supino = await exercicio("Supino reto");
+    await exercicio("Supino inclinado");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar exercício supino reto/i }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /trocar exercício/i }));
+    await userEvent.type(await screen.findByRole("combobox"), "Supino incl");
+    await userEvent.click(await screen.findByRole("button", { name: /^supino inclinado/i }));
+
+    await waitFor(async () => {
+      const plano = await getPlano(db, USER, sid);
+      expect(plano[0].nome).toBe("Supino inclinado");
+    });
+  });
+
+  // Treino registrado atrasado cai no dia errado, e a data era a única coisa
+  // que nenhuma tela sabia corrigir.
+  it("corrige a data da sessão", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /editar sessão/i }));
+    const campoData = await screen.findByLabelText(/^data$/i);
+    await userEvent.clear(campoData);
+    await userEvent.type(campoData, "2026-08-16");
+    await userEvent.click(await screen.findByRole("button", { name: /^salvar$/i }));
+
+    await waitFor(async () => {
+      expect((await getSession(db, USER, sid))!.data).toBe("2026-08-16");
+    });
+  });
+
+  it("renomeia a sessão", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /editar sessão/i }));
+    const campoNome = await screen.findByLabelText(/nome do treino/i);
+    await userEvent.clear(campoNome);
+    await userEvent.type(campoNome, "Peito e tríceps");
+    await userEvent.click(await screen.findByRole("button", { name: /^salvar$/i }));
+
+    await waitFor(async () => {
+      expect((await getSession(db, USER, sid))!.nome).toBe("Peito e tríceps");
+    });
   });
 });

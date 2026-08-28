@@ -159,7 +159,9 @@ describe("TreinoSessao", () => {
     montar(sid);
 
     await userEvent.click(await screen.findByRole("button", { name: /adicionar exercício/i }));
-    await userEvent.type(await screen.findByLabelText(/exercício/i), "Rosca");
+    // Pelo papel, e não pelo rótulo: "Editar exercício Supino reto" também
+    // casa com /exercício/i, e o campo de busca é o único combobox da tela.
+    await userEvent.type(await screen.findByRole("combobox"), "Rosca");
     await userEvent.click(await screen.findByRole("button", { name: /rosca direta/i }));
 
     await waitFor(async () => {
@@ -464,5 +466,130 @@ describe("TreinoSessao — a ficha do exercício", () => {
     expect(
       await screen.findByRole("button", { name: /registrar série 1 de supino reto/i }),
     ).toBeInTheDocument();
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   EDITAR A SESSÃO
+
+   Até aqui a sessão só crescia: dava para adicionar exercício e corrigir
+   série, nunca para remover, trocar ou reordenar. Um exercício escolhido por
+   engano ficava lá para sempre, e a única saída era apagar o treino inteiro.
+   ══════════════════════════════════════════════════════════════════ */
+
+describe("TreinoSessao — editar", () => {
+  async function comDoisExercicios() {
+    const supino = await exercicio("Supino reto");
+    const rosca = await exercicio("Rosca direta");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(),
+      nome: "Peito",
+      itens: [item(supino, 40, "Supino reto"), item(rosca, 12, "Rosca direta")],
+    });
+    return { supino, rosca, sid };
+  }
+
+  it("remove o exercício da sessão", async () => {
+    const { sid } = await comDoisExercicios();
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar exercício supino reto/i }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /remover da sessão/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /^remover$/i }));
+
+    await waitFor(async () => {
+      const plano = await getPlano(db, 1, sid);
+      expect(plano.map((p) => p.nome)).toEqual([
+        "Rosca direta", "Rosca direta", "Rosca direta",
+      ]);
+    });
+  });
+
+  it("troca o exercício, levando as séries já registradas junto", async () => {
+    const { sid } = await comDoisExercicios();
+    await exercicio("Supino inclinado");
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /registrar série 1 de supino reto/i }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar exercício supino reto/i }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /trocar exercício/i }));
+    await userEvent.type(await screen.findByRole("combobox"), "Supino incl");
+    await userEvent.click(await screen.findByRole("button", { name: /^supino inclinado/i }));
+
+    await waitFor(async () => {
+      const plano = await getPlano(db, 1, sid);
+      expect(plano[0].nome).toBe("Supino inclinado");
+    });
+    const sets = await listSetsBySession(db, 1, sid);
+    expect(sets).toHaveLength(1);
+  });
+
+  it("move o exercício para baixo", async () => {
+    const { sid } = await comDoisExercicios();
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar exercício supino reto/i }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /mover para baixo/i }));
+
+    await waitFor(async () => {
+      const plano = await getPlano(db, 1, sid);
+      expect(plano[0].nome).toBe("Rosca direta");
+    });
+  });
+
+  it("adiciona uma série ao exercício", async () => {
+    const { sid, supino } = await comDoisExercicios();
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar exercício supino reto/i }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /adicionar série/i }));
+
+    await waitFor(async () => {
+      const plano = await getPlano(db, 1, sid);
+      expect(plano.filter((p) => p.exercise_id === supino)).toHaveLength(4);
+    });
+  });
+
+  it("remove a última série do exercício", async () => {
+    const { sid, supino } = await comDoisExercicios();
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar exercício supino reto/i }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /remover última série/i }));
+
+    await waitFor(async () => {
+      const plano = await getPlano(db, 1, sid);
+      expect(plano.filter((p) => p.exercise_id === supino)).toHaveLength(2);
+    });
+  });
+
+  // Com um exercício só não há para onde mover, e mover é o único par de ações
+  // que depende de ter vizinho.
+  it("não oferece mover quando o exercício é o único da sessão", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /editar exercício supino reto/i }),
+    );
+
+    expect(await screen.findByRole("button", { name: /remover da sessão/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /mover para cima/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /mover para baixo/i })).toBeNull();
   });
 });

@@ -3,6 +3,7 @@ import { useDb, useUserId } from "../lib/db-context";
 import type { TipoSerie } from "../domain/types";
 import {
   adicionarAoPlano,
+  adicionarSerie,
   desfazerSerie,
   finalizarSessao,
   getPlano,
@@ -12,10 +13,14 @@ import {
   montarPlanoDoDia,
   registrarCardio,
   registrarSerie,
+  removerExercicioDaSessao,
+  removerSerie,
+  reordenarExerciciosDaSessao,
   sessaoEmAndamento,
+  trocarExercicioDaSessao,
   type ItemPlanejado,
 } from "../repositories/sessao";
-import { getSession } from "../repositories/workouts";
+import { getSession, updateSession } from "../repositories/workouts";
 
 /** A sessão pela id da URL — o cabeçalho da tela da academia sai daqui. */
 export function useSessao(sessionId: number | undefined) {
@@ -152,5 +157,68 @@ export function useRegistrarCardio() {
   const userId = useUserId();
   return useEscritaNaSessao((v: { planId: number; duracao_min: number; kcal: number }) =>
     registrarCardio(db, userId, v.planId, { duracao_min: v.duracao_min, kcal: v.kcal }),
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   EDITAR A SESSÃO
+
+   Todas passam por `useEscritaNaSessao`: remover, trocar e reordenar mexem no
+   plano E no realizado, então o histórico, a progressão e os gráficos têm que
+   ser invalidados junto — não só a tela que disparou a ação.
+   ══════════════════════════════════════════════════════════════════ */
+
+export function useRemoverExercicioDaSessao() {
+  const db = useDb();
+  const userId = useUserId();
+  return useEscritaNaSessao((v: { sessionId: number; exerciseId: number }) =>
+    removerExercicioDaSessao(db, userId, v.sessionId, v.exerciseId),
+  );
+}
+
+export function useTrocarExercicioDaSessao() {
+  const db = useDb();
+  const userId = useUserId();
+  return useEscritaNaSessao((v: { sessionId: number; de: number; para: number }) =>
+    trocarExercicioDaSessao(db, userId, v.sessionId, v.de, v.para),
+  );
+}
+
+export function useReordenarExerciciosDaSessao() {
+  const db = useDb();
+  const userId = useUserId();
+  return useEscritaNaSessao((v: { sessionId: number; exerciseIds: number[] }) =>
+    reordenarExerciciosDaSessao(db, userId, v.sessionId, v.exerciseIds),
+  );
+}
+
+export function useAdicionarSerie() {
+  const db = useDb();
+  const userId = useUserId();
+  return useEscritaNaSessao((v: { sessionId: number; exerciseId: number }) =>
+    adicionarSerie(db, userId, v.sessionId, v.exerciseId),
+  );
+}
+
+export function useRemoverSerie() {
+  const db = useDb();
+  const userId = useUserId();
+  return useEscritaNaSessao((planId: number) => removerSerie(db, userId, planId));
+}
+
+/**
+ * Nome, nota e data da sessão.
+ *
+ * Separada de `useUpdateSession` (de `use-workouts`): aquela é presa a uma
+ * data — invalida `["session", data]` — e mudar justamente a data faria a
+ * tela continuar mostrando a chave antiga. Esta invalida tudo que a sessão
+ * toca, que é o que uma mudança de data exige.
+ */
+export function useEditarSessao() {
+  const db = useDb();
+  const userId = useUserId();
+  return useEscritaNaSessao(
+    (v: { id: number; nome?: string | null; nota?: string | null; data?: string }) =>
+      updateSession(db, userId, v.id, { nome: v.nome, nota: v.nota, data: v.data }),
   );
 }

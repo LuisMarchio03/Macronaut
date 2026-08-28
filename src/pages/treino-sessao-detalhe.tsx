@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Pencil, Trash2 } from "lucide-react";
+import { Ellipsis, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SheetConfirmar } from "@/components/ui/confirmar";
@@ -8,7 +8,18 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { BackLink } from "@/components/ui/page";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { SheetAjustarSerie } from "@/components/treino/sheet-ajustar-serie";
-import { usePlano, useRegistrarSerie } from "@/hooks/use-sessao";
+import { SheetEditarExercicio } from "@/components/treino/sheet-editar-exercicio";
+import { SheetEditarSessao } from "@/components/treino/sheet-editar-sessao";
+import {
+  useAdicionarSerie,
+  useEditarSessao,
+  usePlano,
+  useRegistrarSerie,
+  useRemoverExercicioDaSessao,
+  useRemoverSerie,
+  useReordenarExerciciosDaSessao,
+  useTrocarExercicioDaSessao,
+} from "@/hooks/use-sessao";
 import { useDeleteSession, useSessionSets, useUpdateSet } from "@/hooks/use-workouts";
 import { useExercises } from "@/hooks/use-exercises";
 import { useSessoesComResumo } from "@/hooks/use-progresso";
@@ -107,9 +118,17 @@ export function TreinoSessaoDetalhe() {
   const registrar = useRegistrarSerie();
   const atualizarSet = useUpdateSet(sessionId);
   const excluir = useDeleteSession();
+  const removerExercicio = useRemoverExercicioDaSessao();
+  const trocarExercicio = useTrocarExercicioDaSessao();
+  const reordenarExercicios = useReordenarExerciciosDaSessao();
+  const adicionarSerie = useAdicionarSerie();
+  const removerSerie = useRemoverSerie();
+  const editarSessao = useEditarSessao();
 
   const [editando, setEditando] = useState<PlanoSerie | null>(null);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [editandoBloco, setEditandoBloco] = useState<number | null>(null);
+  const [editandoSessao, setEditandoSessao] = useState(false);
   const sessao = sessoes.find((s) => s.id === sessionId);
 
   if (carregandoPlano) return <SkeletonList rows={4} />;
@@ -122,13 +141,27 @@ export function TreinoSessaoDetalhe() {
     else blocos.push({ exercise_id: s.exercise_id, nome: s.nome, series: [s] });
   }
 
+  const bloco = blocos.find((b) => b.exercise_id === editandoBloco) ?? null;
+
   return (
     <>
       {/* Sem `PageHeader`: a tela já tem um, com as abas. Aqui é o cabeçalho
           do conteúdo — e o link de volta diz de qual aba você veio. */}
       <div>
         <BackLink to="/treino/progresso">Progresso</BackLink>
-        <h2 className="t-title mt-0.5 truncate">{sessao?.nome || "Sessão"}</h2>
+        <div className="mt-0.5 flex items-start gap-2">
+          <h2 className="t-title min-w-0 flex-1 truncate">{sessao?.nome || "Sessão"}</h2>
+          {sessao && (
+            <button
+              type="button"
+              onClick={() => setEditandoSessao(true)}
+              aria-label="Editar sessão"
+              className="-mt-1 flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
+            >
+              <Pencil className="size-4" />
+            </button>
+          )}
+        </div>
         {sessao && (
           <p className="t-caption tabular-nums">
             {dataPorExtenso(sessao.data)}
@@ -151,7 +184,21 @@ export function TreinoSessaoDetalhe() {
         )
       ) : (
         blocos.map((b) => (
-          <Card key={b.exercise_id} header={b.nome} padded={false}>
+          <Card
+            key={b.exercise_id}
+            header={b.nome}
+            aside={
+              <button
+                type="button"
+                onClick={() => setEditandoBloco(b.exercise_id)}
+                aria-label={`Editar exercício ${b.nome}`}
+                className="-my-2 flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
+              >
+                <Ellipsis className="size-5" />
+              </button>
+            }
+            padded={false}
+          >
             <ul className="divide-y divide-border">
               {b.series.map((s) => (
                 <LinhaComparada key={s.id} s={s} onEditar={() => setEditando(s)} />
@@ -181,6 +228,44 @@ export function TreinoSessaoDetalhe() {
           excluir.mutate(sessionId, { onSuccess: () => navigate("/treino/progresso") });
         }}
       />
+
+      {bloco && sessionId !== undefined && (
+        <SheetEditarExercicio
+          aberto
+          onFechar={() => setEditandoBloco(null)}
+          nome={bloco.nome}
+          totalDeExercicios={blocos.length}
+          posicao={blocos.findIndex((b) => b.exercise_id === bloco.exercise_id)}
+          totalDeSeries={bloco.series.length}
+          catalogo={exercicios}
+          onTrocar={(para) =>
+            trocarExercicio.mutate({ sessionId, de: bloco.exercise_id, para })
+          }
+          onMover={(delta) => {
+            const ids = blocos.map((b) => b.exercise_id);
+            const i = ids.indexOf(bloco.exercise_id);
+            [ids[i], ids[i + delta]] = [ids[i + delta], ids[i]];
+            reordenarExercicios.mutate({ sessionId, exerciseIds: ids });
+          }}
+          onAdicionarSerie={() =>
+            adicionarSerie.mutate({ sessionId, exerciseId: bloco.exercise_id })
+          }
+          onRemoverSerie={() => removerSerie.mutate(bloco.series.at(-1)!.id)}
+          onRemover={() =>
+            removerExercicio.mutate({ sessionId, exerciseId: bloco.exercise_id })
+          }
+        />
+      )}
+
+      {sessao && (
+        <SheetEditarSessao
+          aberto={editandoSessao}
+          onFechar={() => setEditandoSessao(false)}
+          nome={sessao.nome}
+          data={sessao.data}
+          onSalvar={(v) => editarSessao.mutate({ id: sessao.id, ...v })}
+        />
+      )}
 
       <SheetAjustarSerie
         aberto={editando !== null}

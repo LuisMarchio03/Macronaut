@@ -1,25 +1,31 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, Minus, Pencil, Plus, Trophy, X } from "lucide-react";
+import { Check, ChevronDown, Ellipsis, Minus, Pencil, Plus, Trophy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { CronometroDescanso } from "@/components/treino/cronometro-descanso";
 import { ExercicioAutocomplete } from "@/components/treino/exercicio-autocomplete";
 import { SheetAjustarCardio } from "@/components/treino/sheet-ajustar-cardio";
 import { SheetAjustarSerie } from "@/components/treino/sheet-ajustar-serie";
+import { SheetEditarExercicio } from "@/components/treino/sheet-editar-exercicio";
 import { SheetExercicio } from "@/components/treino/sheet-exercicio";
 import { useExercises } from "@/hooks/use-exercises";
 import { useProfile } from "@/hooks/use-profile";
 import {
   useAdicionarAoPlano,
+  useAdicionarSerie,
   useDesfazerSerie,
   useMarcasAmrap,
   usePlano,
   useRegistrarCardio,
   useFinalizarSessao,
   useRegistrarSerie,
+  useRemoverExercicioDaSessao,
+  useRemoverSerie,
+  useReordenarExerciciosDaSessao,
   useSessao,
   useSessaoEmAndamento,
+  useTrocarExercicioDaSessao,
 } from "@/hooks/use-sessao";
 import { useHistoricoExercicio } from "@/hooks/use-workouts";
 import { e1RMDaSerie, ehRecorde, recordeNoPeso } from "@/domain/531";
@@ -360,6 +366,11 @@ export function TreinoSessao() {
   const adicionar = useAdicionarAoPlano();
   const finalizar = useFinalizarSessao();
   const registrarCardio = useRegistrarCardio();
+  const removerExercicio = useRemoverExercicioDaSessao();
+  const trocarExercicio = useTrocarExercicioDaSessao();
+  const reordenarExercicios = useReordenarExerciciosDaSessao();
+  const adicionarSerie = useAdicionarSerie();
+  const removerSerie = useRemoverSerie();
   const { data: perfil } = useProfile();
   const { data: catalogo = [] } = useExercises();
 
@@ -368,6 +379,7 @@ export function TreinoSessao() {
   const [ajustandoCardio, setAjustandoCardio] = useState<PlanoSerie | null>(null);
   const [vendoFicha, setVendoFicha] = useState(false);
   const [adicionando, setAdicionando] = useState(false);
+  const [editandoExercicio, setEditandoExercicio] = useState(false);
   const [registros, setRegistros] = useState(0);
 
   // Blocos de exercício na ordem do plano. `ordem` é contígua por exercício,
@@ -469,16 +481,29 @@ export function TreinoSessao() {
               {/* O botão vive DENTRO do h1: o nome do exercício continua sendo
                   o título da tela para quem navega por cabeçalhos, e ganha a
                   ação sem deixar de ser o que é. */}
-              <h1 className="t-title">
+              <div className="flex items-start gap-2">
+                <h1 className="t-title min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setVendoFicha(true)}
+                    aria-label={`Ver ficha de ${atual.nome}`}
+                    className="text-left"
+                  >
+                    {atual.nome}
+                  </button>
+                </h1>
+                {/* Escolhi o exercício errado, ou quero uma série a mais: as
+                    duas coisas acontecem DEPOIS de a sessão existir, e até
+                    aqui não havia caminho nenhum para nenhuma delas. */}
                 <button
                   type="button"
-                  onClick={() => setVendoFicha(true)}
-                  aria-label={`Ver ficha de ${atual.nome}`}
-                  className="text-left"
+                  onClick={() => setEditandoExercicio(true)}
+                  aria-label={`Editar exercício ${atual.nome}`}
+                  className="-mt-1 flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
                 >
-                  {atual.nome}
+                  <Ellipsis className="size-5" />
                 </button>
-              </h1>
+              </div>
               <UltimaVez exerciseId={atual.exercise_id} />
             </div>
 
@@ -617,6 +642,38 @@ export function TreinoSessao() {
             : `Finalizar (${feitas} de ${plano.length})`}
         </Button>
       </footer>
+
+      {atual && (
+        <SheetEditarExercicio
+          aberto={editandoExercicio}
+          onFechar={() => setEditandoExercicio(false)}
+          nome={atual.nome}
+          totalDeExercicios={exercicios.length}
+          posicao={exercicios.findIndex((b) => b.exercise_id === atual.exercise_id)}
+          totalDeSeries={atual.series.length}
+          catalogo={catalogo}
+          onTrocar={(para) =>
+            trocarExercicio.mutate({ sessionId, de: atual.exercise_id, para })
+          }
+          onMover={(delta) => {
+            const ids = exercicios.map((b) => b.exercise_id);
+            const i = ids.indexOf(atual.exercise_id);
+            [ids[i], ids[i + delta]] = [ids[i + delta], ids[i]];
+            reordenarExercicios.mutate({ sessionId, exerciseIds: ids });
+            // O bloco vai junto: quem move o exercício quer continuar nele.
+            setIExercicio(i + delta);
+          }}
+          onAdicionarSerie={() =>
+            adicionarSerie.mutate({ sessionId, exerciseId: atual.exercise_id })
+          }
+          onRemoverSerie={() => removerSerie.mutate(atual.series.at(-1)!.id)}
+          onRemover={() => {
+            removerExercicio.mutate({ sessionId, exerciseId: atual.exercise_id });
+            // O índice atual passa a apontar para um bloco que não existe mais.
+            setIExercicio((i) => Math.max(0, i - 1));
+          }}
+        />
+      )}
 
       <SheetExercicio
         aberto={vendoFicha}

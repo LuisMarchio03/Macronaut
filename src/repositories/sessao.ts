@@ -496,3 +496,271 @@ export async function montarPlanoDoDia(
     })),
   );
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   EDITAR A SESSÃO
+
+   Até aqui a sessão só crescia. Remover, trocar e reordenar mexem no plano
+   (`session_plan_sets`) e têm que arrastar o realizado junto — `workout_sets`
+   e `activity_sessions` — senão sobra registro de um exercício que não está
+   mais na sessão, contando volume e caloria de um treino que não houve.
+   ══════════════════════════════════════════════════════════════════ */
+
+type LinhaCrua = {
+  id: number;
+  exercise_id: number;
+  ordem: number;
+  serie_ordem: number;
+  set_id: number | null;
+};
+
+async function linhasDoPlano(
+  db: Client,
+  userId: number,
+  sessionId: number,
+): Promise<LinhaCrua[]> {
+  const rs = await db.execute({
+    sql: `SELECT id, exercise_id, ordem, serie_ordem, set_id
+          FROM session_plan_sets WHERE user_id = ? AND session_id = ?
+          ORDER BY ordem`,
+    args: [userId, sessionId],
+  });
+  return rs.rows.map((r) => ({
+    id: r.id as number,
+    exercise_id: r.exercise_id as number,
+    ordem: r.ordem as number,
+    serie_ordem: r.serie_ordem as number,
+    set_id: (r.set_id as number | null) ?? null,
+  }));
+}
+
+/**
+ * Devolve `ordem` contígua na sessão e `serie_ordem` contígua dentro do bloco.
+ *
+ * Os blocos saem na ordem em que aparecem hoje, e linhas do mesmo exercício
+ * espalhadas viram um bloco só — é o que faz "trocar por um exercício que já
+ * está na sessão" dar um bloco de seis séries em vez de dois de três.
+ *
+ * `workout_sets.ordem` acompanha `serie_ordem`: as duas descrevem a mesma
+ * posição, e `ultimaVezExercicio` ordena o histórico por ela.
+ */
+async function renumerarPlano(db: Client, userId: number, sessionId: number): Promise<void> {
+  const linhas = await linhasDoPlano(db, userId, sessionId);
+  if (linhas.length === 0) return;
+
+  const blocos = new Map<number, LinhaCrua[]>();
+  for (const l of linhas) {
+    const atual = blocos.get(l.exercise_id);
+    if (atual) atual.push(l);
+    else blocos.set(l.exercise_id, [l]);
+  }
+
+  const comandos: { sql: string; args: (number | string | null)[] }[] = [];
+  let ordem = 1;
+  for (const doBloco of blocos.values()) {
+    doBloco.forEach((l, i) => {
+      const serieOrdem = i + 1;
+      if (l.ordem !== ordem || l.serie_ordem !== serieOrdem) {
+        comandos.push({
+          sql: "UPDATE session_plan_sets SET ordem = ?, serie_ordem = ? WHERE id = ? AND user_id = ?",
+          args: [ordem, serieOrdem, l.id, userId],
+        });
+        if (l.set_id !== null) {
+          comandos.push({
+            sql: "UPDATE workout_sets SET ordem = ? WHERE id = ? AND user_id = ?",
+            args: [serieOrdem, l.set_id, userId],
+          });
+        }
+      }
+      ordem += 1;
+    });
+  }
+  if (comandos.length > 0) await db.batch(comandos, "write");
+}
+
+/** As séries e atividades que estas linhas de plano registraram. */
+async function apagarRealizado(
+  db: Client,
+  userId: number,
+  sessionId: number,
+  filtro: { sql: string; args: (number | string | null)[] },
+): Promise<void> {
+  const rs = await db.execute({
+    sql: `SELECT set_id, activity_id FROM session_plan_sets
+          WHERE user_id = ? AND session_id = ? AND ${filtro.sql}`,
+    args: [userId, sessionId, ...filtro.args],
+  });
+  const comandos: { sql: string; args: (number | string | null)[] }[] = [];
+  for (const r of rs.rows) {
+    const setId = (r.set_id as number | null) ?? null;
+    const activityId = (r.activity_id as number | null) ?? null;
+    if (setId !== null) {
+      comandos.push({
+        sql: "DELETE FROM workout_sets WHERE id = ? AND user_id = ?",
+        args: [setId, userId],
+      });
+    }
+    if (activityId !== null) {
+      comandos.push({
+        sql: "DELETE FROM activity_sessions WHERE id = ? AND user_id = ?",
+        args: [activityId, userId],
+      });
+    }
+  }
+  if (comandos.length > 0) await db.batch(comandos, "write");
+}
+
+export async function removerExercicioDaSessao(
+  db: Client,
+  userId: number,
+  sessionId: number,
+  exerciseId: number,
+): Promise<void> {
+  await apagarRealizado(db, userId, sessionId, { sql: "exercise_id = ?", args: [exerciseId] });
+  await db.execute({
+    sql: "DELETE FROM session_plan_sets WHERE user_id = ? AND session_id = ? AND exercise_id = ?",
+    args: [userId, sessionId, exerciseId],
+  });
+  await renumerarPlano(db, userId, sessionId);
+}
+
+/**
+ * Troca o exercício de um bloco, levando o que já foi registrado junto.
+ *
+ * O vínculo com a rotina morre na troca: ele descreve a prescrição do
+ * exercício ANTIGO, e mantê-lo faria a progressão do exercício da rotina
+ * contar séries de um exercício que não é ele.
+ */
+export async function trocarExercicioDaSessao(
+  db: Client,
+  userId: number,
+  sessionId: number,
+  de: number,
+  para: number,
+): Promise<void> {
+  if (de === para) return;
+  await db.batch(
+    [
+      {
+        sql: `UPDATE workout_sets SET exercise_id = ?
+              WHERE user_id = ? AND session_id = ? AND exercise_id = ?`,
+        args: [para, userId, sessionId, de],
+      },
+      {
+        sql: `UPDATE session_plan_sets SET exercise_id = ?, routine_exercise_id = NULL
+              WHERE user_id = ? AND session_id = ? AND exercise_id = ?`,
+        args: [para, userId, sessionId, de],
+      },
+    ],
+    "write",
+  );
+  await renumerarPlano(db, userId, sessionId);
+}
+
+/**
+ * Põe os blocos na ordem pedida. Exercício fora da lista vai para o fim, em
+ * vez de sumir — a tela manda a ordem que conhece, e uma lista incompleta não
+ * pode apagar treino.
+ */
+export async function reordenarExerciciosDaSessao(
+  db: Client,
+  userId: number,
+  sessionId: number,
+  exerciseIds: number[],
+): Promise<void> {
+  const linhas = await linhasDoPlano(db, userId, sessionId);
+  if (linhas.length === 0) return;
+
+  const rank = new Map<number, number>();
+  exerciseIds.forEach((id, i) => rank.set(id, i));
+  let proximo = exerciseIds.length;
+  for (const l of linhas) if (!rank.has(l.exercise_id)) rank.set(l.exercise_id, proximo++);
+
+  const ordenadas = [...linhas].sort(
+    (a, b) =>
+      rank.get(a.exercise_id)! - rank.get(b.exercise_id)! || a.serie_ordem - b.serie_ordem,
+  );
+
+  await db.batch(
+    ordenadas.map((l, i) => ({
+      sql: "UPDATE session_plan_sets SET ordem = ? WHERE id = ? AND user_id = ?",
+      args: [i + 1, l.id, userId] as (number | string | null)[],
+    })),
+    "write",
+  );
+  await renumerarPlano(db, userId, sessionId);
+}
+
+/**
+ * Uma série a mais no fim do bloco, com o peso e as reps da última.
+ *
+ * Copiar a última é o que o usuário faria: a série extra é sempre "mais uma
+ * dessa". Cardio não entra — ali a medida é o tempo, e ajustar minutos é o
+ * que a folha de cardio já faz.
+ */
+export async function adicionarSerie(
+  db: Client,
+  userId: number,
+  sessionId: number,
+  exerciseId: number,
+): Promise<void> {
+  const rs = await db.execute({
+    sql: `SELECT * FROM session_plan_sets
+          WHERE user_id = ? AND session_id = ? AND exercise_id = ?
+          ORDER BY serie_ordem`,
+    args: [userId, sessionId, exerciseId],
+  });
+  if (rs.rows.length === 0) return;
+
+  const trabalho = rs.rows.filter((r) => r.tipo !== "aquecimento");
+  const modelo = trabalho.at(-1) ?? rs.rows.at(-1)!;
+  if ((modelo.duracao_min as number | null) !== null) return;
+
+  const ordem = Math.max(...rs.rows.map((r) => r.ordem as number));
+  const serieOrdem = Math.max(...rs.rows.map((r) => r.serie_ordem as number)) + 1;
+
+  await db.batch(
+    [
+      {
+        sql: `UPDATE session_plan_sets SET ordem = ordem + 1
+              WHERE user_id = ? AND session_id = ? AND ordem > ?`,
+        args: [userId, sessionId, ordem] as (number | string | null)[],
+      },
+      {
+        sql: `INSERT INTO session_plan_sets
+                (user_id, session_id, routine_exercise_id, exercise_id, ordem, serie_ordem,
+                 peso_kg, reps_alvo, reps_min, tipo, amrap, pct, descanso_s, duracao_min)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, NULL)`,
+        args: [
+          userId, sessionId,
+          (modelo.routine_exercise_id as number | null) ?? null,
+          exerciseId, ordem + 1, serieOrdem,
+          modelo.peso_kg as number,
+          modelo.reps_alvo as number,
+          (modelo.reps_min as number | null) ?? null,
+          modelo.tipo as string,
+          (modelo.descanso_s as number | null) ?? null,
+        ] as (number | string | null)[],
+      },
+    ],
+    "write",
+  );
+  await renumerarPlano(db, userId, sessionId);
+}
+
+/** Uma série a menos. Leva junto o que ela tiver registrado. */
+export async function removerSerie(db: Client, userId: number, planId: number): Promise<void> {
+  const rs = await db.execute({
+    sql: "SELECT session_id FROM session_plan_sets WHERE id = ? AND user_id = ?",
+    args: [planId, userId],
+  });
+  if (!rs.rows.length) return;
+  const sessionId = rs.rows[0].session_id as number;
+
+  await apagarRealizado(db, userId, sessionId, { sql: "id = ?", args: [planId] });
+  await db.execute({
+    sql: "DELETE FROM session_plan_sets WHERE id = ? AND user_id = ?",
+    args: [planId, userId],
+  });
+  await renumerarPlano(db, userId, sessionId);
+}
