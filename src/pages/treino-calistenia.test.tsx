@@ -25,7 +25,7 @@ async function exercicio(nome: string, medida: string | null = null): Promise<nu
 async function comPerfil(): Promise<void> {
   await upsertProfile(db, 1, {
     sexo: "M", data_nascimento: "1998-05-10", altura_cm: 178, peso_kg: 80,
-    fator_atividade: 1.55, objetivo: "cutting",
+    fator_atividade: 1.55, objetivo: "cut",
     meta_kcal: 2000, meta_prot_g: 150, meta_carb_g: 200, meta_gord_g: 60,
   });
 }
