@@ -36,11 +36,15 @@ export function TabsNav({ abas, rotulo }: { abas: readonly AbaNav[]; rotulo: str
     <nav aria-label={rotulo}>
       <ul className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1">
         {abas.map((a) => {
+          // `alias` vale nas duas: `fim` diz que o PRÓPRIO caminho da aba não é
+          // prefixo das outras — não que a aba não possa acender numa rota
+          // filha declarada. Sem isso, "Hoje" (que é `fim`) nunca acenderia na
+          // calistenia, que nasceu do card dela.
+          const casaAlias =
+            a.alias?.some((r) => pathname === r || pathname.startsWith(`${r}/`)) ?? false;
           const ativo = a.fim
-            ? pathname === a.to
-            : pathname === a.to ||
-              pathname.startsWith(`${a.to}/`) ||
-              (a.alias?.some((r) => pathname === r || pathname.startsWith(`${r}/`)) ?? false);
+            ? pathname === a.to || casaAlias
+            : pathname === a.to || pathname.startsWith(`${a.to}/`) || casaAlias;
 
           return (
             <li key={a.to} className="flex-1">
