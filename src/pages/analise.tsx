@@ -5,6 +5,7 @@ import {
 import { totaisPorDia, resumoNutricional } from "../domain/analise-nutricao";
 import { resumoAgua } from "../domain/analise-agua";
 import { resumoAtividade, kcalGastaPorDia } from "../domain/analise-atividade";
+import { kcalPorDia as kcalDaCalistenia, totaisPorDia as calisteniaPorDia } from "../domain/calistenia";
 import { balancoEnergetico } from "../domain/analise-balanco";
 import { resumoTreino, volumePorDia, volumePorGrupo } from "../domain/analise-treino";
 import { resumoPeso } from "../domain/analise-peso";
@@ -12,6 +13,7 @@ import { SeletorPeriodo } from "../components/seletor-periodo";
 import { useAnaliseNutricao } from "../hooks/use-analise-nutricao";
 import { useAnaliseAgua } from "../hooks/use-analise-agua";
 import { useAnaliseAtividade } from "../hooks/use-analise-atividade";
+import { useSeriesPorRange } from "../hooks/use-calistenia";
 import { useAnaliseTreino } from "../hooks/use-analise-treino";
 import { useAnalisePeso, useRegistrarPeso } from "../hooks/use-analise-peso";
 import { useProfile } from "../hooks/use-profile";
@@ -51,6 +53,7 @@ export function Analise() {
   const { data, isLoading: loadingNutri } = useAnaliseNutricao(periodo.inicio, periodo.fim);
   const { data: aguaPorDia = new Map<string, number>() } = useAnaliseAgua(periodo.inicio, periodo.fim);
   const { data: sessions = [] } = useAnaliseAtividade(periodo.inicio, periodo.fim);
+  const { data: calistenia = [] } = useSeriesPorRange(periodo.inicio, periodo.fim);
   const { data: treino = { nSessoes: 0, sets: [] } } = useAnaliseTreino(periodo.inicio, periodo.fim);
   const { data: pesagens = [] } = useAnalisePeso(periodo.inicio, periodo.fim);
   const registrarPeso = useRegistrarPeso();
@@ -80,7 +83,22 @@ export function Analise() {
   const ingeridaPorDia = new Map<string, number>(
     [...totais.entries()].map(([d, m]) => [d, m.kcal] as [string, number]),
   );
-  const balanco = balancoEnergetico(ingeridaPorDia, kcalGastaPorDia(sessions));
+  /* O gasto do dia é o cardio MAIS a calistenia.
+     Ela não grava em `activity_sessions` de propósito (ver spec 2026-08-28,
+     decisão D5): vinte séries de trinta segundos dariam vinte atividades por
+     dia, e apagar uma série deixaria caloria órfã contando um esforço que não
+     houve. A soma é feita aqui, na leitura. */
+  const pesoCorporal = profile?.peso_kg ?? 0;
+  const gastoPorDia = new Map(kcalGastaPorDia(sessions));
+  for (const [dia, kcal] of kcalDaCalistenia(calistenia, pesoCorporal)) {
+    gastoPorDia.set(dia, (gastoPorDia.get(dia) ?? 0) + kcal);
+  }
+  const totalCalistenia = [...calisteniaPorDia(calistenia, pesoCorporal).values()].reduce(
+    (acc, t) => ({ reps: acc.reps + t.reps, kcal: acc.kcal + t.kcal }),
+    { reps: 0, kcal: 0 },
+  );
+
+  const balanco = balancoEnergetico(ingeridaPorDia, gastoPorDia);
 
   const resumoTr = resumoTreino(treino.sets, treino.nSessoes, nDias);
   const volDia = volumePorDia(treino.sets);
@@ -98,7 +116,11 @@ export function Analise() {
   }
 
   const vazioNutri = diasComKcal === 0 && aguaPorDia.size === 0;
-  const vazioAtividade = sessions.length === 0 && treino.nSessoes === 0 && treino.sets.length === 0;
+  const vazioAtividade =
+    sessions.length === 0 &&
+    treino.nSessoes === 0 &&
+    treino.sets.length === 0 &&
+    calistenia.length === 0;
 
   return (
     <Page>
@@ -265,6 +287,14 @@ export function Analise() {
                 <Stat value={Math.round(resumoAt.totalKcal)} unit="kcal" label="gastas" />
                 <Stat value={Math.round(resumoAt.totalMin)} unit="min" label="em atividade" />
                 <Stat value={resumoAt.nSessoes} label="sessões" />
+                {totalCalistenia.reps > 0 && (
+                  <Stat
+                    value={Math.round(totalCalistenia.kcal)}
+                    unit="kcal"
+                    label="calistenia"
+                    hint={`${totalCalistenia.reps} reps`}
+                  />
+                )}
               </div>
             </Card>
 
