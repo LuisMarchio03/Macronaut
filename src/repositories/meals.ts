@@ -46,6 +46,36 @@ export async function updateMeal(
   });
 }
 
+/**
+ * Põe as refeições na ordem pedida, numerando de 1 em diante.
+ *
+ * Refeição que não veio na lista vai para o fim em vez de sumir: a tela manda
+ * a ordem que conhece, e uma lista incompleta não pode apagar refeição nem
+ * empilhar duas na mesma posição.
+ */
+export async function reordenarMeals(
+  db: Client,
+  userId: number,
+  ids: number[],
+): Promise<void> {
+  const atuais = await listMeals(db, userId);
+  if (atuais.length === 0) return;
+
+  const rank = new Map<number, number>();
+  ids.forEach((id, i) => rank.set(id, i));
+  let proximo = ids.length;
+  for (const m of atuais) if (!rank.has(m.id)) rank.set(m.id, proximo++);
+
+  const ordenadas = [...atuais].sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
+  await db.batch(
+    ordenadas.map((m, i) => ({
+      sql: "UPDATE meals SET ordem=? WHERE id=? AND user_id=?",
+      args: [i + 1, m.id, userId] as (number | string | null)[],
+    })),
+    "write",
+  );
+}
+
 export async function deleteMeal(db: Client, userId: number, id: number): Promise<void> {
   await db.batch(
     [

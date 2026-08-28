@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDb, useUserId } from "../lib/db-context";
-import { listMeals, createMeal, updateMeal, deleteMeal } from "../repositories/meals";
+import {
+  listMeals, createMeal, updateMeal, deleteMeal, reordenarMeals,
+} from "../repositories/meals";
 import type { Meal } from "../domain/types";
 
 export function useMeals() {
@@ -35,6 +37,16 @@ export function useDeleteMeal() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => deleteMeal(db, userId, id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["meals"] }),
+  });
+}
+
+export function useReordenarMeals() {
+  const db = useDb();
+  const userId = useUserId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: number[]) => reordenarMeals(db, userId, ids),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meals"] }),
   });
 }
