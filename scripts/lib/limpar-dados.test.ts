@@ -157,6 +157,17 @@ async function semearUsuario(id: number, email: string): Promise<void> {
     sql: "INSERT INTO meal_template_items (template_id, food_id, qty_g, ordem) VALUES (?, 1, 100, 0)",
     args: [id * 100],
   });
+
+  // Calistenia: as séries soltas do dia e a meta diária.
+  await db.execute({
+    sql: `INSERT INTO calistenia_sets (user_id, data, exercise_id, reps, segundos, created_at)
+          VALUES (?, '2026-08-14', 1, 20, NULL, ?)`,
+    args: [id, AGORA],
+  });
+  await db.execute({
+    sql: "INSERT INTO calistenia_metas (user_id, exercise_id, alvo_dia) VALUES (?, 1, 100)",
+    args: [id],
+  });
 }
 
 beforeEach(async () => {
@@ -243,6 +254,8 @@ describe("executarLimpeza", () => {
       "workout_sessions",
       "workout_sets",
       "session_plan_sets",
+      "calistenia_sets",
+      "calistenia_metas",
       "routines",
       "routine_days",
       "routine_exercises",

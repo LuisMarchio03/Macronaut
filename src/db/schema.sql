@@ -402,3 +402,41 @@ CREATE TABLE IF NOT EXISTS session_plan_sets (
   FOREIGN KEY (exercise_id) REFERENCES exercises (id)
 );
 CREATE INDEX IF NOT EXISTS idx_plan_sets_session ON session_plan_sets (user_id, session_id, ordem);
+
+-- ═══════════════════════════════════════════════════════════════════
+-- CALISTENIA
+--
+-- O terceiro modo de treino: séries soltas ao longo do dia, sem sessão.
+-- Tabela própria e não `workout_sets` de propósito — aquela exige
+-- `session_id`, e uma sessão-fantasma por dia poluiria o histórico de
+-- sessões, rebaixaria a carga da dupla progressão (`ultimaVezExercicio`
+-- leria peso corporal como 0 kg) e contaria como dia treinado na
+-- consistência da rotina. Ver spec 2026-08-28, decisão D1.
+-- ═══════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS calistenia_sets (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id        INTEGER NOT NULL,
+  data           TEXT NOT NULL,              -- 'YYYY-MM-DD'
+  exercise_id    INTEGER NOT NULL,
+  reps           INTEGER CHECK (reps IS NULL OR reps > 0),
+  segundos       INTEGER CHECK (segundos IS NULL OR segundos > 0),
+  peso_extra_kg  REAL,                       -- colete, anilha; NULL = só o corpo
+  -- A HORA é dado, não metadado: é ela que responde "quando eu faço isso?".
+  created_at     TEXT NOT NULL,
+  -- Uma medida por série, e exatamente uma: flexão se conta em repetições,
+  -- prancha em segundos, e converter uma na outra mentiria no que foi digitado.
+  CHECK ((reps IS NULL) <> (segundos IS NULL)),
+  FOREIGN KEY (exercise_id) REFERENCES exercises (id)
+);
+CREATE INDEX IF NOT EXISTS idx_calistenia_user_data ON calistenia_sets (user_id, data);
+
+-- Meta diária, opcional. Ausência de linha = exercício sem meta.
+CREATE TABLE IF NOT EXISTS calistenia_metas (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL,
+  exercise_id  INTEGER NOT NULL,
+  alvo_dia     INTEGER NOT NULL CHECK (alvo_dia > 0),  -- reps ou segundos, conforme o exercício
+  UNIQUE (user_id, exercise_id),
+  FOREIGN KEY (exercise_id) REFERENCES exercises (id)
+);
