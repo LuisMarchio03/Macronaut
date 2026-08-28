@@ -15,7 +15,9 @@ import { dataPorExtenso, hoje } from "@/lib/date";
  * polegar tem uma tarefa só, e uma aba é um convite a sair dela.
  */
 const ABAS: readonly AbaNav[] = [
-  { to: "/treino", label: "Hoje", fim: true },
+  // A calistenia é o aprofundamento do card que vive em "Hoje", não uma
+  // quinta aba: em 390px as quatro atuais já ocupam a largura inteira.
+  { to: "/treino", label: "Hoje", fim: true, alias: ["/treino/calistenia"] },
   { to: "/treino/rotina", label: "Rotina" },
   { to: "/treino/progresso", label: "Progresso", alias: ["/treino/sessao"] },
   { to: "/treino/exercicios", label: "Exercícios" },

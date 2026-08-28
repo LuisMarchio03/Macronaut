@@ -7,6 +7,8 @@ import { DbProvider } from "../lib/db-context";
 import { createEntry } from "../repositories/entries";
 import { addWater } from "../repositories/water";
 import { createActivitySession } from "../repositories/activities";
+import { registrarSerie } from "../repositories/calistenia";
+import { upsertProfile } from "../repositories/profile";
 import { createSession, addSet } from "../repositories/workouts";
 import { upsertWeighIn } from "../repositories/weighins";
 import { seedMuscleGroups } from "../repositories/muscle-groups";
@@ -105,4 +107,45 @@ it("mostra o painel de peso com o peso atual e o input de registro", async () =>
 
   expect(screen.getByLabelText("registrar peso")).toBeInTheDocument();
   expect((await screen.findAllByText(/80/)).length).toBeGreaterThan(0);
+});
+
+/**
+ * É o ponto onde o módulo de calistenia responde à pergunta que o motivou: as
+ * flexões soltas do dia contam no gasto, do mesmo jeito que a bicicleta.
+ *
+ * Ela não grava em `activity_sessions` de propósito — a caloria é somada na
+ * LEITURA —, então este teste é a única prova de que as duas pontas se ligam.
+ */
+it("a caloria da calistenia entra no gasto e no balanço", async () => {
+  const db = await createTestDb();
+  await upsertProfile(db, 1, {
+    sexo: "M", data_nascimento: "1998-05-10", altura_cm: 178, peso_kg: 80,
+    fator_atividade: 1.55, objetivo: "cut",
+    meta_kcal: 2000, meta_prot_g: 150, meta_carb_g: 200, meta_gord_g: 60,
+  });
+  await db.execute({
+    sql: `INSERT INTO exercises
+            (user_id, nome, source, equipamento, met, fracao_corporal, created_at)
+          VALUES (NULL, 'Flexão de braço', 'catalogo', 'peso_corporal', 8, 0.64, 't')`,
+    args: [],
+  });
+  // 60 reps × 3 s = 180 s. 8 MET × 80 kg × 0,05 h = 32 kcal.
+  await registrarSerie(db, 1, {
+    data: hoje(), exercise_id: 1, reps: 60, segundos: null, peso_extra_kg: null,
+  });
+
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={qc}>
+      <DbProvider client={db}><Analise /></DbProvider>
+    </QueryClientProvider>,
+  );
+
+  await userEvent.setup().click(await screen.findByRole("tab", { name: /atividade/i }));
+
+  expect(await screen.findByText("calistenia")).toBeInTheDocument();
+  expect(screen.getByText("60 reps")).toBeInTheDocument();
+  // Duas vezes 32, e é o ponto: o número próprio da calistenia E o gasto
+  // total do período, que agora a inclui.
+  expect(screen.getAllByText(/^32$/)).toHaveLength(2);
 });

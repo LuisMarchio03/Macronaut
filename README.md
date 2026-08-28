@@ -10,7 +10,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?logo=tailwindcss&logoColor=white)
 ![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?logo=turso&logoColor=black)
 ![PWA](https://img.shields.io/badge/PWA-instalável-5A0FC8?logo=pwa&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-972%20passando-3FB950)
+![Testes](https://img.shields.io/badge/testes-1087%20passando-3FB950)
 
 </div>
 
@@ -82,8 +82,17 @@ continua o bloco de cima — é assim que uma refeição ganha vários alimentos
       carga por exercício ao longo do tempo, consistência contra a rotina e
       séries por grupo muscular na semana
 
+**Calistenia**
+- 🤸 As séries soltas do dia — flexão, agachamento, prancha — em dois toques,
+      do dashboard ou da aba Hoje
+- 🎯 Meta diária opcional por exercício, e ela nasce do que você já faz
+- 📊 Volume equivalente pela fração do peso corporal, recorde de série única e
+      a tendência contra a média das quatro semanas anteriores
+- 🔥 A caloria estimada entra no balanço energético, ao lado do cardio — e
+      **não** conta como dia de rotina na consistência do treino
+
 **Ficha de exercício**
-- 🧍 **170 exercícios** pré-cadastrados, com passo a passo da execução
+- 🧍 **175 exercícios** pré-cadastrados, com passo a passo da execução
 - 🩻 Mapa muscular: um desenho só, acendendo o músculo que faz o trabalho e os
       que também entram — funciona offline, sem imagem de terceiro
 - 🔎 Busca por apelido: "supino" acha "Supino reto com barra", "bench" também
@@ -112,8 +121,9 @@ telas / componentes  →  hooks (TanStack Query)  →  repositories  →  Turso 
 |---|---|
 | `src/domain/` | Regra de negócio pura: parsers do plano, TMB/TDEE, macros, e1RM, kcal por MET. Testada isolada. |
 | `src/domain/prescricao.ts` | Como a carga de hoje é decidida: dupla progressão, carga fixa, 5/3/1, cardio. Puro. |
+| `src/domain/calistenia.ts` | A série que acontece fora da sessão: volume pela fração do peso corporal, caloria por MET, recorde e sequência de dias. Puro. |
 | `src/domain/consistencia.ts` | "Estou seguindo a rotina?" — treinos por semana e dias desde a última vez. Puro. |
-| `src/db/catalogo-exercicios.ts` | Os 170 exercícios com grupo, secundários, apelidos e execução. Conteúdo versionado; as invariantes dele são teste. |
+| `src/db/catalogo-exercicios.ts` | Os 175 exercícios com grupo, secundários, apelidos e execução. Conteúdo versionado; as invariantes dele são teste. |
 | `src/components/treino/mapa-muscular.tsx` | O boneco. Um desenho para o catálogo inteiro, dirigido pelos nomes de `muscle_groups`. |
 | `src/repositories/` | Todo SQL. A única camada que fala com o banco. |
 | `src/hooks/` | Wrappers do TanStack Query. |
@@ -190,7 +200,7 @@ plugin do Vite (`vite-plugin-login-dev.ts`), reaproveitando a mesma função
 
 `npm run db:limpar` apaga o que a pessoa registrou — diário, plano, treinos,
 pesagens, água, conversas com a IA — e **preserva o login**, a TACO, as medidas
-da POF e os 170 exercícios do catálogo. Recriar o banco levaria minutos de seed
+da POF e os 175 exercícios do catálogo. Recriar o banco levaria minutos de seed
 para jogar fora conteúdo que não é de ninguém.
 
 Ele é **dry-run por padrão**: sem `--confirmar` só conta e mostra a tabela.

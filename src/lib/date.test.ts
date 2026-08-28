@@ -1,5 +1,6 @@
 import { it, expect, describe, vi, afterEach } from "vitest";
 import {
+  diasAtras,
   hoje,
   formatarData,
   dataPorExtenso,
@@ -117,5 +118,20 @@ describe("diaSemana", () => {
       const iso = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
       expect(diaSemana(iso)).toBe(new Date(ano, mes - 1, dia).getDay());
     }
+  });
+});
+
+describe("diasAtras", () => {
+  it("anda para trás no mesmo mês", () => {
+    expect(diasAtras("2026-08-28", 6)).toBe("2026-08-22");
+  });
+
+  // Onde a aritmética de data costuma quebrar: subtrair dias do começo do mês.
+  it("atravessa a virada do mês", () => {
+    expect(diasAtras("2026-08-02", 5)).toBe("2026-07-28");
+  });
+
+  it("zero dias é o próprio dia", () => {
+    expect(diasAtras("2026-08-28", 0)).toBe("2026-08-28");
   });
 });

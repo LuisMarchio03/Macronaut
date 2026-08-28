@@ -14,6 +14,7 @@ import { TreinoLayout } from "./pages/treino-layout";
 import { TreinoSessao } from "./pages/treino-sessao";
 import { TreinoRotina } from "./pages/treino-rotina";
 import { TreinoProgresso } from "./pages/treino-progresso";
+import { TreinoCalistenia } from "./pages/treino-calistenia";
 import { TreinoSessaoDetalhe } from "./pages/treino-sessao-detalhe";
 import { Exercicios } from "./pages/exercicios";
 import { Analise } from "./pages/analise";
@@ -89,6 +90,9 @@ export default function App() {
                 próprio (histórico, exclusão), não uma ação — e ficar sob a aba
                 mantém "Progresso" aceso enquanto você olha uma sessão dela. */}
             <Route path="sessao/:id" element={<TreinoSessaoDetalhe />} />
+            {/* Também dentro das abas, e acendendo "Hoje": a calistenia é o
+                aprofundamento do card que vive lá. */}
+            <Route path="calistenia" element={<TreinoCalistenia />} />
           </Route>
           {/* A biblioteca virou aba do treino. O endereço antigo continua
               respondendo: ele está em atalho de PWA instalado e no histórico

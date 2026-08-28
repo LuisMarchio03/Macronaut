@@ -3,6 +3,7 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import {
   adicionarAoPlano,
+  adicionarSerie,
   desfazerSerie,
   getPlano,
   iniciarSessao,
@@ -12,7 +13,11 @@ import {
   ehCardio,
   montarPlanoDoDia,
   registrarSerie,
+  removerExercicioDaSessao,
+  removerSerie,
+  reordenarExerciciosDaSessao,
   sessaoEmAndamento,
+  trocarExercicioDaSessao,
   type ItemPlanejado,
 } from "./sessao";
 import { addSet, createSession, listSetsBySession } from "./workouts";
@@ -452,5 +457,238 @@ describe("cardio dentro da sessão", () => {
     expect(itens).toHaveLength(1);
     expect(itens[0].series).toHaveLength(1);
     expect(itens[0].series[0].duracao_min).toBe(45);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   EDITAR A SESSÃO
+
+   Até aqui a sessão só crescia: dava para adicionar exercício e corrigir
+   série, nunca para remover, trocar ou reordenar. Um exercício escolhido por
+   engano ficava na sessão para sempre.
+   ══════════════════════════════════════════════════════════════════ */
+
+describe("removerExercicioDaSessao", () => {
+  it("tira o bloco inteiro e renumera a ordem do que sobrou", async () => {
+    const supino = await exercicio("Supino");
+    const rosca = await exercicio("Rosca direta");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
+    });
+
+    await removerExercicioDaSessao(db, USER, sid, supino);
+
+    const plano = await getPlano(db, USER, sid);
+    expect(plano.map((p) => p.nome)).toEqual(["Rosca direta", "Rosca direta", "Rosca direta"]);
+    expect(plano.map((p) => p.ordem)).toEqual([1, 2, 3]);
+    expect(plano.map((p) => p.serie_ordem)).toEqual([1, 2, 3]);
+  });
+
+  it("apaga também as séries já registradas do exercício removido", async () => {
+    const supino = await exercicio("Supino");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino)],
+    });
+    const plano = await getPlano(db, USER, sid);
+    await registrarSerie(db, USER, plano[0].id, {
+      reps: 12, peso_kg: 40, tipo: "valida", rir: null, nota: null,
+    });
+
+    await removerExercicioDaSessao(db, USER, sid, supino);
+
+    expect(await listSetsBySession(db, USER, sid)).toHaveLength(0);
+  });
+
+  // Cardio grava em activity_sessions, e uma atividade órfã continuaria
+  // contando calorias de um exercício que não está mais na sessão.
+  it("apaga a atividade do cardio removido", async () => {
+    const bike = await exercicio("Bicicleta");
+    await db.execute({
+      sql: "UPDATE exercises SET met = 7.5, equipamento = 'cardio' WHERE id = ?",
+      args: [bike],
+    });
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17",
+      nome: "Cardio",
+      itens: [{
+        routine_exercise_id: null, exercise_id: bike, nome: "Bicicleta", descanso_s: null,
+        series: planejar({ tipo: "cardio", duracao_min: 30, met: 7.5 }, []),
+      }],
+    });
+    const [linha] = await getPlano(db, USER, sid);
+    await registrarCardio(db, USER, linha.id, { duracao_min: 30, kcal: 308 });
+
+    await removerExercicioDaSessao(db, USER, sid, bike);
+
+    expect(await listActivitySessionsByRange(db, USER, "2026-08-17", "2026-08-17")).toHaveLength(0);
+  });
+
+  it("um usuário não remove exercício da sessão do outro", async () => {
+    const supino = await exercicio("Supino");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino)],
+    });
+    await removerExercicioDaSessao(db, OUTRO, sid, supino);
+    expect(await getPlano(db, USER, sid)).toHaveLength(3);
+  });
+});
+
+describe("trocarExercicioDaSessao", () => {
+  it("o bloco passa a ser do exercício novo, na mesma posição", async () => {
+    const supino = await exercicio("Supino");
+    const rosca = await exercicio("Rosca direta");
+    const inclinado = await exercicio("Supino inclinado");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
+    });
+
+    await trocarExercicioDaSessao(db, USER, sid, supino, inclinado);
+
+    const plano = await getPlano(db, USER, sid);
+    expect(plano.map((p) => p.nome)).toEqual([
+      "Supino inclinado", "Supino inclinado", "Supino inclinado",
+      "Rosca direta", "Rosca direta", "Rosca direta",
+    ]);
+    expect(plano.map((p) => p.ordem)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  // É o caso que motiva a troca: registrei três séries no exercício errado.
+  // Se o realizado não vier junto, o histórico fica no exercício que eu não fiz.
+  it("as séries já registradas passam a ser do exercício novo", async () => {
+    const supino = await exercicio("Supino");
+    const inclinado = await exercicio("Supino inclinado");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino)],
+    });
+    const plano = await getPlano(db, USER, sid);
+    await registrarSerie(db, USER, plano[0].id, {
+      reps: 12, peso_kg: 40, tipo: "valida", rir: null, nota: null,
+    });
+
+    await trocarExercicioDaSessao(db, USER, sid, supino, inclinado);
+
+    const sets = await listSetsBySession(db, USER, sid);
+    expect(sets).toHaveLength(1);
+    expect(sets[0].exercise_id).toBe(inclinado);
+  });
+
+  // O vínculo com a rotina descreve a prescrição do exercício ANTIGO. Mantê-lo
+  // faria a progressão do exercício da rotina comer o que foi feito noutro.
+  it("o exercício trocado deixa de apontar para a rotina", async () => {
+    const supino = await exercicio("Supino");
+    const inclinado = await exercicio("Supino inclinado");
+    const r = await criarRotina(db, USER, "R");
+    const d = await salvarDia(db, USER, r.id, 1, "Peito");
+    await adicionarExercicio(db, USER, d.id, {
+      exercise_id: supino, prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12,
+      peso_kg: 40, incremento_kg: 2.5, tm_kg: null, parte: null, descanso_s: 90,
+      duracao_min: null,
+    });
+    const itens = await montarPlanoDoDia(db, USER, d.id, "2026-08-17");
+    const sid = await iniciarSessao(db, USER, { data: "2026-08-17", nome: "Peito", itens });
+    expect((await getPlano(db, USER, sid))[0].routine_exercise_id).not.toBeNull();
+
+    await trocarExercicioDaSessao(db, USER, sid, supino, inclinado);
+
+    expect((await getPlano(db, USER, sid))[0].routine_exercise_id).toBeNull();
+  });
+});
+
+describe("reordenarExerciciosDaSessao", () => {
+  it("põe os blocos na ordem pedida, cada um com suas séries", async () => {
+    const supino = await exercicio("Supino");
+    const rosca = await exercicio("Rosca direta");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
+    });
+
+    await reordenarExerciciosDaSessao(db, USER, sid, [rosca, supino]);
+
+    const plano = await getPlano(db, USER, sid);
+    expect(plano.map((p) => p.nome)).toEqual([
+      "Rosca direta", "Rosca direta", "Rosca direta",
+      "Supino", "Supino", "Supino",
+    ]);
+    expect(plano.map((p) => p.ordem)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(plano.map((p) => p.serie_ordem)).toEqual([1, 2, 3, 1, 2, 3]);
+  });
+
+  it("exercício de fora da lista vai para o fim, sem sumir", async () => {
+    const supino = await exercicio("Supino");
+    const rosca = await exercicio("Rosca direta");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
+    });
+
+    await reordenarExerciciosDaSessao(db, USER, sid, [rosca]);
+
+    const plano = await getPlano(db, USER, sid);
+    expect(plano).toHaveLength(6);
+    expect(plano[0].nome).toBe("Rosca direta");
+    expect(plano[3].nome).toBe("Supino");
+  });
+});
+
+describe("adicionarSerie", () => {
+  it("a série nova entra no fim do bloco, copiando peso e reps da última", async () => {
+    const supino = await exercicio("Supino");
+    const rosca = await exercicio("Rosca direta");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
+    });
+
+    await adicionarSerie(db, USER, sid, supino);
+
+    const plano = await getPlano(db, USER, sid);
+    expect(plano).toHaveLength(7);
+    const doSupino = plano.filter((p) => p.exercise_id === supino);
+    expect(doSupino).toHaveLength(4);
+    expect(doSupino[3].serie_ordem).toBe(4);
+    expect(doSupino[3].peso_kg).toBe(40);
+    expect(doSupino[3].reps_alvo).toBe(12);
+    // A ordem global continua contígua: o bloco da rosca foi empurrado.
+    expect(plano.map((p) => p.ordem)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(plano[4].nome).toBe("Rosca direta");
+  });
+
+  it("a série nova nasce por fazer", async () => {
+    const supino = await exercicio("Supino");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino)],
+    });
+    await adicionarSerie(db, USER, sid, supino);
+    expect((await getPlano(db, USER, sid))[3].set_id).toBeNull();
+  });
+});
+
+describe("removerSerie", () => {
+  it("tira a linha do plano e renumera as séries do bloco", async () => {
+    const supino = await exercicio("Supino");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino)],
+    });
+    const plano = await getPlano(db, USER, sid);
+
+    await removerSerie(db, USER, plano[1].id);
+
+    const depois = await getPlano(db, USER, sid);
+    expect(depois).toHaveLength(2);
+    expect(depois.map((p) => p.serie_ordem)).toEqual([1, 2]);
+    expect(depois.map((p) => p.ordem)).toEqual([1, 2]);
+  });
+
+  it("apaga junto a série que já tinha sido registrada", async () => {
+    const supino = await exercicio("Supino");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Peito", itens: [item(supino)],
+    });
+    const plano = await getPlano(db, USER, sid);
+    await registrarSerie(db, USER, plano[1].id, {
+      reps: 10, peso_kg: 40, tipo: "valida", rir: null, nota: null,
+    });
+
+    await removerSerie(db, USER, plano[1].id);
+
+    expect(await listSetsBySession(db, USER, sid)).toHaveLength(0);
   });
 });

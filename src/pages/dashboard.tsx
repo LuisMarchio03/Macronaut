@@ -10,6 +10,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EnergySummary } from "@/components/energy-summary";
 import { DateNav } from "@/components/date-nav";
 import { BlocoCard } from "@/components/plano/bloco-card";
+import { CardCalisteniaHoje } from "@/components/calistenia/card-hoje";
 import { SheetTrocas } from "@/components/plano/sheet-trocas";
 import { useProfile } from "@/hooks/use-profile";
 import { useMeals } from "@/hooks/use-meals";
@@ -280,6 +281,11 @@ export function Dashboard() {
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           </CardRow>
         </Card>
+
+        {/* Logo abaixo do treino: as duas coisas respondem "o que eu movi
+            hoje?", e a calistenia é a que acontece em horário aleatório —
+            precisa estar onde o polegar já está. */}
+        <CardCalisteniaHoje data={data} />
       </div>
 
       {trocando && (

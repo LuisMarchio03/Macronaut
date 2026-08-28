@@ -8,7 +8,9 @@ import type { MedidasDeAlimento } from "./build-medidas.ts";
 import { backfillNomeNorm } from "../src/repositories/foods.ts";
 import { seedActivityTypes } from "../src/repositories/activities.ts";
 import { seedMuscleGroups } from "../src/repositories/muscle-groups.ts";
-import { seedExercicios, backfillGrupos, backfillUserIds } from "../src/repositories/exercises.ts";
+import {
+  seedExercicios, backfillGrupos, backfillUserIds, backfillCalistenia,
+} from "../src/repositories/exercises.ts";
 import { CATALOGO } from "../src/db/catalogo-exercicios.ts";
 import { seedExerciciosDeCardio } from "../src/db/seed-cardio.ts";
 
@@ -28,6 +30,7 @@ await seedExercicios(db);
 const nCardio = await seedExerciciosDeCardio(db);
 const nBackfill = await backfillGrupos(db);
 const nBackfillUserIds = await backfillUserIds(db);
+const nCalistenia = await backfillCalistenia(db);
 
 const tacoPath = process.env.TACO_JSON ?? "data/taco.sample.json";
 let itens: TacoItem[] = [];
@@ -60,6 +63,7 @@ console.log(
   `Banco pronto: schema aplicado, tipos de atividade e ${CATALOGO.length} exercícios seedados, ` +
     `${nCardio} exercícios de cardio criados, ` +
     `${nBackfill} exercícios com grupo migrado, ${nBackfillUserIds} exercícios com dono migrado, ` +
+    `${nCalistenia} exercícios de peso corporal com MET e fração migrados, ` +
     `${n} alimentos da TACO, ${nNutrientes} alimentos com nutrientes migrados` +
     `, ${nMedidas} medidas caseiras da POF, ${nNomesNorm} nomes normalizados para busca.`,
 );

@@ -84,3 +84,15 @@ export function janelaHoraria(
   if (a && b) return `${a} – ${b}`;
   return a || b || "";
 }
+
+/**
+ * A data de `n` dias atrás, em "YYYY-MM-DD".
+ *
+ * Constrói no fuso local e deixa o `Date` normalizar a virada de mês e de ano:
+ * subtrair do número do dia à mão é onde a aritmética de data costuma quebrar.
+ */
+export function diasAtras(data: string, n: number): string {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  const d = new Date(ano, mes - 1, dia - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}

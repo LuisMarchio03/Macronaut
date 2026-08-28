@@ -22,6 +22,7 @@ function montar(rota: string) {
           <Route path="progresso" element={<p>painel progresso</p>} />
           <Route path="exercicios" element={<p>painel exercícios</p>} />
           <Route path="sessao/:id" element={<p>painel detalhe</p>} />
+          <Route path="calistenia" element={<p>painel calistenia</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -79,5 +80,19 @@ describe("Treino — abas", () => {
     montar("/treino/exercicios");
     expect(screen.getByText("painel exercícios")).toBeInTheDocument();
     expect(screen.queryByText("painel hoje")).not.toBeInTheDocument();
+  });
+
+  /**
+   * A calistenia nasceu do card que vive em "Hoje" — é o aprofundamento dele,
+   * não uma quinta aba. Sem o alias, abrir a tela apagava as quatro e a tela
+   * dizia "você não está em lugar nenhum", o mesmo defeito do detalhe de sessão.
+   */
+  it("a calistenia mantém Hoje aceso", () => {
+    montar("/treino/calistenia");
+    expect(screen.getByText("painel calistenia")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^hoje$/i })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });

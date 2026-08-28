@@ -84,9 +84,32 @@ export async function listSessions(
   return rs.rows.map(mapSession);
 }
 
+/**
+ * Apaga a sessão e tudo que ela criou.
+ *
+ * O plano (`session_plan_sets`) e o cardio (`activity_sessions`) vivem noutras
+ * tabelas e ficavam para trás: linhas de plano órfãs, e uma atividade que
+ * seguia contando caloria no balanço energético de um treino que não existe
+ * mais.
+ *
+ * A ordem importa: a atividade é encontrada PELO plano, então ela sai antes de
+ * as linhas que apontam para ela sumirem.
+ */
 export async function deleteSession(db: Client, userId: number, id: number): Promise<void> {
   await db.batch(
     [
+      {
+        sql: `DELETE FROM activity_sessions
+              WHERE user_id = ? AND id IN (
+                SELECT activity_id FROM session_plan_sets
+                WHERE session_id = ? AND user_id = ? AND activity_id IS NOT NULL
+              )`,
+        args: [userId, id, userId],
+      },
+      {
+        sql: "DELETE FROM session_plan_sets WHERE session_id = ? AND user_id = ?",
+        args: [id, userId],
+      },
       { sql: "DELETE FROM workout_sets WHERE session_id = ? AND user_id = ?", args: [id, userId] },
       { sql: "DELETE FROM workout_sessions WHERE id = ? AND user_id = ?", args: [id, userId] },
     ],
@@ -220,12 +243,15 @@ export async function updateSession(
   db: Client,
   userId: number,
   id: number,
-  campos: { nome?: string | null; nota?: string | null },
+  // `data` entra aqui porque treino registrado atrasado cai no dia errado, e a
+  // data era a única coisa que nenhuma tela sabia corrigir.
+  campos: { nome?: string | null; nota?: string | null; data?: string },
 ): Promise<void> {
   const sets: string[] = [];
   const args: (string | number | null)[] = [];
   if (campos.nome !== undefined) { sets.push("nome=?"); args.push(campos.nome); }
   if (campos.nota !== undefined) { sets.push("nota=?"); args.push(campos.nota); }
+  if (campos.data !== undefined) { sets.push("data=?"); args.push(campos.data); }
   if (sets.length === 0) return;
   args.push(id, userId);
   await db.execute({

@@ -102,8 +102,13 @@ export interface Exercise {
   source: ExerciseSource;
   tipo: TipoExercicio | null;
   equipamento: Equipamento | null;
-  /** MET, só nos exercícios de cardio — o insumo da estimativa de calorias. */
+  /** MET — o insumo da estimativa de calorias. Preenchido no cardio e nos
+   *  exercícios de peso corporal, que a calistenia usa. */
   met: number | null;
+  /** Que fração do peso do corpo o movimento levanta. Só em peso corporal. */
+  fracao_corporal: number | null;
+  /** Como o exercício se conta. NULL = repetições; 'segundos' nos isométricos. */
+  medida: "reps" | "segundos" | null;
 
   /* ── ficha do exercício ──
      O que a tela de detalhe mostra, e o que faz a busca achar o exercício

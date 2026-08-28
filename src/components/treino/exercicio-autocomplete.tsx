@@ -1,14 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "../ui/input";
-import type { Exercise } from "../../domain/types";
+import type { ExerciseSource } from "../../domain/types";
 import { casaBusca } from "../../domain/treino";
 
-export function ExercicioAutocomplete({
+/**
+ * O mínimo para um exercício ser buscável aqui.
+ *
+ * Estrutural, e não `Exercise` inteiro: a calistenia lista os exercícios com
+ * uma projeção própria (só o que a busca usa), e exigir o registro completo
+ * obrigaria a inventar `created_at` e `grupo_muscular` só para chamar a busca.
+ * `Exercise` satisfaz este formato, então quem já passava um continua passando.
+ */
+export interface ExercicioBuscavel {
+  id: number;
+  nome: string;
+  aliases: string | null;
+  grupo_nome: string | null;
+  source: ExerciseSource;
+}
+
+export function ExercicioAutocomplete<T extends ExercicioBuscavel>({
   exercicios, selecionado, onSelecionar, id,
 }: {
-  exercicios: Exercise[];
-  selecionado: Exercise | null;
-  onSelecionar: (e: Exercise) => void;
+  exercicios: T[];
+  selecionado: T | null;
+  onSelecionar: (e: T) => void;
   id?: string;
 }) {
   const [texto, setTexto] = useState(selecionado?.nome ?? "");

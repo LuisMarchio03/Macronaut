@@ -63,6 +63,10 @@ const POR_USUARIO: Alvo[] = [
   { tabela: "weigh_ins", onde: "user_id IN (U)" },
   { tabela: "activity_sessions", onde: "user_id IN (U)" },
 
+  { tabela: "calistenia_sets", onde: "user_id IN (U)" },
+  // Meta é configuração do usuário, não catálogo: recomeçar do zero apaga.
+  { tabela: "calistenia_metas", onde: "user_id IN (U)" },
+
   { tabela: "session_plan_sets", onde: "user_id IN (U)" },
   { tabela: "workout_sets", onde: "user_id IN (U)" },
   { tabela: "workout_sessions", onde: "user_id IN (U)" },

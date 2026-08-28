@@ -4,6 +4,7 @@ import { Card, CardRow } from "@/components/ui/card";
 import { SectionLabel } from "@/components/ui/page";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CardCalisteniaHoje } from "@/components/calistenia/card-hoje";
 import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
 import { useDiasDaRotina, useRotinaAtiva } from "@/hooks/use-rotina";
 import { useIniciarSessao, usePlanoDoDia, useSessaoEmAndamento } from "@/hooks/use-sessao";
@@ -154,6 +155,8 @@ export function Treino() {
           </button>
         </Card>
       )}
+
+      <CardCalisteniaHoje data={data} />
 
       {recentes.length > 0 && (
         <div className="space-y-2">

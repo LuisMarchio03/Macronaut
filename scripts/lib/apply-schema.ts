@@ -58,6 +58,13 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   // workout_sets: lá vive levantamento de peso, e contaminar aquela tabela
   // quebraria volume, 1RM e progressão de uma vez.
   { table: "session_plan_sets", column: "activity_id", ddl: "ALTER TABLE session_plan_sets ADD COLUMN activity_id INTEGER" },
+  // Que fração do peso do corpo o movimento levanta: flexão ≈ 0,64, barra
+  // fixa ≈ 1,00. É o que converte "40 flexões" em volume comparável ao da
+  // musculação. NULL onde a pergunta não faz sentido (barra, máquina, cardio).
+  { table: "exercises", column: "fracao_corporal", ddl: "ALTER TABLE exercises ADD COLUMN fracao_corporal REAL" },
+  // 'reps' | 'segundos'. Prancha se mede em segundos, e a folha de registro
+  // precisa saber disso ANTES de o usuário digitar. NULL = reps.
+  { table: "exercises", column: "medida", ddl: "ALTER TABLE exercises ADD COLUMN medida TEXT" },
 ];
 
 /**
