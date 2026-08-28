@@ -1,5 +1,6 @@
 import type { Client, Row } from "@libsql/client";
 import type { Medida, SerieAvulsa } from "../domain/calistenia";
+import type { ExerciseSource } from "../domain/types";
 
 /**
  * O SQL da calistenia.
@@ -22,6 +23,7 @@ export interface ExercicioDeCalistenia {
   nome: string;
   grupo_nome: string | null;
   aliases: string | null;
+  source: ExerciseSource;
   medida: Medida;
   fracao_corporal: number | null;
   met: number | null;
@@ -125,7 +127,7 @@ export async function exerciciosDeCalistenia(
   userId: number,
 ): Promise<ExercicioDeCalistenia[]> {
   const rs = await db.execute({
-    sql: `SELECT e.id, e.nome, e.aliases, g.nome AS grupo_nome,
+    sql: `SELECT e.id, e.nome, e.aliases, e.source, g.nome AS grupo_nome,
                  e.medida, e.fracao_corporal, e.met
           FROM exercises e
           LEFT JOIN muscle_groups g ON g.id = e.grupo_id
@@ -139,6 +141,7 @@ export async function exerciciosDeCalistenia(
     nome: r.nome as string,
     aliases: (r.aliases as string | null) ?? null,
     grupo_nome: (r.grupo_nome as string | null) ?? null,
+    source: r.source as ExerciseSource,
     medida: medidaDaColuna(r.medida),
     fracao_corporal: (r.fracao_corporal as number | null) ?? null,
     met: (r.met as number | null) ?? null,
