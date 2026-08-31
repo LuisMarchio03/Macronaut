@@ -69,6 +69,12 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   // "Comi" e apagar exatamente o que aquele bloco lançou naquele dia, sem
   // encostar no que você digitou à mão. NULL = registro do diário livre.
   { table: "food_entries", column: "plan_block_id", ddl: "ALTER TABLE food_entries ADD COLUMN plan_block_id INTEGER" },
+  // De onde a atividade veio, e qual é o id dela LÁ. É o par que impede o
+  // treino que você registrou na mão e o que o relógio mandou de contarem
+  // duas vezes no balanço energético. NULL = registrada dentro do app.
+  { table: "activity_sessions", column: "origem",    ddl: "ALTER TABLE activity_sessions ADD COLUMN origem TEXT" },
+  { table: "activity_sessions", column: "origem_id", ddl: "ALTER TABLE activity_sessions ADD COLUMN origem_id TEXT" },
+  { table: "weigh_ins",         column: "origem",    ddl: "ALTER TABLE weigh_ins ADD COLUMN origem TEXT" },
 ];
 
 /**
@@ -77,16 +83,20 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
  * TABLE IF NOT EXISTS` é no-op) e um `CREATE INDEX` sobre uma coluna que ainda
  * não existe explode `executeMultiple` no meio, antes de `applyAdditiveColumns`
  * rodar os `ALTER TABLE ADD COLUMN`. Por isso são aplicados aqui, depois das
- * colunas. `CREATE INDEX IF NOT EXISTS` já é idempotente por si só — não precisa
- * do mesmo gate de "existe?" que as colunas (ALTER ... ADD COLUMN não é IF NOT
- * EXISTS e erraria numa 2ª chamada).
+ * colunas.
+ *
+ * O `IF NOT EXISTS` cobre rodar de novo, e só isso: num banco que ainda não
+ * tem a TABELA, ele erra igual. Por isso cada índice diz de qual tabela é, e
+ * é pulado quando ela falta — a mesma guarda que as colunas já tinham.
  */
-const ADDITIVE_INDEXES: { ddl: string }[] = [
-  { ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises (user_id, nome)" },
-  { ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_source_nome ON exercises (source, nome)" },
-  { ddl: "CREATE INDEX IF NOT EXISTS idx_food_measures_status ON food_measures (food_id, status)" },
-  { ddl: "CREATE INDEX IF NOT EXISTS idx_foods_nome_norm ON foods (nome_norm)" },
-  { ddl: "CREATE INDEX IF NOT EXISTS idx_entries_plan_block ON food_entries (user_id, data, plan_block_id)" },
+const ADDITIVE_INDEXES: { table: string; ddl: string }[] = [
+  { table: "exercises", ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_user ON exercises (user_id, nome)" },
+  { table: "exercises", ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_source_nome ON exercises (source, nome)" },
+  { table: "food_measures", ddl: "CREATE INDEX IF NOT EXISTS idx_food_measures_status ON food_measures (food_id, status)" },
+  { table: "foods", ddl: "CREATE INDEX IF NOT EXISTS idx_foods_nome_norm ON foods (nome_norm)" },
+  { table: "food_entries", ddl: "CREATE INDEX IF NOT EXISTS idx_entries_plan_block ON food_entries (user_id, data, plan_block_id)" },
+  // O índice que a deduplicação da sincronização consulta a cada item.
+  { table: "activity_sessions", ddl: "CREATE UNIQUE INDEX IF NOT EXISTS idx_asessions_origem ON activity_sessions (user_id, origem, origem_id) WHERE origem IS NOT NULL" },
 ];
 
 /**
@@ -116,6 +126,7 @@ export async function applyAdditiveColumns(db: Client): Promise<void> {
     if (!(await columnExists(db, m.table, m.column))) await db.execute(m.ddl);
   }
   for (const idx of ADDITIVE_INDEXES) {
+    if (!(await tableExists(db, idx.table))) continue;
     await db.execute(idx.ddl);
   }
 }
