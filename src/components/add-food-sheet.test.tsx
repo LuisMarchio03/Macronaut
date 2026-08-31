@@ -136,6 +136,10 @@ it("registrar 2 fatias grava qty_g=50 e a medida", async () => {
   await user.type(screen.getByPlaceholderText(/buscar/i), "pão");
   await user.click(await screen.findByRole("button", { name: /Pão de forma ·/ }));
   const qtd = screen.getByLabelText(/quantidade/i);
+  // Espera a sugestão de porção chegar ANTES de limpar: as medidas vêm do
+  // servidor agora, e limpar um campo que ainda vai ser preenchido faz o
+  // dígito digitado virar sufixo da sugestão.
+  await waitFor(() => expect(qtd).toHaveValue("1"));
   await user.clear(qtd);
   await user.type(qtd, "2");
   await user.click(screen.getByRole("button", { name: /^adicionar$/i }));
@@ -155,6 +159,10 @@ it("toggle para grama registra sem medida", async () => {
   await user.click(await screen.findByRole("button", { name: /Pão de forma ·/ }));
   await user.selectOptions(screen.getByRole("combobox", { name: /medida/i }), "__base__");
   const qtd = screen.getByLabelText(/quantidade/i);
+  // Espera a sugestão de porção chegar ANTES de limpar: as medidas vêm do
+  // servidor agora, e limpar um campo que ainda vai ser preenchido faz o
+  // dígito digitado virar sufixo da sugestão.
+  await waitFor(() => expect(qtd).toHaveValue("1"));
   await user.clear(qtd);
   await user.type(qtd, "30");
   await user.click(screen.getByRole("button", { name: /^adicionar$/i }));
@@ -183,6 +191,10 @@ it("aceita meia fatia (0,5)", async () => {
   await user.type(screen.getByPlaceholderText(/buscar/i), "pão");
   await user.click(await screen.findByRole("button", { name: /Pão de forma ·/ }));
   const qtd = screen.getByLabelText(/quantidade/i);
+  // Espera a sugestão de porção chegar ANTES de limpar: as medidas vêm do
+  // servidor agora, e limpar um campo que ainda vai ser preenchido faz o
+  // dígito digitado virar sufixo da sugestão.
+  await waitFor(() => expect(qtd).toHaveValue("1"));
   await user.clear(qtd);
   await user.type(qtd, "0.5");
   await user.click(screen.getByRole("button", { name: /^adicionar$/i }));

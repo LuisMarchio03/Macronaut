@@ -6,7 +6,7 @@ import { saveSession } from "../lib/session";
 import { RequireAuth } from "./require-auth";
 
 // Evita instanciar o client libSQL/web de verdade no guard.
-vi.mock("../lib/db", () => ({ createUserDb: () => ({}) }));
+vi.mock("../lib/api", () => ({ criarApiRemota: () => ({}) }));
 
 beforeEach(() => localStorage.clear());
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
@@ -40,6 +40,8 @@ export function AddFoodSheet({
   );
   /** Alimento cuja porção já foi pré-preenchida. Em edição já nasce preenchido. */
   const [iniciadoPara, setIniciadoPara] = useState<number | null>(entryEdit?.food.id ?? null);
+  /** O usuário já mexeu na quantidade? Então a sugestão não manda mais. */
+  const tocouNaQtd = useRef(false);
 
   const { data: resultados = [] } = useFoods(termo);
   const { frequentes, recentes } = useFrequentes(mealId);
@@ -67,10 +69,15 @@ export function AddFoodSheet({
   useEffect(() => {
     if (!selecionado || precisaDesambiguar || !medidasProntas) return;
     if (iniciadoPara === selecionado.id) return;
+    // As medidas vêm do servidor e podem chegar DEPOIS de a pessoa ter apagado
+    // o campo e digitado o número dela. Sem esta guarda, "2" vira "12" — a
+    // sugestão reaparecendo na frente do que foi digitado.
+    if (tocouNaQtd.current) return;
     const s = sugerirPorcao(selecionado, medidas);
     setQtd(String(s.count));
     setMeasureId(s.measure ? String(s.measure.id) : BASE);
     setIniciadoPara(selecionado.id);
+    tocouNaQtd.current = false;
   }, [selecionado, medidas, medidasProntas, precisaDesambiguar, iniciadoPara]);
 
   const medida = medidas.find((m) => String(m.id) === measureId) ?? null;
@@ -159,7 +166,7 @@ export function AddFoodSheet({
               <div>
                 <Label htmlFor="qtd">Quantidade</Label>
                 <Input id="qtd" inputMode="decimal" value={qtd}
-                  onChange={(e) => setQtd(e.target.value)} autoFocus />
+                  onChange={(e) => { tocouNaQtd.current = true; setQtd(e.target.value); }} autoFocus />
               </div>
               <div>
                 <Label htmlFor="medida">Medida</Label>

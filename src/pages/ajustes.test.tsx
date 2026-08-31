@@ -7,6 +7,7 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { setAiFlags, getGeminiKey } from "../repositories/ai";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { AuthProvider } from "../lib/auth-context";
 import { Ajustes } from "./ajustes";
 
@@ -28,7 +29,7 @@ function tela() {
   return render(
     <QueryClientProvider client={qc}>
       <AuthProvider>
-        <DbProvider client={db} userId={1}>
+        <DbProvider api={criarApiLocal(db, 1)} userId={1}>
           <MemoryRouter><Ajustes /></MemoryRouter>
         </DbProvider>
       </AuthProvider>

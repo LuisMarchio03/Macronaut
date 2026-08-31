@@ -7,8 +7,9 @@ import { REGISTRO } from "./_lib/registro.js";
 /**
  * O banco por operação nomeada, em vez de por SQL.
  *
- * Diferença que importa em relação a `/api/db`: o `user_id` vem do token, e o
- * cliente não escolhe a consulta — escolhe um nome que o servidor conhece.
+ * O cliente não escolhe a consulta: escolhe um NOME que o servidor conhece, e
+ * o `user_id` vem do token. Substituiu `/api/db`, que aceitava SQL do cliente
+ * e por isso alcançava a linha de qualquer usuário.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "método não permitido" });

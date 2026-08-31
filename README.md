@@ -116,7 +116,7 @@ continua o bloco de cima — é assim que uma refeição ganha vários alimentos
 
 **Plataforma**
 - 📲 PWA instalável, com service worker que se atualiza sozinho
-- 🔐 O banco vive atrás de `/api/db`: a credencial do Turso não sai do servidor
+- 🔐 O cliente não manda SQL: chama operações pelo nome, e o dono vem do token
 - 📱 Aparelhos pareados por um código de cinco minutos, com token próprio que
       só serve para enviar treino, peso e água — e que morre quando você desconecta
 - 🎨 Tema claro e escuro, seguindo o do sistema quando você não escolheu
@@ -141,7 +141,8 @@ telas / componentes  →  hooks (TanStack Query)  →  repositories  →  Turso 
 | `src/repositories/` | Todo SQL. A única camada que fala com o banco. |
 | `src/hooks/` | Wrappers do TanStack Query. |
 | `src/lib/planilha.ts` | A única camada que conhece o formato do arquivo importado. |
-| `src/lib/db-remoto.ts` | O banco visto pelo app: mesma superfície do `Client` do libsql, sobre `fetch` para `/api/db`. Junta as leituras do mesmo tique num lote — 46 requisições viraram 13. |
+| `src/lib/api.ts` | O banco visto pelo app: operações por nome, tipadas a partir dos próprios repositórios. Junta as chamadas do mesmo tique num lote. |
+| `api/_lib/registro.ts` | O que o cliente pode pedir, e de quem é cada dado. Nada fora daqui é alcançável. |
 | `api/_lib/tokens.ts` | Bilhetes assinados de sessão e de dispositivo, e o código de pareamento. |
 | `api/_lib/ingest-core.ts` | O que o celular pode mandar, e como isso vira linha no banco sem duplicar. |
 | `src/components/ui/` | Design system: `Card`, `Progress`, `Stat`, `Segmented`, `Page`… |
@@ -243,29 +244,33 @@ toca e confere o que sobrou.
 
 ## Segurança — leia antes de publicar
 
-**O token do banco não chega mais ao cliente.** O login devolve um bilhete
-assinado (`AUTH_SECRET`, HMAC-SHA256) que vale 30 dias, e o app fala com
-`/api/db`; quem conhece o Turso é o servidor.
+**O cliente não manda SQL, e não conhece o banco.** O login devolve um bilhete
+assinado (`AUTH_SECRET`, HMAC-SHA256) que vale 30 dias. O app chama operações
+pelo NOME em `/api/rpc`; quem escolhe a consulta é o servidor, e o `user_id`
+**vem do token** — forjar dono não é possível por construção.
 
-O que **ainda** falta, e é honesto dizer: o SQL continua vindo do cliente. Uma
-sessão válida roda qualquer consulta no banco daquele usuário — o mesmo poder
-que a tela já tem, mas sem o limite de ser uma tela. A correção completa é
-mover os repositórios para o servidor, um endpoint por operação.
+Houve uma rota `/api/db` que aceitava SQL do cliente. Ela existiu enquanto os
+19 módulos migravam, e foi removida no fim: enquanto estava lá, uma sessão
+válida alcançava a linha de qualquer usuário.
 
-Por isso o celular **não** usa `/api/db`: o token dele vive dentro de um APK
-distribuído e não expira por tempo. Ele fala com `/api/ingest`, que é tipado —
-ele diz "corri 30 minutos", e o servidor decide o que isso vira no banco.
+O celular tem escopo próprio e ainda menor: o token dele vive dentro de um APK
+distribuído e não expira por tempo, então ele fala só com `/api/ingest` — diz
+"corri 30 minutos", e o servidor decide o que isso vira.
 
 - ✅ Use um token do Turso **restrito a este banco**.
 - ✅ Defina `AUTH_SECRET` (32 bytes aleatórios) na Vercel. Sem ela o servidor
   recusa subir — um segredo com valor padrão é um segredo que ninguém troca.
-- 🚧 Mantenha o deploy **privado** enquanto o SQL vier do cliente.
+- ⚠️ **`foods` e `food_measures` não têm coluna de dono.** O catálogo de
+  alimentos é compartilhado por desenho neste app, inclusive os que você
+  cadastrou: qualquer sessão lê e edita. Dar posse a eles é mudança de produto,
+  e está anotada no plano de migração.
 
 ## Roadmap
 
 - [x] Proxy serverless para o token do Turso
-- [ ] Repositórios no servidor (um endpoint por operação), para o SQL deixar de
-      vir do cliente
+- [x] Repositórios no servidor: o cliente chama operações pelo nome, e o
+      `user_id` vem do token
+- [ ] Dono para o catálogo de alimentos (`foods`, `food_measures`)
 - [ ] App Android: TWA + Health Connect, para o Samsung Health entrar sozinho
       (o backend já está pronto — ver `docs/superpowers/specs/2026-08-31-samsung-health-design.md`)
 - [ ] Edição de bloco do plano dentro do app (hoje a planilha é a fonte)

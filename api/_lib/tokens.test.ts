@@ -53,8 +53,8 @@ describe("emitir e verificar", () => {
   });
 
   it("um token de dispositivo NÃO abre uma rota de sessão", () => {
-    // É o que impede o celular de virar um console de SQL: `/api/db` só aceita
-    // escopo de sessão, e o APK só tem o de dispositivo.
+    // É o que mantém o celular na rota estreita: `/api/rpc` e `/api/codigo` só
+    // aceitam escopo de sessão, e o APK só tem o de dispositivo.
     const t = emitir({ u: 3, exp: SEM_EXPIRACAO, esc: "dispositivo", d: 1 }, SEGREDO);
     expect(verificar(t, SEGREDO, "sessao", AGORA)).toBeNull();
     expect(verificar(t, SEGREDO, "dispositivo", AGORA)).toMatchObject({ u: 3, d: 1 });

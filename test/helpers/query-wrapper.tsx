@@ -15,7 +15,7 @@ export function criarWrapper(db: Client, userId = 1) {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return (
       <QueryClientProvider client={qc}>
-        <DbProvider client={db} api={criarApiLocal(db, userId)} userId={userId}>
+        <DbProvider api={criarApiLocal(db, userId)} userId={userId}>
           {children}
         </DbProvider>
       </QueryClientProvider>

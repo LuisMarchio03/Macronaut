@@ -4,6 +4,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { SheetAlimento } from "./sheet-alimento";
 import { createFood } from "../repositories/foods";
 import { createMeasure } from "../repositories/food-measures";
@@ -22,7 +23,7 @@ function montar(food: Food) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}>
+      <DbProvider api={criarApiLocal(db, 1)}>
         <SheetAlimento aberto food={food} onFechar={() => {}} onEditar={() => {}} onExcluir={() => {}} />
       </DbProvider>
     </QueryClientProvider>,

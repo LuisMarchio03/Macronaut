@@ -6,8 +6,8 @@ import type { Connect, Plugin } from "vite";
  *
  * Em produção estas rotas são funções serverless (`api/*.ts`). O servidor do
  * Vite não serve `api/`, então sem isto `npm run dev` daria uma tela de login
- * que não funciona — e, desde que o banco passou a viver atrás de `/api/db`,
- * um app que não carrega nada.
+ * que não funciona — e, desde que o banco vive atrás de `/api/rpc`, um app que
+ * não carrega nada.
  *
  * A regra NÃO é duplicada aqui: o plugin importa os mesmos módulos que as
  * funções serverless usam. O que ele faz é o transporte HTTP e a leitura do
@@ -19,7 +19,6 @@ export function apiDev(): Plugin {
     apply: "serve",
     configureServer(server) {
       server.middlewares.use("/api/login", rota(login));
-      server.middlewares.use("/api/db", rota(banco));
       server.middlewares.use("/api/rpc", rota(rpc));
       server.middlewares.use("/api/codigo", rota(codigo));
       server.middlewares.use("/api/parear", rota(parear));
@@ -126,35 +125,6 @@ const login: Rota = async (corpo, _req, responder) => {
 
   if (!r.ok) return responder(401, { error: "e-mail ou senha inválidos" });
   return responder(200, { user: r.user, token: r.token });
-};
-
-const banco: Rota = async (corpo, req, responder) => {
-  const { dbUrl, dbToken, segredo } = config();
-  if (!dbUrl) return responder(500, { error: "DB_URL não configurada" });
-
-  const [servidor, dbCore] = await Promise.all([
-    import("./api/_lib/servidor.js"),
-    import("./api/_lib/db-core.js"),
-  ]);
-
-  const sessao = servidor.autorizar(req.headers.authorization, segredo, "sessao");
-  if (!sessao) return responder(401, { error: "401 sessão inválida ou expirada" });
-
-  let pedido;
-  try {
-    pedido = dbCore.lerPedido(corpo);
-  } catch (e) {
-    return responder(400, { error: e instanceof Error ? e.message : String(e) });
-  }
-
-  const db = await cliente(dbUrl, dbToken);
-  try {
-    return responder(200, await dbCore.executarPedido(db, pedido));
-  } catch (e) {
-    // A mensagem do banco volta inteira: é dela que a tela tira "falta a
-    // tabela X, rode db:setup".
-    return responder(400, { error: e instanceof Error ? e.message : String(e) });
-  }
 };
 
 const rpc: Rota = async (corpo, req, responder) => {

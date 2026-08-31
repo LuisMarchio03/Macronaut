@@ -3,12 +3,10 @@ import type { Client } from "@libsql/client";
 /**
  * O que o celular manda, e o que o servidor aceita.
  *
- * Esta rota é TIPADA de propósito. O app web fala com `/api/db`, que aceita
- * SQL — é o mesmo poder que a tela já tem, e a sessão dele vive num navegador
- * que o dono controla. O celular é outra história: o token dele vai dentro de
- * um APK distribuído e não expira, então dar-lhe SQL seria trocar um problema
- * por um pior. Aqui ele só consegue dizer "corri 30 minutos", e o servidor
- * decide o que isso vira no banco.
+ * Tipada, como `/api/rpc`, mas com um vocabulário bem menor: o celular só
+ * sabe dizer "corri 30 minutos", e o servidor decide o que isso vira. O token
+ * dele vai dentro de um APK distribuído e não expira, então a superfície que
+ * ele alcança é a menor possível.
  *
  * Escopo: **atividade, peso e água**. Os três que o app já sabe usar —
  * atividade entra no balanço energético, peso alimenta o gráfico, água conta
