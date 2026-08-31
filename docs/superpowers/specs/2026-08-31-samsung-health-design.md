@@ -144,15 +144,38 @@ POST /api/ingest        Authorization: Bearer <token de dispositivo>
 
 ---
 
-## O custo que esta fase cobra
+## O custo que esta fase cobrava, e o que sobrou dele
 
-Cada `db.execute` virou uma ida ao servidor, que faz outra ida ao Turso. Uma
-carga do dashboard mede **32 chamadas a `/api/db`** — antes eram 32 idas
-diretas ao banco, agora são 32 idas duplas, com o cold start da função no
-meio.
+Cada `db.execute` virou uma ida ao servidor, que faz outra ida ao Turso. Medido
+no navegador, cinco telas somavam **46 requisições** — 16 só no dashboard.
 
-Não é bloqueante (o TanStack Query já cacheia, e `batch` continua sendo uma
-requisição para N comandos), mas é a próxima coisa a medir em produção. As
-saídas, se doer: agrupar as consultas de abertura de tela num `batch`, ou
-mover as telas mais pesadas para endpoints próprios — que é o mesmo caminho
-que resolveria o SQL-vindo-do-cliente.
+`db-remoto.ts` passou a **juntar as leituras do mesmo tique** num `batch`. Não
+é heurística de tempo: os hooks do TanStack Query disparam todos na mesma
+renderização, então uma fila esvaziada num `setTimeout(0)` os pega inteiros. Uma
+consulta que depende do resultado da anterior cai noutro tique e continua
+sozinha — que é o certo, porque ela de fato precisa esperar.
+
+| | requisições | comandos SQL |
+|---|---|---|
+| antes | 46 | 46 |
+| depois | **13** | 46 |
+
+Dashboard 16 → 3, nutrição 14 → 2. O mesmo trabalho no banco, um terço das
+idas de rede. (O tempo de parede não foi medido: em `localhost` a latência é
+zero, e o número que importa só aparece contra a Vercel.)
+
+Duas coisas ficaram de fora da junção, de propósito:
+
+- **Escrita nunca é juntada.** Um `batch` do libsql é transacional, e juntar
+  escritas independentes faria uma falhar e desfazer as outras — comportamento
+  que elas não tinham. O filtro é `^SELECT` sem palavra de escrita, e o lote
+  sai com `modo: "read"`, que o próprio libsql recusa se algo escrever. O
+  regex errar custa um erro claro, não uma escrita perdida.
+- **Lote que falha é refeito uma a uma.** Antes da junção, uma consulta ruim
+  derrubava só a si mesma; num lote transacional ela derrubaria as boas junto.
+  A isolação não podia ser o preço da economia, e o custo do desdobramento só
+  existe no caminho de erro.
+
+O que continua em aberto é o SQL vir do cliente. A saída é a mesma que já
+estava anotada: mover os repositórios para o servidor, um endpoint por
+operação.

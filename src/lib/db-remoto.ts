@@ -35,6 +35,27 @@ function normalizar(stmt: InStatement): { sql: string; args?: unknown } {
 }
 
 /**
+ * É seguro juntar este comando com outros numa requisição só?
+ *
+ * Só leitura pura. Um `batch` do libsql é TRANSACIONAL: juntar escritas
+ * independentes faria uma falhar e desfazer as outras, o que não acontecia
+ * quando cada uma ia sozinha.
+ *
+ * A checagem é deliberadamente burra — começa com SELECT e não contém nenhuma
+ * palavra de escrita. E não é a única defesa: o lote sai com `modo: "read"`,
+ * que o próprio libsql recusa se houver escrita. O regex errar custa um erro
+ * claro do banco, não uma escrita perdida.
+ */
+const ESCRITA = /\b(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER|BEGIN|COMMIT|VACUUM)\b/i;
+
+function ehLeitura(sql: string): boolean {
+  return /^\s*SELECT\b/i.test(sql) && !ESCRITA.test(sql);
+}
+
+/** O teto que o servidor aceita num lote. */
+const LIMITE_LOTE = 200;
+
+/**
  * Reconstrói o `ResultSet` que os repositórios esperam.
  *
  * `lastInsertRowid` volta a ser `bigint`: meia dúzia de repositórios fazem
@@ -71,6 +92,12 @@ async function erroDaResposta(res: Response): Promise<Error> {
   return new Error(detalhe || `${res.status} ao falar com o banco`);
 }
 
+interface Pendente {
+  comando: { sql: string; args?: unknown };
+  resolver: (r: ResultSet) => void;
+  rejeitar: (e: unknown) => void;
+}
+
 export function criarBancoRemoto(token: string, rota = "/api/db"): Client {
   async function pedir(corpo: unknown): Promise<unknown> {
     const res = await fetch(rota, {
@@ -82,13 +109,83 @@ export function criarBancoRemoto(token: string, rota = "/api/db"): Client {
     return (await res.json()) as unknown;
   }
 
+  /* ── junção das leituras ──────────────────────────────────────────
+     Abrir o dashboard disparava 16 requisições: cada hook do TanStack Query
+     chama `execute` uma vez, e cada `execute` era uma ida ao servidor, que
+     fazia outra ida ao Turso. As 16 saem no MESMO tique do laço de eventos —
+     é só isso que esta fila explora.
+
+     `setTimeout(0)` e não `queueMicrotask`: um macrotarefa recolhe tudo o que
+     a renderização enfileirou, microtarefas incluídas. Uma consulta que
+     depende do resultado da anterior cai noutro tique e não é juntada — que é
+     o certo, porque ela de fato precisa esperar.                          */
+  let fila: Pendente[] = [];
+  let agendado = false;
+
+  function agendar() {
+    if (agendado) return;
+    agendado = true;
+    setTimeout(() => {
+      agendado = false;
+      const lote = fila;
+      fila = [];
+      void despachar(lote);
+    }, 0);
+  }
+
+  async function despachar(lote: Pendente[]): Promise<void> {
+    if (lote.length === 0) return;
+    if (lote.length === 1) return void executarSozinho(lote[0]);
+    // Acima do teto do servidor, quebra em pedaços em vez de levar 400.
+    if (lote.length > LIMITE_LOTE) {
+      await despachar(lote.slice(0, LIMITE_LOTE));
+      return void despachar(lote.slice(LIMITE_LOTE));
+    }
+
+    try {
+      const rs = (await pedir({
+        tipo: "batch",
+        comandos: lote.map((p) => p.comando),
+        // `read` é a segunda defesa: se o filtro de leitura deixar passar uma
+        // escrita, o libsql recusa em vez de executá-la dentro do lote.
+        modo: "read",
+      })) as ResultadoSerializado[];
+      lote.forEach((p, i) => p.resolver(reidratar(rs[i])));
+    } catch {
+      // Um lote é transacional: uma consulta ruim derruba as boas junto. Antes
+      // da junção cada uma falhava sozinha, e essa isolação não pode ser o
+      // preço da economia — no caminho de erro, refaz uma a uma.
+      await Promise.all(lote.map(executarSozinho));
+    }
+  }
+
+  async function executarSozinho(p: Pendente): Promise<void> {
+    try {
+      p.resolver(
+        reidratar((await pedir({ tipo: "execute", comando: p.comando })) as ResultadoSerializado),
+      );
+    } catch (e) {
+      p.rejeitar(e);
+    }
+  }
+
   const cliente = {
     closed: false,
     protocol: "http" as const,
 
-    async execute(stmt: InStatement): Promise<ResultSet> {
-      const r = (await pedir({ tipo: "execute", comando: normalizar(stmt) })) as ResultadoSerializado;
-      return reidratar(r);
+    execute(stmt: InStatement): Promise<ResultSet> {
+      const comando = normalizar(stmt);
+      if (!ehLeitura(comando.sql)) {
+        // Escrita vai sozinha e na hora: juntá-la a outras mudaria a
+        // semântica de transação que ela hoje não tem.
+        return pedir({ tipo: "execute", comando }).then((r) =>
+          reidratar(r as ResultadoSerializado),
+        );
+      }
+      return new Promise<ResultSet>((resolver, rejeitar) => {
+        fila.push({ comando, resolver, rejeitar });
+        agendar();
+      });
     },
 
     async batch(stmts: InStatement[], mode?: string): Promise<ResultSet[]> {

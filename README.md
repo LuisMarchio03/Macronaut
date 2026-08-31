@@ -141,7 +141,7 @@ telas / componentes  →  hooks (TanStack Query)  →  repositories  →  Turso 
 | `src/repositories/` | Todo SQL. A única camada que fala com o banco. |
 | `src/hooks/` | Wrappers do TanStack Query. |
 | `src/lib/planilha.ts` | A única camada que conhece o formato do arquivo importado. |
-| `src/lib/db-remoto.ts` | O banco visto pelo app: mesma superfície do `Client` do libsql, sobre `fetch` para `/api/db`. |
+| `src/lib/db-remoto.ts` | O banco visto pelo app: mesma superfície do `Client` do libsql, sobre `fetch` para `/api/db`. Junta as leituras do mesmo tique num lote — 46 requisições viraram 13. |
 | `api/_lib/tokens.ts` | Bilhetes assinados de sessão e de dispositivo, e o código de pareamento. |
 | `api/_lib/ingest-core.ts` | O que o celular pode mandar, e como isso vira linha no banco sem duplicar. |
 | `src/components/ui/` | Design system: `Card`, `Progress`, `Stat`, `Segmented`, `Page`… |
