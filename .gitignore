@@ -43,3 +43,8 @@ local.db*
 
 # Backups de env gerados por ferramentas
 .env.local.bak.*
+
+# Android (o projeto tem o seu próprio .gitignore; estes são os que doem)
+*.keystore
+*.jks
+android/local.properties

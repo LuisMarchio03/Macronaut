@@ -1,0 +1,22 @@
+{
+  "origem": "health-connect",
+  "atividades": [
+    {
+      "origem_id": "c1c9b1e0-4f3a-4b1e-9a11-5f2d7c8e0001",
+      "data": "2026-08-31",
+      "tipo": "Corrida",
+      "duracao_min": 32.5,
+      "kcal": 415
+    },
+    {
+      "origem_id": "c1c9b1e0-4f3a-4b1e-9a11-5f2d7c8e0002",
+      "data": "2026-08-30",
+      "tipo": "Musculação",
+      "duracao_min": 58,
+      "kcal": 330
+    }
+  ],
+  "pesos": [
+    { "data": "2026-08-31", "peso_kg": 81.6 }
+  ]
+}

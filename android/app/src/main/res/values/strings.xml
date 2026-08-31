@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Macronaut</string>
+    <!-- Só o host, para o intent-filter de App Links. Tem que casar com o
+         domínio de `url_do_app` no build.gradle.kts. -->
+    <string name="host_do_app">macronaut-jade.vercel.app</string>
+
+    <string name="parear_titulo">Conectar ao Macronaut</string>
+    <string name="parear_explicacao">Abra o Macronaut no navegador, vá em Mais → Ajustes → Aparelhos conectados e toque em Conectar. Digite aqui o código que aparecer.</string>
+    <string name="parear_botao">Conectar</string>
+    <string name="parear_ok">Conectado. Seus treinos e pesagens do Samsung Health passam a entrar sozinhos.</string>
+    <string name="parear_erro">Código inválido ou expirado. Gere outro no navegador.</string>
+    <string name="parear_erro_permissao">Sem a permissão do Health Connect o app não consegue ler nada. Você pode conceder depois, em Health Connect → Permissões de apps.</string>
+    <string name="sem_health_connect">Este aparelho não tem o Health Connect. Instale-o pela Play Store e abra o Samsung Health uma vez para ele começar a compartilhar os dados.</string>
+
+    <string name="politica_titulo">Como o Macronaut usa seus dados</string>
+    <string name="politica_texto">O Macronaut lê do Health Connect apenas as suas sessões de exercício, as calorias delas e as suas pesagens.\n\nEsses dados vão para a sua própria conta no Macronaut, e para lugar nenhum além dela: não há terceiros, não há publicidade e não há venda de dados.\n\nA leitura acontece no seu aparelho. Você pode revogar a permissão a qualquer momento no Health Connect, e desconectar este aparelho em Ajustes → Aparelhos conectados — o que corta o envio na hora.</string>
+</resources>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- O que o app lê do Health Connect. Só leitura, e só o que o Macronaut
+         sabe usar: sessão de exercício, calorias dela e peso. Pedir mais do
+         que se usa é o tipo de coisa que a revisão do Google reprova, e com
+         razão. -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+
+    <!-- Sem isto o app não enxerga que o Health Connect existe no aparelho
+         (visibilidade de pacotes, obrigatória desde o Android 11). -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+        <intent>
+            <action android:name="androidx.health.ACTION_SHOW_HEALTH_CONNECT_SETTINGS" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.AppCompat.NoActionBar">
+
+        <!-- A TWA. `LauncherActivity` do android-browser-helper abre a URL no
+             Chrome em tela cheia; a verificação de Digital Asset Links contra
+             `/.well-known/assetlinks.json` é o que tira a barra de endereço. -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:exported="true">
+            <meta-data
+                android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                android:value="@string/url_do_app" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="@string/host_do_app" />
+            </intent-filter>
+        </activity>
+
+        <!-- Onde se digita o código de pareamento. Fica fora da TWA de
+             propósito: é o único momento em que o nativo precisa de tela, e
+             embutir isso na página web exigiria a ponte que a TWA não tem. -->
+        <activity
+            android:name=".ParearActivity"
+            android:exported="true"
+            android:label="@string/parear_titulo">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.INFO" />
+            </intent-filter>
+        </activity>
+
+        <!-- A política de privacidade. O Health Connect exige uma tela que
+             responda a estes intents — é para onde vai quem toca em "Política
+             de privacidade" no diálogo de permissões. Sem ela, o app não passa
+             na revisão. -->
+        <activity
+            android:name=".PoliticaActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:targetActivity=".PoliticaActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- O serviço que o android-browser-helper usa para delegar
+             notificações à TWA. -->
+        <service
+            android:name="com.google.androidbrowserhelper.trusted.DelegationService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
