@@ -6,18 +6,42 @@ const base: LoginDeps = {
   findUser: async (e) => (e === "a@x.com" ? user : null),
   verify: async (_senha, hash) => hash === "HASH",
   dummyHash: "DUMMY",
-  session: { dbUrl: "libsql://compartilhado", token: "shared-token" },
+  emitirToken: (id) => `bilhete-do-${id}`,
 };
 
-describe("authenticate (banco único)", () => {
-  it("credencial válida devolve user.id + dbUrl + token compartilhado", async () => {
+describe("authenticate", () => {
+  it("credencial válida devolve o usuário e um bilhete de sessão", async () => {
     const r = await authenticate(base, { email: "a@x.com", senha: "ok" });
     expect(r).toEqual({
       ok: true,
       user: { id: 7, email: "a@x.com" },
-      dbUrl: "libsql://compartilhado",
-      token: "shared-token",
+      token: "bilhete-do-7",
     });
+  });
+
+  it("o login não devolve mais credencial de banco nenhuma", async () => {
+    // Era aqui que o token do Turso saía para o navegador.
+    const r = await authenticate(base, { email: "a@x.com", senha: "ok" });
+    expect(r).not.toHaveProperty("dbUrl");
+    expect(JSON.stringify(r)).not.toMatch(/libsql|turso|authToken/i);
+  });
+
+  it("o bilhete é emitido para o usuário que autenticou", async () => {
+    let pedidoPara: number | null = null;
+    const deps: LoginDeps = { ...base, emitirToken: (id) => { pedidoPara = id; return "t"; } };
+    await authenticate(deps, { email: "a@x.com", senha: "ok" });
+    expect(pedidoPara).toBe(7);
+  });
+
+  it("credencial inválida não emite bilhete nenhum", async () => {
+    let emitiu = false;
+    const deps: LoginDeps = {
+      ...base,
+      verify: async () => false,
+      emitirToken: () => { emitiu = true; return "t"; },
+    };
+    await authenticate(deps, { email: "a@x.com", senha: "errada" });
+    expect(emitiu).toBe(false);
   });
 
   it("e-mail inexistente → { ok: false }", async () => {

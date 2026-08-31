@@ -7,8 +7,8 @@ import { createUserDb } from "../lib/db";
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const client = useMemo(
-    () => (session ? createUserDb(session.dbUrl, session.token) : null),
-    [session?.dbUrl, session?.token],
+    () => (session ? createUserDb(session.token) : null),
+    [session?.token],
   );
 
   if (!session || !client) return <Navigate to="/login" replace />;

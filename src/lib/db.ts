@@ -1,9 +1,15 @@
-import { createClient, type Client } from "@libsql/client/web";
+import type { Client } from "@libsql/client/web";
+import { criarBancoRemoto } from "./db-remoto";
 
 export type { Client };
 
-// O client agora nasce após o login, com a URL e o token pessoais da sessão.
-// Nada de segredo de banco no bundle (as VITE_TURSO_* foram removidas).
-export function createUserDb(url: string, authToken: string): Client {
-  return createClient({ url, authToken });
+/**
+ * O banco da sessão.
+ *
+ * Já foi um cliente libsql apontando direto para o Turso com o token da
+ * sessão — o que punha a credencial do banco no navegador. Agora aponta para
+ * `/api/db`, e o token do banco não sai do servidor.
+ */
+export function createUserDb(token: string): Client {
+  return criarBancoRemoto(token);
 }

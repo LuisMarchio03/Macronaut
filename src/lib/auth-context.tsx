@@ -17,10 +17,8 @@ async function postLogin(email: string, senha: string): Promise<Session> {
     body: JSON.stringify({ email, senha }),
   });
   if (!res.ok) throw new Error(`login ${res.status}`);
-  const b = (await res.json()) as {
-    user: { id: number; email: string }; dbUrl: string; token: string;
-  };
-  return { userId: b.user.id, email: b.user.email, dbUrl: b.dbUrl, token: b.token };
+  const b = (await res.json()) as { user: { id: number; email: string }; token: string };
+  return { userId: b.user.id, email: b.user.email, token: b.token };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
