@@ -10,7 +10,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EnergySummary } from "@/components/energy-summary";
 import { DateNav } from "@/components/date-nav";
 import { BlocoCard } from "@/components/plano/bloco-card";
-import { CardCalisteniaHoje } from "@/components/calistenia/card-hoje";
+import { LinhaCalisteniaHoje } from "@/components/calistenia/card-hoje";
 import { SheetTrocas } from "@/components/plano/sheet-trocas";
 import { useProfile } from "@/hooks/use-profile";
 import { useMeals } from "@/hooks/use-meals";
@@ -27,14 +27,16 @@ import {
   useItensDoPlano,
   useMarcarBloco,
   usePlanoAtivo,
+  useSalvarTroca,
   useSubstituicoes,
+  useTrocasDoDia,
 } from "@/hooks/use-plano";
 import { totaisDoDia, totaisPorRefeicao } from "@/domain/nutrition";
-import { aderenciaDoDia, blocoEmFoco, metaDeAgua, montarDia, trocasDoBloco } from "@/domain/plano-dia";
+import { aderenciaDoDia, blocoEmFoco, metaDeAgua, montarDia } from "@/domain/plano-dia";
 import { useDataAtiva } from "@/lib/data-context";
 import { minutosAgora } from "@/lib/date";
 import type { Macros } from "@/domain/types";
-import type { PlanBlock, PlanSwap } from "@/domain/plano-types";
+import type { PlanBlock } from "@/domain/plano-types";
 import type { SessaoAberta } from "@/repositories/sessao";
 
 const META_AGUA_PADRAO_ML = 3000;
@@ -83,9 +85,11 @@ export function Dashboard() {
   const { data: blocos = [] } = useBlocos(plano?.id);
   const { data: itensPorBloco } = useItensDoPlano(plano?.id);
   const { data: swaps = [] } = useSubstituicoes(plano?.id);
+  const { data: trocas = [] } = useTrocasDoDia(data);
   const { data: checks = [] } = useChecksDoDia(data);
   const { data: aguaPorBloco } = useAguaPorBloco(data);
   const marcar = useMarcarBloco(data);
+  const salvarTroca = useSalvarTroca(data);
   const addAgua = useAddAgua(data);
 
   const [trocando, setTrocando] = useState<PlanBlock | null>(null);
@@ -152,10 +156,7 @@ export function Dashboard() {
     );
   }
 
-  const onEscolherTroca = (bloco: PlanBlock) => (swap: PlanSwap) => {
-    marcar.mutate({ planId: plano!.id, blockId: bloco.id, feito: true, swapId: swap.id });
-    setTrocando(null);
-  };
+
 
   return (
     <Page>
@@ -212,7 +213,7 @@ export function Dashboard() {
                 itens={itensPorBloco?.get(item.bloco.id) ?? []}
                 aguaNoBloco={aguaPorBloco?.get(item.bloco.id) ?? 0}
                 emFoco={item.bloco.id === foco?.bloco.id}
-                temTrocas={trocasDoBloco(swaps, item.bloco.nome).size > 0}
+                trocas={trocas.filter((t) => t.block_id === item.bloco.id)}
                 onMarcar={(feito) =>
                   marcar.mutate({ planId: plano.id, blockId: item.bloco.id, feito })
                 }
@@ -269,30 +270,41 @@ export function Dashboard() {
 
       <div className="space-y-2">
         <SectionLabel>Treino</SectionLabel>
+        {/* As duas linhas no mesmo card: respondem à mesma pergunta ("o que
+            eu movi hoje?"), e a calistenia deixou de ser um card próprio —
+            um bloco com estado vazio era muito espaço para algo que talvez
+            nem aconteça hoje. O aprofundamento é a aba dela. */}
         <Card padded={false}>
-          <CardRow as={Link} to={treino.to}>
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <Dumbbell className="size-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{treino.titulo}</span>
-              <span className="t-caption block truncate tabular-nums">{treino.legenda}</span>
-            </span>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-          </CardRow>
+          <div className="divide-y divide-border">
+            <CardRow as={Link} to={treino.to}>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Dumbbell className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{treino.titulo}</span>
+                <span className="t-caption block truncate tabular-nums">{treino.legenda}</span>
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            </CardRow>
+            <LinhaCalisteniaHoje data={data} />
+          </div>
         </Card>
-
-        {/* Logo abaixo do treino: as duas coisas respondem "o que eu movi
-            hoje?", e a calistenia é a que acontece em horário aleatório —
-            precisa estar onde o polegar já está. */}
-        <CardCalisteniaHoje data={data} />
       </div>
 
-      {trocando && (
+      {trocando && plano && (
         <SheetTrocas
-          blockNome={trocando.nome}
+          bloco={trocando}
+          itens={itensPorBloco?.get(trocando.id) ?? []}
           swaps={swaps}
-          onEscolher={onEscolherTroca(trocando)}
+          trocas={trocas.filter((t) => t.block_id === trocando.id)}
+          feito={dia.find((b) => b.bloco.id === trocando.id)?.estado === "feito"}
+          onTrocar={(itemId, e) =>
+            salvarTroca.mutate({
+              entrada: { data, block_id: trocando.id, item_id: itemId, ...e },
+            })
+          }
+          onDesfazer={(itemId) => salvarTroca.mutate({ itemId })}
+          onMarcar={(feito) => marcar.mutate({ planId: plano.id, blockId: trocando.id, feito })}
           onClose={() => setTrocando(null)}
         />
       )}

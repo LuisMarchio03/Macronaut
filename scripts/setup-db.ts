@@ -13,6 +13,7 @@ import {
 } from "../src/repositories/exercises.ts";
 import { CATALOGO } from "../src/db/catalogo-exercicios.ts";
 import { seedExerciciosDeCardio } from "../src/db/seed-cardio.ts";
+import { migrarTrocasDeBloco } from "../src/repositories/plano.ts";
 
 const url = process.env.DB_URL;
 if (!url) throw new Error("DB_URL não definida");
@@ -57,6 +58,11 @@ const nMedidas = await semearMedidas(db, medidas);
 // Depois da TACO: normaliza o nome de tudo que entrou, para a busca funcionar
 // sem acento. Idempotente — só toca em linha com `nome_norm` NULL.
 const nNomesNorm = await backfillNomeNorm(db);
+
+// A troca de UMA linha da refeição virou tabela própria. A coluna antiga
+// (`plan_checks.swap_id`) fica no banco; o que ela guardava passa a viver onde
+// a tela lê.
+const nTrocas = await migrarTrocasDeBloco(db);
 db.close();
 
 console.log(
@@ -65,5 +71,6 @@ console.log(
     `${nBackfill} exercícios com grupo migrado, ${nBackfillUserIds} exercícios com dono migrado, ` +
     `${nCalistenia} exercícios de peso corporal com MET e fração migrados, ` +
     `${n} alimentos da TACO, ${nNutrientes} alimentos com nutrientes migrados` +
-    `, ${nMedidas} medidas caseiras da POF, ${nNomesNorm} nomes normalizados para busca.`,
+    `, ${nMedidas} medidas caseiras da POF, ${nNomesNorm} nomes normalizados para busca` +
+    `, ${nTrocas} trocas de bloco migradas para trocas de item.`,
 );

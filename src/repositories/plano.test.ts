@@ -20,8 +20,14 @@ import {
   listMacros,
   listPlanos,
   listSubstituicoes,
+  listTrocasDoDia,
   marcarBloco,
+  migrarTrocasDeBloco,
+  removerTroca,
+  salvarTroca,
 } from "./plano";
+import { createEntry, listEntriesByDate } from "./entries";
+import { listMeals } from "./meals";
 
 const AQUI = fileURLToPath(import.meta.url);
 const REAL = JSON.parse(
@@ -281,5 +287,270 @@ describe("água por período", () => {
 
     expect((await aguaPorBloco(db, USER, DIA)).get(agua.id)).toBe(200);
     expect((await aguaPorBloco(db, USER, "2026-08-15")).get(agua.id)).toBe(800);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   TROCA POR ITEM
+   ══════════════════════════════════════════════════════════════════ */
+
+const DIA_T = "2026-08-31";
+
+/** Plano importado + o Café da Manhã com seus itens, que é o cenário de todos. */
+async function cenario(db: Client) {
+  const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
+  const blocos = await listBlocos(db, plano.id);
+  const cafe = blocos.find((b) => b.nome === "Café da Manhã")!;
+  const itens = (await listItensPorBloco(db, plano.id)).get(cafe.id)!;
+  const swaps = await listSubstituicoes(db, plano.id);
+  return { plano, cafe, itens, swaps };
+}
+
+async function criarAlimento(db: Client, nome: string, kcal = 100): Promise<number> {
+  const rs = await db.execute({
+    sql: `INSERT INTO foods (nome, source, base_qty_g, kcal, prot_g, carb_g, gord_g, created_at)
+          VALUES (?, 'custom', 100, ?, 0, 0, 0, '')`,
+    args: [nome, kcal],
+  });
+  return Number(rs.lastInsertRowid);
+}
+
+describe("trocas por item", () => {
+  it("grava uma troca por substituição do plano e a lê com nome e porção", async () => {
+    const { cafe, itens, swaps } = await cenario(db);
+    const carbo = itens.find((i) => i.categoria === "carboidrato")!;
+    const tapioca = swaps.find((s) => s.alimento.includes("Tapioca"))!;
+
+    await salvarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: carbo.id, swap_id: tapioca.id,
+    });
+
+    const trocas = await listTrocasDoDia(db, USER, DIA_T);
+    expect(trocas).toHaveLength(1);
+    expect(trocas[0]).toMatchObject({
+      item_id: carbo.id,
+      origem: "plano",
+      swap_id: tapioca.id,
+      nome: tapioca.alimento,
+      porcao: tapioca.porcao,
+      kcal: tapioca.kcal,
+    });
+  });
+
+  it("mais de um item da MESMA refeição pode ser trocado", async () => {
+    // É o bug que abriu esta frente: `plan_checks.swap_id` era uma coluna só.
+    const { cafe, itens, swaps } = await cenario(db);
+    const carbo = itens.find((i) => i.categoria === "carboidrato")!;
+    const fruta = itens.find((i) => i.categoria === "fruta")!;
+
+    await salvarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: carbo.id,
+      swap_id: swaps.find((s) => s.categoria === "carboidrato")!.id,
+    });
+    await salvarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: fruta.id,
+      swap_id: swaps.find((s) => s.categoria === "fruta")!.id,
+    });
+
+    expect(await listTrocasDoDia(db, USER, DIA_T)).toHaveLength(2);
+  });
+
+  it("trocar o mesmo item de novo corrige, não acumula", async () => {
+    const { cafe, itens, swaps } = await cenario(db);
+    const carbo = itens.find((i) => i.categoria === "carboidrato")!;
+    const doCarbo = swaps.filter((s) => s.categoria === "carboidrato" && s.block_nome === "Café da Manhã");
+
+    await salvarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: carbo.id, swap_id: doCarbo[0].id });
+    await salvarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: carbo.id, swap_id: doCarbo[1].id });
+
+    const trocas = await listTrocasDoDia(db, USER, DIA_T);
+    expect(trocas).toHaveLength(1);
+    expect(trocas[0].swap_id).toBe(doCarbo[1].id);
+  });
+
+  it("grava uma troca por alimento do catálogo, com medida e quantidade", async () => {
+    const { cafe, itens } = await cenario(db);
+    const foodId = await criarAlimento(db, "Tapioca goma", 240);
+
+    await salvarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: itens[0].id,
+      food_id: foodId, qty_g: 50, medidas: 2, kcal: 120,
+    });
+
+    const t = (await listTrocasDoDia(db, USER, DIA_T))[0];
+    expect(t).toMatchObject({ origem: "catalogo", nome: "Tapioca goma", food_id: foodId, qty_g: 50, kcal: 120 });
+    expect(t.porcao).toBe("50 g");
+  });
+
+  it("grava uma troca escrita à mão, com e sem caloria", async () => {
+    const { cafe, itens } = await cenario(db);
+
+    await salvarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: itens[0].id, texto: "Pão da padaria", kcal: 140 });
+    await salvarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: itens[1].id, texto: "O que tinha na geladeira" });
+
+    const trocas = await listTrocasDoDia(db, USER, DIA_T);
+    expect(trocas.find((t) => t.item_id === itens[0].id)).toMatchObject({ origem: "texto", nome: "Pão da padaria", kcal: 140 });
+    expect(trocas.find((t) => t.item_id === itens[1].id)).toMatchObject({ origem: "texto", kcal: null, food_id: null });
+  });
+
+  it("remover a troca devolve o item ao plano", async () => {
+    const { cafe, itens, swaps } = await cenario(db);
+    await salvarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: itens[0].id, swap_id: swaps[0].id });
+
+    await removerTroca(db, USER, DIA_T, itens[0].id);
+
+    expect(await listTrocasDoDia(db, USER, DIA_T)).toEqual([]);
+  });
+
+  it("a troca é do dia: outro dia não a enxerga", async () => {
+    const { cafe, itens, swaps } = await cenario(db);
+    await salvarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: itens[0].id, swap_id: swaps[0].id });
+
+    expect(await listTrocasDoDia(db, USER, "2026-09-01")).toEqual([]);
+  });
+
+  it("a troca é do usuário: outro usuário não a enxerga", async () => {
+    const { cafe, itens, swaps } = await cenario(db);
+    await salvarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: itens[0].id, swap_id: swaps[0].id });
+
+    expect(await listTrocasDoDia(db, 99, DIA_T)).toEqual([]);
+  });
+});
+
+describe("marcarBloco lança no diário", () => {
+  it("grava entries dos itens que resolvem para alimento, e ignora os que não", async () => {
+    const { plano, cafe, itens } = await cenario(db);
+    const foodId = await criarAlimento(db, "Ovo de galinha");
+    // Só o primeiro item ganha alimento casado; os outros quatro não têm.
+    await db.execute({ sql: "UPDATE plan_items SET food_id=?, qty_g=? WHERE id=?", args: [foodId, 150, itens[0].id] });
+
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+
+    const entries = await listEntriesByDate(db, USER, DIA_T);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ food_id: foodId, qty_g: 150, label: itens[0].texto });
+  });
+
+  it("a troca do dia é o que vai para o diário, não o item original", async () => {
+    const { plano, cafe, itens } = await cenario(db);
+    const original = await criarAlimento(db, "Pão integral");
+    const trocado = await criarAlimento(db, "Tapioca goma");
+    await db.execute({ sql: "UPDATE plan_items SET food_id=?, qty_g=? WHERE id=?", args: [original, 30, itens[0].id] });
+
+    await salvarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: itens[0].id, food_id: trocado, qty_g: 50, kcal: 120,
+    });
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+
+    const entries = await listEntriesByDate(db, USER, DIA_T);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ food_id: trocado, qty_g: 50 });
+  });
+
+  it("desmarcar apaga o que aquele bloco lançou, e só isso", async () => {
+    const { plano, cafe, itens } = await cenario(db);
+    const foodId = await criarAlimento(db, "Ovo de galinha");
+    await db.execute({ sql: "UPDATE plan_items SET food_id=?, qty_g=? WHERE id=?", args: [foodId, 150, itens[0].id] });
+    // Um registro digitado à mão, que não pode ser tocado.
+    await createEntry(db, USER, {
+      data: DIA_T, meal_id: null, food_id: foodId, qty_g: 42,
+      measure_id: null, measure_count: null, label: "à mão",
+    });
+
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+    expect(await listEntriesByDate(db, USER, DIA_T)).toHaveLength(2);
+
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, false);
+    const sobrou = await listEntriesByDate(db, USER, DIA_T);
+    expect(sobrou).toHaveLength(1);
+    expect(sobrou[0].label).toBe("à mão");
+  });
+
+  it("marcar duas vezes não duplica os lançamentos", async () => {
+    const { plano, cafe, itens } = await cenario(db);
+    const foodId = await criarAlimento(db, "Ovo de galinha");
+    await db.execute({ sql: "UPDATE plan_items SET food_id=?, qty_g=? WHERE id=?", args: [foodId, 150, itens[0].id] });
+
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+
+    expect(await listEntriesByDate(db, USER, DIA_T)).toHaveLength(1);
+  });
+
+  it("credita o lançamento à refeição de mesmo nome, criando-a se não existir", async () => {
+    const { plano, cafe, itens } = await cenario(db);
+    const foodId = await criarAlimento(db, "Ovo de galinha");
+    await db.execute({ sql: "UPDATE plan_items SET food_id=?, qty_g=? WHERE id=?", args: [foodId, 150, itens[0].id] });
+
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+
+    const entries = await listEntriesByDate(db, USER, DIA_T);
+    const refeicoes = await listMeals(db, USER);
+    const daVez = refeicoes.find((m) => m.id === entries[0].meal_id);
+    expect(daVez?.nome).toBe("Café da Manhã");
+
+    // De novo: reaproveita a refeição, não cria uma segunda.
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, false);
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+    expect((await listMeals(db, USER)).filter((m) => m.nome === "Café da Manhã")).toHaveLength(1);
+  });
+
+  it("bloco sem nenhum item casado marca como feito e não lança nada", async () => {
+    const { plano, cafe } = await cenario(db);
+
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+
+    expect((await listChecksDoDia(db, USER, DIA_T))[0]).toMatchObject({ feito: true });
+    expect(await listEntriesByDate(db, USER, DIA_T)).toEqual([]);
+  });
+});
+
+describe("migrarTrocasDeBloco", () => {
+  it("converte a troca antiga de bloco na troca do item de mesma categoria", async () => {
+    const { plano, cafe, itens, swaps } = await cenario(db);
+    const carboSwap = swaps.find((s) => s.block_nome === "Café da Manhã" && s.categoria === "carboidrato")!;
+    // O jeito antigo: uma troca por bloco, gravada em `plan_checks`.
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true, carboSwap.id);
+
+    expect(await migrarTrocasDeBloco(db)).toBe(1);
+
+    const trocas = await listTrocasDoDia(db, USER, DIA_T);
+    expect(trocas).toHaveLength(1);
+    expect(trocas[0]).toMatchObject({
+      item_id: itens.find((i) => i.categoria === "carboidrato")!.id,
+      swap_id: carboSwap.id,
+      origem: "plano",
+    });
+  });
+
+  it("é idempotente: rodar de novo não migra nada", async () => {
+    const { plano, cafe, swaps } = await cenario(db);
+    const s = swaps.find((x) => x.block_nome === "Café da Manhã" && x.categoria === "fruta")!;
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true, s.id);
+
+    expect(await migrarTrocasDeBloco(db)).toBe(1);
+    expect(await migrarTrocasDeBloco(db)).toBe(0);
+    expect(await listTrocasDoDia(db, USER, DIA_T)).toHaveLength(1);
+  });
+
+  it("não sobrescreve uma troca que já existe para aquele item", async () => {
+    const { plano, cafe, itens, swaps } = await cenario(db);
+    const carbo = itens.find((i) => i.categoria === "carboidrato")!;
+    const doCarbo = swaps.filter((x) => x.block_nome === "Café da Manhã" && x.categoria === "carboidrato");
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true, doCarbo[0].id);
+    await salvarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: carbo.id, texto: "escolhi outra coisa" });
+
+    expect(await migrarTrocasDeBloco(db)).toBe(0);
+    expect((await listTrocasDoDia(db, USER, DIA_T))[0].nome).toBe("escolhi outra coisa");
+  });
+
+  it("bloco sem item da categoria do swap é ignorado, sem quebrar", async () => {
+    const { plano, cafe, swaps } = await cenario(db);
+    // "vegetal" não existe no Café da Manhã — o swap é da Janta.
+    const vegetal = swaps.find((x) => x.categoria === "vegetal")!;
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true, vegetal.id);
+
+    expect(await migrarTrocasDeBloco(db)).toBe(0);
+    expect(await listTrocasDoDia(db, USER, DIA_T)).toEqual([]);
   });
 });

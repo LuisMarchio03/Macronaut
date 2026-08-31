@@ -83,16 +83,17 @@ describe("Treino — abas", () => {
   });
 
   /**
-   * A calistenia nasceu do card que vive em "Hoje" — é o aprofundamento dele,
-   * não uma quinta aba. Sem o alias, abrir a tela apagava as quatro e a tela
-   * dizia "você não está em lugar nenhum", o mesmo defeito do detalhe de sessão.
+   * A calistenia virou aba própria: ela vivia como aprofundamento de um card
+   * que aparecia no dashboard E em "Hoje", e um bloco com estado vazio era
+   * muito destaque para algo que talvez nem aconteça hoje.
    */
-  it("a calistenia mantém Hoje aceso", () => {
+  it("a calistenia acende a própria aba, e não mais Hoje", () => {
     montar("/treino/calistenia");
     expect(screen.getByText("painel calistenia")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^hoje$/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^calistenia$/i })).toHaveAttribute(
       "aria-current",
       "page",
     );
+    expect(screen.getByRole("link", { name: /^hoje$/i })).not.toHaveAttribute("aria-current");
   });
 });

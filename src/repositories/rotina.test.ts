@@ -183,3 +183,31 @@ describe("rotina", () => {
     ]);
   });
 });
+
+describe("uma rotina ativa por vez", () => {
+  it("criar a segunda desativa a primeira", async () => {
+    // Duas ativas faziam `getRotinaAtiva` decidir pelo `ORDER BY id DESC`:
+    // certo por acidente, e errado no dia em que a ordem mudasse.
+    const primeira = await criarRotina(db, USER, "Antiga");
+    const segunda = await criarRotina(db, USER, "Nova");
+
+    const ativa = await getRotinaAtiva(db, USER);
+    expect(ativa?.id).toBe(segunda.id);
+
+    const rs = await db.execute({
+      sql: "SELECT id, ativa FROM routines WHERE user_id=? ORDER BY id",
+      args: [USER],
+    });
+    expect(rs.rows.map((r) => [r.id, Number(r.ativa)])).toEqual([
+      [primeira.id, 0],
+      [segunda.id, 1],
+    ]);
+  });
+
+  it("não desativa a rotina de outro usuário", async () => {
+    const alheia = await criarRotina(db, 99, "De outro");
+    await criarRotina(db, USER, "Minha");
+
+    expect((await getRotinaAtiva(db, 99))?.id).toBe(alheia.id);
+  });
+});

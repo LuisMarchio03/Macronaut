@@ -67,6 +67,49 @@ export interface PlanSwap {
   food_id: number | null;
 }
 
+/**
+ * A troca de UM item da refeição, num dia, já resolvida para a tela.
+ *
+ * Denormalizada de propósito: `plan_item_swaps` guarda só a referência, e
+ * `nome`/`porcao` moram em três tabelas diferentes conforme a origem. Sem isto
+ * toda tela que desenha uma troca precisaria saber fazer o mesmo join.
+ */
+export interface TrocaDeItem {
+  id: number;
+  data: string;
+  block_id: number;
+  item_id: number;
+  /** De onde a troca veio — é o que a folha usa para reabrir na aba certa. */
+  origem: "plano" | "catalogo" | "texto";
+  /** `plan_swaps.id` quando a origem é o plano; identifica a opção escolhida. */
+  swap_id: number | null;
+  /** O que entrou no lugar. */
+  nome: string;
+  /** '2 col. sopa (30g)', '120 g' — `null` quando não dá para dizer. */
+  porcao: string | null;
+  /** `null` = desconhecida. A tela diz isso; não conta como zero. */
+  kcal: number | null;
+
+  /* ── o que permite lançar no diário ──
+     `null` quando a troca não casa com nenhum alimento do catálogo: texto
+     livre, ou substituição que o importador da planilha não conseguiu casar. */
+  food_id: number | null;
+  qty_g: number | null;
+  measure_id: number | null;
+  medidas: number | null;
+}
+
+/** O que "Comi" vai gravar em `food_entries` por um item do plano. */
+export interface LancamentoDoPlano {
+  item_id: number;
+  food_id: number;
+  qty_g: number;
+  measure_id: number | null;
+  medidas: number | null;
+  /** O texto que a pessoa lê no diário. */
+  label: string;
+}
+
 export interface PlanCheck {
   id: number;
   user_id: number;

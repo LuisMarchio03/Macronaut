@@ -7,6 +7,7 @@ import { createTestDb } from "../../test/helpers/test-db";
 import { criarWrapper } from "../../test/helpers/query-wrapper";
 import { Treino } from "./treino";
 import { criarRotina, salvarDia, adicionarExercicio } from "../repositories/rotina";
+import { iniciarSessao } from "../repositories/sessao";
 import { diaSemana, hoje } from "../lib/date";
 
 let db: Client;
@@ -46,6 +47,7 @@ function montar() {
 /** O dia da semana de hoje, para o teste montar a rotina no dia certo sem
  *  depender de quando ele roda. */
 const HOJE = diaSemana(hoje());
+const HOJE_ISO = hoje();
 const AMANHA = (HOJE + 1) % 7;
 
 beforeEach(async () => {
@@ -78,7 +80,7 @@ describe("Treino — o hub", () => {
 
     expect(await screen.findByRole("heading", { name: /descanso/i })).toBeInTheDocument();
     expect(await screen.findByText(/costas e bíceps/i)).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /treinar mesmo assim/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /treino avulso/i })).toBeInTheDocument();
   });
 
   it("começar o treino materializa a sessão", async () => {
@@ -148,5 +150,67 @@ describe("Treino — o hub", () => {
     expect(await screen.findByText("Bicicleta")).toBeInTheDocument();
     expect(await screen.findByText(/30 min/)).toBeInTheDocument();
     expect(screen.queryByText(/definir carga/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("treino avulso", () => {
+  it("é oferecido em dia de treino, não só em dia de descanso", async () => {
+    // Num dia que tem rotina não havia caminho nenhum para um treino extra.
+    const r = await criarRotina(db, 1, "R");
+    const d = await salvarDia(db, 1, r.id, HOJE, "Peito");
+    await adicionarExercicio(db, 1, d.id, { ...DUPLA, exercise_id: await exercicio("Supino reto") });
+    montar();
+
+    expect(await screen.findByRole("button", { name: /começar treino/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /treino avulso/i })).toBeInTheDocument();
+  });
+
+  it("continua oferecido com uma sessão já aberta", async () => {
+    // Treinar duas vezes no mesmo dia acontece; o card só oferecia "retomar".
+    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
+    const r = await criarRotina(db, 1, "R");
+    await salvarDia(db, 1, r.id, HOJE, "Peito");
+    montar();
+
+    expect(await screen.findByRole("link", { name: /retomar treino/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /treino avulso/i })).toBeInTheDocument();
+  });
+
+  it("uma sessão SEM exercício continua listada para retomar", async () => {
+    // O buraco que fazia cada tentativa vazar uma sessão órfã.
+    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Treino avulso", itens: [] });
+    await criarRotina(db, 1, "R");
+    montar();
+
+    expect(await screen.findByRole("heading", { name: "Treino avulso" })).toBeInTheDocument();
+    expect(await screen.findByText(/sem exercício ainda/i)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /retomar treino/i })).toBeInTheDocument();
+  });
+
+  it("pergunta o nome antes de criar a sessão", async () => {
+    await criarRotina(db, 1, "R");
+    montar();
+    await userEvent.click(await screen.findByRole("button", { name: /treino avulso/i }));
+
+    const campo = await screen.findByLabelText(/nome/i);
+    expect(campo).toHaveValue("Treino avulso");
+    await userEvent.clear(campo);
+    await userEvent.type(campo, "Corrida no parque");
+    await userEvent.click(screen.getByRole("button", { name: /começar/i }));
+
+    await waitFor(async () => {
+      const rs = await db.execute("SELECT nome FROM workout_sessions ORDER BY id DESC LIMIT 1");
+      expect(rs.rows[0]?.nome).toBe("Corrida no parque");
+    });
+  });
+
+  it("duas sessões abertas no mesmo dia aparecem as duas", async () => {
+    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
+    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Noite", itens: [] });
+    await criarRotina(db, 1, "R");
+    montar();
+
+    expect(await screen.findByRole("heading", { name: "Manhã" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Noite" })).toBeInTheDocument();
   });
 });

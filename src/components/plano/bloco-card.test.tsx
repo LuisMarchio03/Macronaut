@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BlocoCard } from "./bloco-card";
 import type { BlocoDoDia, EstadoBloco } from "@/domain/plano-dia";
-import type { PlanBlock, PlanItem } from "@/domain/plano-types";
+import type { PlanBlock, PlanItem, TrocaDeItem } from "@/domain/plano-types";
 
 const bloco = (p: Partial<PlanBlock> = {}): PlanBlock => ({
   id: 1,
@@ -37,7 +37,7 @@ function montar(
     itens?: PlanItem[];
     aguaNoBloco?: number;
     emFoco?: boolean;
-    temTrocas?: boolean;
+    trocas?: TrocaDeItem[];
     onMarcar?: (feito: boolean) => void;
     onTrocar?: () => void;
     onAgua?: (ml: number) => void;
@@ -50,7 +50,7 @@ function montar(
       itens={overrides.itens ?? [item(1, "120g de frango"), item(2, "arroz integral")]}
       aguaNoBloco={overrides.aguaNoBloco}
       emFoco={overrides.emFoco}
-      temTrocas={overrides.temTrocas}
+      trocas={overrides.trocas}
       onMarcar={overrides.onMarcar ?? (() => {})}
       onTrocar={overrides.onTrocar}
       onAgua={overrides.onAgua}
@@ -133,22 +133,54 @@ describe("marcar e desmarcar", () => {
 });
 
 describe("trocar", () => {
-  it("oferece a troca quando o plano tem substituições para o bloco", async () => {
+  const troca = (item_id: number, nome: string, kcal: number | null = null): TrocaDeItem => ({
+    id: item_id, data: "2026-08-31", block_id: 1, item_id, origem: "plano", swap_id: 1,
+    nome, porcao: null, kcal, food_id: null, qty_g: null, measure_id: null, medidas: null,
+  });
+
+  it("oferece a troca no bloco da vez", async () => {
     const onTrocar = vi.fn();
-    montar("agora", { temTrocas: true, onTrocar });
+    montar("agora", { onTrocar });
     await userEvent.click(screen.getByRole("button", { name: /trocar/i }));
     expect(onTrocar).toHaveBeenCalled();
   });
 
-  it("não oferece troca quando o plano não lista nenhuma", () => {
-    // Um botão que abre uma lista vazia é pior do que botão nenhum.
-    montar("agora", { temTrocas: false, onTrocar: vi.fn() });
+  it("oferece a troca num bloco FORA da janela de horário", async () => {
+    // Planejar a substituição do almoço às 9h é o caso comum. Antes o botão
+    // só existia enquanto o bloco estava aberto, e o almoço às 9h não está.
+    const onTrocar = vi.fn();
+    montar("proximo", { onTrocar });
+    await userEvent.click(screen.getByRole("button", { name: /trocar em/i }));
+    expect(onTrocar).toHaveBeenCalled();
+  });
+
+  it("oferece a troca num bloco já feito", async () => {
+    // Corrigir a troca de uma refeição marcada exigia desmarcá-la — o caminho
+    // se fechava atrás de você.
+    const onTrocar = vi.fn();
+    montar("feito", { onTrocar });
+    await userEvent.click(screen.getByRole("button", { name: /trocar em/i }));
+    expect(onTrocar).toHaveBeenCalled();
+  });
+
+  it("não oferece troca em bloco sem itens", () => {
+    // Um botão que abre uma refeição vazia é pior do que botão nenhum.
+    montar("agora", { itens: [], onTrocar: vi.fn() });
     expect(screen.queryByRole("button", { name: /trocar/i })).toBeNull();
   });
 
-  it("não oferece troca num bloco já feito", () => {
-    montar("feito", { temTrocas: true, onTrocar: vi.fn() });
-    expect(screen.queryByRole("button", { name: /trocar/i })).toBeNull();
+  it("mostra o item trocado, com o original riscado", () => {
+    montar("agora", { trocas: [troca(1, "Tapioca", 90)] });
+    expect(screen.getByText("120g de frango").className).toContain("line-through");
+    expect(screen.getByText("Tapioca · 90 kcal")).toBeInTheDocument();
+    // O item não trocado continua inteiro.
+    expect(screen.getByText("arroz integral").className).not.toContain("line-through");
+  });
+
+  it("mais de um item da mesma refeição pode aparecer trocado", () => {
+    montar("agora", { trocas: [troca(1, "Tapioca", 90), troca(2, "Batata-doce", 110)] });
+    expect(screen.getByText("Tapioca · 90 kcal")).toBeInTheDocument();
+    expect(screen.getByText("Batata-doce · 110 kcal")).toBeInTheDocument();
   });
 });
 

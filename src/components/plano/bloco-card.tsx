@@ -2,8 +2,9 @@ import { Check, Clock, Droplets, Pill, UtensilsCrossed, Repeat, AlertCircle } fr
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { janelaHoraria } from "@/lib/date";
+import { descreverTroca, trocaDoItem } from "@/domain/plano-dia";
 import type { BlocoDoDia } from "@/domain/plano-dia";
-import type { PlanItem, TipoBloco } from "@/domain/plano-types";
+import type { PlanItem, TipoBloco, TrocaDeItem } from "@/domain/plano-types";
 
 const ICONE: Record<TipoBloco, typeof UtensilsCrossed> = {
   refeicao: UtensilsCrossed,
@@ -31,22 +32,23 @@ const VERBO: Record<TipoBloco, string> = {
 export function BlocoCard({
   item: { bloco, estado },
   itens,
+  trocas = [],
   aguaNoBloco = 0,
   emFoco = false,
   onMarcar,
   onTrocar,
   onAgua,
-  temTrocas,
 }: {
   item: BlocoDoDia;
   itens: PlanItem[];
+  /** As trocas do dia. O card desenha o item trocado no lugar do original. */
+  trocas?: TrocaDeItem[];
   aguaNoBloco?: number;
   /** Marca o passo atual para leitores de tela. Só um bloco por dia o recebe. */
   emFoco?: boolean;
   onMarcar: (feito: boolean) => void;
   onTrocar?: () => void;
   onAgua?: (ml: number) => void;
-  temTrocas?: boolean;
 }) {
   const Icone = ICONE[bloco.tipo];
   const feito = estado === "feito";
@@ -56,6 +58,10 @@ export function BlocoCard({
 
   const quando = janelaHoraria(bloco.hora_inicio, bloco.hora_fim) || bloco.ancora || "";
   const ehAgua = bloco.tipo === "agua";
+  // Trocar deixou de depender do relógio e do check. Planejar o almoço às 9h
+  // é uma coisa que se faz, e corrigir a troca de uma refeição já marcada
+  // também — antes as duas exigiam desmarcar ou esperar a janela abrir.
+  const podeTrocar = onTrocar !== undefined && !ehAgua && itens.length > 0;
   const metaAgua = bloco.ml_alvo ?? 0;
   const aguaCompleta = ehAgua && metaAgua > 0 && aguaNoBloco >= metaAgua;
 
@@ -139,15 +145,30 @@ export function BlocoCard({
 
           {aberto && !ehAgua && itens.length > 0 && (
             <ul className="mt-3 space-y-1.5">
-              {itens.map((i) => (
-                <li key={i.id} className="flex gap-2 text-sm">
-                  <span
-                    aria-hidden
-                    className="mt-1.5 size-1 shrink-0 rounded-full bg-muted-foreground"
-                  />
-                  <span className="min-w-0">{i.texto}</span>
-                </li>
-              ))}
+              {itens.map((i) => {
+                const troca = trocaDoItem(trocas, i.id);
+                return (
+                  <li key={i.id} className="flex gap-2 text-sm">
+                    <span
+                      aria-hidden
+                      className="mt-1.5 size-1 shrink-0 rounded-full bg-muted-foreground"
+                    />
+                    {/* O original riscado continua visível: a troca só faz
+                        sentido contra o que ela substituiu, e some-lo apagaria
+                        o que o plano manda. */}
+                    <span className="min-w-0">
+                      <span className={troca ? "text-muted-foreground line-through" : undefined}>
+                        {i.texto}
+                      </span>
+                      {troca && (
+                        <span className="block font-medium text-primary">
+                          {descreverTroca(troca)}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
 
@@ -180,7 +201,7 @@ export function BlocoCard({
                     >
                       {feito ? "Desmarcar" : VERBO[bloco.tipo]}
                     </button>,
-                    onTrocar && temTrocas && !feito ? (
+                    podeTrocar ? (
                       <button
                         key="trocar"
                         type="button"
@@ -196,23 +217,37 @@ export function BlocoCard({
           )}
         </div>
 
-        {/* Fechado: um alvo redondo de 44px para marcar adiantado ou desmarcar,
-            sem ocupar uma linha inteira do card. */}
+        {/* Fechado: alvos redondos de 44px para marcar adiantado ou desmarcar
+            e para trocar, sem ocupar uma linha inteira do card. Trocar mora
+            aqui também porque planejar a substituição do almoço às 9h da manhã
+            é o caso comum — e antes o botão só existia na janela do bloco. */}
         {!aberto && !ehAgua && (
-          <button
-            type="button"
-            onClick={() => onMarcar(!feito)}
-            aria-label={feito ? `Desmarcar ${bloco.nome}` : `Marcar ${bloco.nome} como feito`}
-            aria-pressed={feito}
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-full border transition-colors",
-              feito
-                ? "border-success/40 bg-success/15 text-success"
-                : "border-input text-muted-foreground hover:bg-muted",
+          <span className="flex shrink-0 items-center gap-1">
+            {podeTrocar && (
+              <button
+                type="button"
+                onClick={onTrocar}
+                aria-label={`Trocar em ${bloco.nome}`}
+                className="flex size-11 items-center justify-center rounded-full border border-input text-muted-foreground transition-colors hover:bg-muted"
+              >
+                <Repeat className="size-4" />
+              </button>
             )}
-          >
-            <Check className="size-5" strokeWidth={feito ? 2.6 : 2} />
-          </button>
+            <button
+              type="button"
+              onClick={() => onMarcar(!feito)}
+              aria-label={feito ? `Desmarcar ${bloco.nome}` : `Marcar ${bloco.nome} como feito`}
+              aria-pressed={feito}
+              className={cn(
+                "flex size-11 items-center justify-center rounded-full border transition-colors",
+                feito
+                  ? "border-success/40 bg-success/15 text-success"
+                  : "border-input text-muted-foreground hover:bg-muted",
+              )}
+            >
+              <Check className="size-5" strokeWidth={feito ? 2.6 : 2} />
+            </button>
+          </span>
         )}
       </div>
     </article>

@@ -14,7 +14,11 @@ import {
   listMacros,
   listPlanos,
   listSubstituicoes,
+  listTrocasDoDia,
   marcarBloco,
+  removerTroca,
+  salvarTroca,
+  type TrocaEntrada,
 } from "../repositories/plano";
 import type { DietPlan, RascunhoPlano } from "../domain/plano-types";
 
@@ -26,6 +30,7 @@ const CHAVE = {
   macros: (id?: number) => ["plano", "macros", id] as const,
   swaps: (id?: number) => ["plano", "swaps", id] as const,
   checks: (data: string) => ["plano", "checks", data] as const,
+  trocas: (data: string) => ["plano", "trocas", data] as const,
   agua: (data: string) => ["plano", "agua-bloco", data] as const,
 };
 
@@ -83,6 +88,16 @@ export function useChecksDoDia(data: string) {
   return useQuery({
     queryKey: CHAVE.checks(data),
     queryFn: () => listChecksDoDia(db, userId, data),
+  });
+}
+
+/** As trocas de item do dia — a folha e o card do bloco leem daqui. */
+export function useTrocasDoDia(data: string) {
+  const db = useDb();
+  const userId = useUserId();
+  return useQuery({
+    queryKey: CHAVE.trocas(data),
+    queryFn: () => listTrocasDoDia(db, userId, data),
   });
 }
 
@@ -152,7 +167,38 @@ export function useMarcarBloco(data: string) {
       feito: boolean;
       swapId?: number | null;
     }) => marcarBloco(db, userId, planId, data, blockId, feito, swapId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: CHAVE.checks(data) }),
+    // Marcar deixou de ser só um check: lança (e desmarcar apaga) no diário do
+    // dia, e pode criar a refeição correspondente. Invalidar só os checks
+    // deixaria o balanço energético da tela desatualizado até um F5.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CHAVE.checks(data) });
+      qc.invalidateQueries({ queryKey: ["entries", data] });
+      qc.invalidateQueries({ queryKey: ["meals"] });
+    },
+  });
+}
+
+/**
+ * Grava, corrige ou desfaz a troca de um item.
+ *
+ * `entrada === null` desfaz. As duas invalidam o diário junto: o que o bloco
+ * lança depende da troca vigente, e um bloco já marcado tem que refletir a
+ * troca nova.
+ */
+export function useSalvarTroca(data: string) {
+  const db = useDb();
+  const userId = useUserId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { entrada: TrocaEntrada } | { itemId: number }) =>
+      "entrada" in v
+        ? salvarTroca(db, userId, v.entrada)
+        : removerTroca(db, userId, data, v.itemId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CHAVE.trocas(data) });
+      qc.invalidateQueries({ queryKey: CHAVE.checks(data) });
+      qc.invalidateQueries({ queryKey: ["entries", data] });
+    },
   });
 }
 

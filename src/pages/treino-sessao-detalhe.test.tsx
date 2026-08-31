@@ -209,7 +209,44 @@ describe("Detalhe da sessão — sessões anteriores a esta arquitetura", () => 
 
     montar(s.id);
 
-    expect(await screen.findByText(/sessão sem registro/i)).toBeInTheDocument();
+    expect(await screen.findByText(/sessão sem exercício/i)).toBeInTheDocument();
+  });
+
+  it("a sessão vazia deixa de ser um beco sem saída: dá para adicionar exercício", async () => {
+    // Era o fim da linha do treino avulso — a tela oferecia só "excluir".
+    const s = await createSession(db, USER, { data: "2026-07-01", nome: "Treino avulso" });
+    await exercicio("Supino reto");
+    montar(s.id);
+
+    await userEvent.click(await screen.findByRole("button", { name: /adicionar exercício/i }));
+    await userEvent.type(screen.getByRole("combobox"), "supino");
+    await userEvent.click(await screen.findByRole("button", { name: /supino reto/i }));
+
+    await waitFor(async () => {
+      const rs = await db.execute("SELECT COUNT(*) AS n FROM session_plan_sets");
+      expect(Number(rs.rows[0].n)).toBe(3);
+    });
+  });
+
+  it("dá para adicionar exercício numa sessão que já tem plano", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-07-01", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    await exercicio("Rosca direta");
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /adicionar exercício/i }));
+    await userEvent.type(screen.getByRole("combobox"), "rosca");
+    await userEvent.click(await screen.findByRole("button", { name: /rosca direta/i }));
+
+    await waitFor(async () => {
+      const rs = await db.execute(
+        "SELECT COUNT(DISTINCT exercise_id) AS n FROM session_plan_sets WHERE session_id=?",
+        [sid],
+      );
+      expect(Number(rs.rows[0].n)).toBe(2);
+    });
   });
 
   /**
