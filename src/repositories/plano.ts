@@ -115,12 +115,25 @@ export async function listPlanos(db: Client, userId: number): Promise<DietPlan[]
  * A ordenação sai do SQL para que a tela não tenha que reordenar a cada render
  * e para que o critério viva num lugar só.
  */
-export async function listBlocos(db: Client, planId: number): Promise<PlanBlock[]> {
+/**
+ * O `JOIN diet_plans` em vez de só `WHERE plan_id=?`.
+ *
+ * Sem ele, qualquer sessão lia o plano de qualquer um chutando o id — o
+ * `plan_id` vinha do cliente e nada dizia de quem ele era. Estas quatro
+ * consultas do plano ganharam `userId` pelo mesmo motivo, e é o registro de
+ * `/api/rpc` que garante que ele venha do token.
+ */
+export async function listBlocos(
+  db: Client,
+  userId: number,
+  planId: number,
+): Promise<PlanBlock[]> {
   const rs = await db.execute({
-    sql: `SELECT * FROM plan_blocks
-          WHERE plan_id=?
-          ORDER BY (hora_inicio IS NULL), hora_inicio, ordem`,
-    args: [planId],
+    sql: `SELECT b.* FROM plan_blocks b
+          JOIN diet_plans p ON p.id = b.plan_id
+          WHERE b.plan_id=? AND p.user_id=?
+          ORDER BY (b.hora_inicio IS NULL), b.hora_inicio, b.ordem`,
+    args: [planId, userId],
   });
   return rs.rows.map(mapBlock);
 }
@@ -128,14 +141,16 @@ export async function listBlocos(db: Client, planId: number): Promise<PlanBlock[
 /** Itens de todos os blocos do plano, agrupados por `block_id`. */
 export async function listItensPorBloco(
   db: Client,
+  userId: number,
   planId: number,
 ): Promise<Map<number, PlanItem[]>> {
   const rs = await db.execute({
     sql: `SELECT i.* FROM plan_items i
           JOIN plan_blocks b ON b.id = i.block_id
-          WHERE b.plan_id=?
+          JOIN diet_plans p  ON p.id = b.plan_id
+          WHERE b.plan_id=? AND p.user_id=?
           ORDER BY i.block_id, i.ordem`,
-    args: [planId],
+    args: [planId, userId],
   });
   const out = new Map<number, PlanItem[]>();
   for (const r of rs.rows) {
@@ -147,10 +162,16 @@ export async function listItensPorBloco(
   return out;
 }
 
-export async function listMacros(db: Client, planId: number): Promise<PlanMacro[]> {
+export async function listMacros(
+  db: Client,
+  userId: number,
+  planId: number,
+): Promise<PlanMacro[]> {
   const rs = await db.execute({
-    sql: "SELECT * FROM plan_macros WHERE plan_id=? ORDER BY id",
-    args: [planId],
+    sql: `SELECT m.* FROM plan_macros m
+          JOIN diet_plans p ON p.id = m.plan_id
+          WHERE m.plan_id=? AND p.user_id=? ORDER BY m.id`,
+    args: [planId, userId],
   });
   return rs.rows.map((r) => ({
     id: r.id as number,
@@ -163,10 +184,17 @@ export async function listMacros(db: Client, planId: number): Promise<PlanMacro[
   }));
 }
 
-export async function listSubstituicoes(db: Client, planId: number): Promise<PlanSwap[]> {
+export async function listSubstituicoes(
+  db: Client,
+  userId: number,
+  planId: number,
+): Promise<PlanSwap[]> {
   const rs = await db.execute({
-    sql: "SELECT * FROM plan_swaps WHERE plan_id=? ORDER BY block_nome, categoria, kcal",
-    args: [planId],
+    sql: `SELECT s.* FROM plan_swaps s
+          JOIN diet_plans p ON p.id = s.plan_id
+          WHERE s.plan_id=? AND p.user_id=?
+          ORDER BY s.block_nome, s.categoria, s.kcal`,
+    args: [planId, userId],
   });
   return rs.rows.map(mapSwap);
 }

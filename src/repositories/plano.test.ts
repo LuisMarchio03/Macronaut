@@ -63,10 +63,10 @@ describe("importarPlano", () => {
   it("grava blocos, itens, macros e substituições", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
 
-    const blocos = await listBlocos(db, plano.id);
+    const blocos = await listBlocos(db, USER, plano.id);
     expect(blocos).toHaveLength(9); // 4 refeições + 4 águas + 1 suplemento
 
-    const itens = await listItensPorBloco(db, plano.id);
+    const itens = await listItensPorBloco(db, USER, plano.id);
     const porNome = Object.fromEntries(
       blocos.map((b) => [`${b.nome} ${b.hora_inicio ?? b.ancora}`, itens.get(b.id)?.length ?? 0]),
     );
@@ -82,13 +82,13 @@ describe("importarPlano", () => {
       "CREATINA Após almoço": 1,
     });
 
-    expect(await listMacros(db, plano.id)).toHaveLength(4);
-    expect(await listSubstituicoes(db, plano.id)).toHaveLength(39);
+    expect(await listMacros(db, USER, plano.id)).toHaveLength(4);
+    expect(await listSubstituicoes(db, USER, plano.id)).toHaveLength(39);
   });
 
   it("ordena os blocos pelo relógio, com os ancorados no fim", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const blocos = await listBlocos(db, plano.id);
+    const blocos = await listBlocos(db, USER, plano.id);
 
     const comHora = blocos.filter((b) => b.hora_inicio !== null).map((b) => b.hora_inicio!);
     expect(comHora).toEqual([...comHora].sort());
@@ -148,10 +148,10 @@ describe("deletarPlano", () => {
     await deletarPlano(db, USER, plano.id);
 
     expect(await listPlanos(db, USER)).toEqual([]);
-    expect(await listBlocos(db, plano.id)).toEqual([]);
-    expect(await listMacros(db, plano.id)).toEqual([]);
-    expect(await listSubstituicoes(db, plano.id)).toEqual([]);
-    expect([...(await listItensPorBloco(db, plano.id)).keys()]).toEqual([]);
+    expect(await listBlocos(db, USER, plano.id)).toEqual([]);
+    expect(await listMacros(db, USER, plano.id)).toEqual([]);
+    expect(await listSubstituicoes(db, USER, plano.id)).toEqual([]);
+    expect([...(await listItensPorBloco(db, USER, plano.id)).keys()]).toEqual([]);
   });
 
   it("não apaga plano de outro usuário", async () => {
@@ -166,7 +166,7 @@ describe("marcarBloco", () => {
 
   it("marca um bloco como feito", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const bloco = (await listBlocos(db, plano.id))[0];
+    const bloco = (await listBlocos(db, USER, plano.id))[0];
 
     await marcarBloco(db, USER, plano.id, DIA, bloco.id, true);
 
@@ -177,8 +177,8 @@ describe("marcarBloco", () => {
 
   it("atualiza em vez de duplicar quando marca de novo", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const bloco = (await listBlocos(db, plano.id))[0];
-    const swap = (await listSubstituicoes(db, plano.id))[0];
+    const bloco = (await listBlocos(db, USER, plano.id))[0];
+    const swap = (await listSubstituicoes(db, USER, plano.id))[0];
 
     await marcarBloco(db, USER, plano.id, DIA, bloco.id, true);
     await marcarBloco(db, USER, plano.id, DIA, bloco.id, true, swap.id);
@@ -191,8 +191,8 @@ describe("marcarBloco", () => {
 
   it("guarda qual substituição foi escolhida", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const bloco = (await listBlocos(db, plano.id))[0];
-    const swap = (await listSubstituicoes(db, plano.id))[0];
+    const bloco = (await listBlocos(db, USER, plano.id))[0];
+    const swap = (await listSubstituicoes(db, USER, plano.id))[0];
 
     await marcarBloco(db, USER, plano.id, DIA, bloco.id, true, swap.id);
     expect((await listChecksDoDia(db, USER, DIA))[0].swap_id).toBe(swap.id);
@@ -200,7 +200,7 @@ describe("marcarBloco", () => {
 
   it("separa os dias", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const bloco = (await listBlocos(db, plano.id))[0];
+    const bloco = (await listBlocos(db, USER, plano.id))[0];
 
     await marcarBloco(db, USER, plano.id, DIA, bloco.id, true);
     await marcarBloco(db, USER, plano.id, "2026-08-15", bloco.id, true);
@@ -215,7 +215,7 @@ describe("contarChecksPorDia", () => {
     // A aderência que interessa é a das refeições; contar água junto inflaria
     // o número e faria "4 de 4" significar coisas diferentes a cada dia.
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const blocos = await listBlocos(db, plano.id);
+    const blocos = await listBlocos(db, USER, plano.id);
     const refeicao = blocos.find((b) => b.tipo === "refeicao")!;
     const agua = blocos.find((b) => b.tipo === "agua")!;
     const suplemento = blocos.find((b) => b.tipo === "suplemento")!;
@@ -230,7 +230,7 @@ describe("contarChecksPorDia", () => {
 
   it("não conta bloco desmarcado", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const refeicao = (await listBlocos(db, plano.id)).find((b) => b.tipo === "refeicao")!;
+    const refeicao = (await listBlocos(db, USER, plano.id)).find((b) => b.tipo === "refeicao")!;
     await marcarBloco(db, USER, plano.id, "2026-08-14", refeicao.id, false);
 
     const mapa = await contarChecksPorDia(db, USER, "2026-08-01", "2026-08-31");
@@ -239,7 +239,7 @@ describe("contarChecksPorDia", () => {
 
   it("respeita o intervalo pedido", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const refeicao = (await listBlocos(db, plano.id)).find((b) => b.tipo === "refeicao")!;
+    const refeicao = (await listBlocos(db, USER, plano.id)).find((b) => b.tipo === "refeicao")!;
     await marcarBloco(db, USER, plano.id, "2026-07-01", refeicao.id, true);
 
     const mapa = await contarChecksPorDia(db, USER, "2026-08-01", "2026-08-31");
@@ -252,7 +252,7 @@ describe("água por período", () => {
 
   it("credita a água ao bloco do período", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const aguas = (await listBlocos(db, plano.id)).filter((b) => b.tipo === "agua");
+    const aguas = (await listBlocos(db, USER, plano.id)).filter((b) => b.tipo === "agua");
 
     await addAguaNoBloco(db, USER, DIA, 200, aguas[0].id);
     await addAguaNoBloco(db, USER, DIA, 300, aguas[0].id);
@@ -280,7 +280,7 @@ describe("água por período", () => {
 
   it("separa os dias", async () => {
     const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-    const agua = (await listBlocos(db, plano.id)).find((b) => b.tipo === "agua")!;
+    const agua = (await listBlocos(db, USER, plano.id)).find((b) => b.tipo === "agua")!;
 
     await addAguaNoBloco(db, USER, DIA, 200, agua.id);
     await addAguaNoBloco(db, USER, "2026-08-15", 800, agua.id);
@@ -299,10 +299,10 @@ const DIA_T = "2026-08-31";
 /** Plano importado + o Café da Manhã com seus itens, que é o cenário de todos. */
 async function cenario(db: Client) {
   const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
-  const blocos = await listBlocos(db, plano.id);
+  const blocos = await listBlocos(db, USER, plano.id);
   const cafe = blocos.find((b) => b.nome === "Café da Manhã")!;
-  const itens = (await listItensPorBloco(db, plano.id)).get(cafe.id)!;
-  const swaps = await listSubstituicoes(db, plano.id);
+  const itens = (await listItensPorBloco(db, USER, plano.id)).get(cafe.id)!;
+  const swaps = await listSubstituicoes(db, USER, plano.id);
   return { plano, cafe, itens, swaps };
 }
 
@@ -552,5 +552,29 @@ describe("migrarTrocasDeBloco", () => {
 
     expect(await migrarTrocasDeBloco(db)).toBe(0);
     expect(await listTrocasDoDia(db, USER, DIA_T)).toEqual([]);
+  });
+});
+
+describe("o plano é do dono, mesmo com o id na mão", () => {
+  const OUTRO = 99;
+
+  it("as quatro leituras do plano não atravessam para outro usuário", async () => {
+    // O `plan_id` vinha do cliente e nada dizia de quem ele era: qualquer
+    // sessão lia o plano de qualquer um chutando o id.
+    const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
+
+    expect(await listBlocos(db, OUTRO, plano.id)).toEqual([]);
+    expect((await listItensPorBloco(db, OUTRO, plano.id)).size).toBe(0);
+    expect(await listMacros(db, OUTRO, plano.id)).toEqual([]);
+    expect(await listSubstituicoes(db, OUTRO, plano.id)).toEqual([]);
+  });
+
+  it("o dono continua vendo o que é dele", async () => {
+    const plano = await importarPlano(db, USER, rascunhoReal(), "xlsx");
+
+    expect((await listBlocos(db, USER, plano.id)).length).toBeGreaterThan(0);
+    expect((await listItensPorBloco(db, USER, plano.id)).size).toBeGreaterThan(0);
+    expect((await listMacros(db, USER, plano.id)).length).toBeGreaterThan(0);
+    expect((await listSubstituicoes(db, USER, plano.id)).length).toBeGreaterThan(0);
   });
 });

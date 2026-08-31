@@ -7,6 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { PlanoImportar } from "./plano-importar";
 import { getPlanoAtivo, listBlocos } from "../repositories/plano";
 
@@ -19,7 +20,7 @@ function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}>
+      <DbProvider api={criarApiLocal(db, 1)}>
         <MemoryRouter>
           <PlanoImportar />
         </MemoryRouter>
@@ -101,7 +102,7 @@ describe("importação", () => {
       .toBe("MEU PLANO");
 
     const plano = (await getPlanoAtivo(db, 1))!;
-    const blocos = await listBlocos(db, plano.id);
+    const blocos = await listBlocos(db, 1, plano.id);
     expect(blocos.map((b) => b.tipo)).toEqual(["refeicao", "agua", "refeicao"]);
     expect(plano.origem).toBe("csv");
   });
