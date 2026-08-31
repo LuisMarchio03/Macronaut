@@ -109,18 +109,28 @@ passos (contariam de novo o que a caminhada registrada já contou).
 
 ---
 
-## Fase 2 — o Android (não entregue)
+## Fase 2 — o Android (entregue, NÃO compilado)
 
 5. Projeto Kotlin: TWA + leitura do Health Connect + worker de sincronização
    que fala com `/api/parear` e `/api/ingest`.
 6. Play Console, formulário de declaração do Health Connect e revisão da
    política de dados de saúde do Google.
 
-**Não dá para construir nem testar nesta máquina:** não há `java`, `gradle`,
+O projeto está em `android/`, com o passo a passo em `android/LEIA-ME.md`.
+
+**Não dá para compilar nem testar nesta máquina:** não há `java`, `gradle`,
 `adb` nem SDK, e a documentação do Samsung Health diz que **não funciona em
 emulador**. O Health Connect com dados reais só existe num Galaxy físico.
 
-O contrato que a Fase 2 precisa cumprir já está fechado e testado deste lado:
+O que ficou verificável daqui, e virou teste:
+
+- `api/_lib/contrato-android.test.ts` roda o lote de exemplo do app pela
+  validação real do servidor;
+- `api/_lib/android-config.test.ts` prende o domínio nos três lugares que
+  precisam concordar, as permissões do manifesto contra os tipos que o Kotlin
+  lê, a tela de política que o Health Connect exige e o `assetlinks.json`.
+
+O contrato que a Fase 2 cumpre:
 
 ```
 POST /api/parear
