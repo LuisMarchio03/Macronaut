@@ -2,6 +2,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import type { Client } from "@libsql/client";
 import type { ReactNode } from "react";
 import { DbProvider } from "../../src/lib/db-context";
+import { criarApiLocal } from "./api-local";
 
 /**
  * Wrapper de teste para hooks/componentes que falam com o banco.
@@ -9,12 +10,14 @@ import { DbProvider } from "../../src/lib/db-context";
  * 3 tentativas silenciosas. QueryClient novo por wrapper: sem cache vazando
  * entre testes.
  */
-export function criarWrapper(db: Client) {
+export function criarWrapper(db: Client, userId = 1) {
   return function Wrapper({ children }: { children: ReactNode }) {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return (
       <QueryClientProvider client={qc}>
-        <DbProvider client={db}>{children}</DbProvider>
+        <DbProvider client={db} api={criarApiLocal(db, userId)} userId={userId}>
+          {children}
+        </DbProvider>
       </QueryClientProvider>
     );
   };

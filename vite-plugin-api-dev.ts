@@ -20,6 +20,7 @@ export function apiDev(): Plugin {
     configureServer(server) {
       server.middlewares.use("/api/login", rota(login));
       server.middlewares.use("/api/db", rota(banco));
+      server.middlewares.use("/api/rpc", rota(rpc));
       server.middlewares.use("/api/codigo", rota(codigo));
       server.middlewares.use("/api/parear", rota(parear));
       server.middlewares.use("/api/ingest", rota(ingest));
@@ -154,6 +155,30 @@ const banco: Rota = async (corpo, req, responder) => {
     // tabela X, rode db:setup".
     return responder(400, { error: e instanceof Error ? e.message : String(e) });
   }
+};
+
+const rpc: Rota = async (corpo, req, responder) => {
+  const { dbUrl, dbToken, segredo } = config();
+  if (!dbUrl) return responder(500, { error: "DB_URL não configurada" });
+
+  const [servidor, rpcCore, registro] = await Promise.all([
+    import("./api/_lib/servidor.js"),
+    import("./api/_lib/rpc-core.js"),
+    import("./api/_lib/registro.js"),
+  ]);
+
+  const sessao = servidor.autorizar(req.headers.authorization, segredo, "sessao");
+  if (!sessao) return responder(401, { error: "401 sessão inválida ou expirada" });
+
+  let chamadas;
+  try {
+    chamadas = rpcCore.lerChamadas(corpo);
+  } catch (e) {
+    return responder(400, { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  const db = await cliente(dbUrl, dbToken);
+  return responder(200, await rpcCore.executarLote(registro.REGISTRO, db, sessao.u, chamadas));
 };
 
 const codigo: Rota = async (_corpo, req, responder) => {

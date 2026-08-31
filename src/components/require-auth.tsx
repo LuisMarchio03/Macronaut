@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 import { DbProvider } from "../lib/db-context";
 import { createUserDb } from "../lib/db";
+import { criarApiRemota } from "../lib/api";
 
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { session } = useAuth();
@@ -10,7 +11,15 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     () => (session ? createUserDb(session.token) : null),
     [session?.token],
   );
+  const api = useMemo(
+    () => (session ? criarApiRemota(session.token) : null),
+    [session?.token],
+  );
 
-  if (!session || !client) return <Navigate to="/login" replace />;
-  return <DbProvider client={client} userId={session.userId}>{children}</DbProvider>;
+  if (!session || !client || !api) return <Navigate to="/login" replace />;
+  return (
+    <DbProvider client={client} api={api} userId={session.userId}>
+      {children}
+    </DbProvider>
+  );
 }
