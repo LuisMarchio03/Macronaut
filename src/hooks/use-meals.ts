@@ -1,52 +1,45 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
-import {
-  listMeals, createMeal, updateMeal, deleteMeal, reordenarMeals,
-} from "../repositories/meals";
+import { useApi } from "../lib/db-context";
+
 import type { Meal } from "../domain/types";
 
 export function useMeals() {
-  const db = useDb();
-  const userId = useUserId();
-  return useQuery({ queryKey: ["meals"], queryFn: () => listMeals(db, userId) });
+  const api = useApi();
+  return useQuery({ queryKey: ["meals"], queryFn: () => api["meals"].listMeals() });
 }
 
 export function useCreateMeal() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (m: Omit<Meal, "id">) => createMeal(db, userId, m),
+    mutationFn: (m: Omit<Meal, "id">) => api["meals"].createMeal(m),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meals"] }),
   });
 }
 
 export function useUpdateMeal() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, m }: { id: number; m: Omit<Meal, "id"> }) => updateMeal(db, userId, id, m),
+    mutationFn: ({ id, m }: { id: number; m: Omit<Meal, "id"> }) => api["meals"].updateMeal(id, m),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meals"] }),
   });
 }
 
 export function useDeleteMeal() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteMeal(db, userId, id),
+    mutationFn: (id: number) => api["meals"].deleteMeal(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meals"] }),
   });
 }
 
 export function useReordenarMeals() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (ids: number[]) => reordenarMeals(db, userId, ids),
+    mutationFn: (ids: number[]) => api["meals"].reordenarMeals(ids),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meals"] }),
   });
 }

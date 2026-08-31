@@ -3,11 +3,11 @@ import type { Client } from "@libsql/client";
 /**
  * O registro de operações: o que o cliente pode pedir ao servidor.
  *
- * É o que fecha o buraco que `/api/db` deixou aberto. Lá o cliente manda SQL,
- * e uma sessão válida roda qualquer consulta — inclusive nas linhas de outro
- * usuário. Aqui ele manda um NOME e argumentos; quem escolhe a consulta é o
- * servidor, e o `user_id` **vem do token**, nunca do corpo do pedido. Forjar
- * dono deixa de ser possível por construção, não por disciplina.
+ * Fechou o buraco que `/api/db` era. Lá o cliente mandava SQL, e uma sessão
+ * válida rodava qualquer consulta — inclusive nas linhas de outro usuário.
+ * Aqui ele manda um NOME e argumentos; quem escolhe a consulta é o servidor, e
+ * o `user_id` **vem do token**, nunca do corpo do pedido. Forjar dono deixou
+ * de ser possível por construção, não por disciplina.
  *
  * As funções não mudam: os repositórios já são `(db, userId, ...args)`, e é
  * essa forma que permite um despacho de dez linhas em vez de 250 endpoints
@@ -42,7 +42,7 @@ export interface Chamada {
   args: unknown[];
 }
 
-/** Um lote de chamadas — o mesmo truque de juntar leituras que `/api/db` usa. */
+/** Um lote de chamadas: os hooks disparam juntos, então vão juntos. */
 export const LIMITE_CHAMADAS = 100;
 
 export function lerChamadas(corpo: unknown): Chamada[] {
@@ -67,6 +67,34 @@ export function lerChamadas(corpo: unknown): Chamada[] {
 
 /** O que uma chamada devolve: o valor, ou o erro dela — nunca os dois. */
 export type Resultado = { ok: true; valor: unknown } | { ok: false; erro: string };
+
+/**
+ * `Map` não sobrevive a JSON — vira `{}`, calado.
+ *
+ * Sete funções de repositório devolvem `Map` (`getFoodsByIds`,
+ * `listItensPorBloco`, `aguaPorBloco`…). Pelo `/api/db` isso não aparecia
+ * porque o mapa era montado no cliente, a partir das linhas. Agora ele é
+ * montado no servidor e precisa atravessar.
+ *
+ * A marca é um objeto com uma chave improvável, e não um formato posicional:
+ * um `Map` de verdade e um objeto que por acaso tem `entradas` precisam ser
+ * distinguíveis, e `__mapa` é o tipo de chave que ninguém escreve sem querer.
+ */
+const MARCA_MAPA = "__mapa";
+
+export function serializarValor(v: unknown): unknown {
+  if (v instanceof Map) {
+    return { [MARCA_MAPA]: [...v.entries()].map(([k, x]) => [k, serializarValor(x)]) };
+  }
+  if (Array.isArray(v)) return v.map(serializarValor);
+  // `null` é objeto, e Date já vai como string pelo próprio JSON.
+  if (v !== null && typeof v === "object" && !(v instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, serializarValor(x)]),
+    );
+  }
+  return v;
+}
 
 /**
  * Executa uma chamada.
@@ -107,7 +135,7 @@ export async function executarLote(
   return Promise.all(
     chamadas.map(async (c): Promise<Resultado> => {
       try {
-        return { ok: true, valor: await executar(registro, db, userId, c) };
+        return { ok: true, valor: serializarValor(await executar(registro, db, userId, c)) };
       } catch (e) {
         // A mensagem do banco volta inteira: é dela que a tela tira "falta a
         // tabela X, rode db:setup".

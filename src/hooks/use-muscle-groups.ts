@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { useDb } from "../lib/db-context";
-import { listMuscleGroups } from "../repositories/muscle-groups";
+import { useApi } from "../lib/db-context";
 
 export function useMuscleGroups() {
-  const db = useDb();
+  const api = useApi();
   return useQuery({
     queryKey: ["muscle-groups"],
-    queryFn: () => listMuscleGroups(db),
+    queryFn: () => api["muscle-groups"].listMuscleGroups(),
     staleTime: Infinity, // catálogo global, não muda em runtime
   });
 }

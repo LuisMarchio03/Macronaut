@@ -191,3 +191,47 @@ describe("isolamento entre usuários, pelo registro de verdade", () => {
     expect((await listDias(db, 2, alheia.id))[0].nome).toBe("Original");
   });
 });
+
+describe("Map atravessa o JSON", () => {
+  it("um Map volta como Map, não como {}", async () => {
+    // Sete repositórios devolvem `Map`. Pelo `/api/db` isso não aparecia — o
+    // mapa era montado no cliente, a partir das linhas. Aqui ele é montado no
+    // servidor, e `JSON.stringify(new Map([[1,'a']]))` é `{}`.
+    const reg: Registro = {
+      "t.mapa": {
+        escopo: "usuario",
+        fn: (async () => new Map([[1, "a"], [2, "b"]])) as Registro[string]["fn"],
+      },
+    };
+    const [r] = await executarLote(reg, db, 1, [{ nome: "t.mapa", args: [] }]);
+
+    expect(r).toMatchObject({ ok: true });
+    const cru = JSON.parse(JSON.stringify((r as { valor: unknown }).valor));
+    expect(cru).toEqual({ __mapa: [[1, "a"], [2, "b"]] });
+  });
+
+  it("Map aninhado dentro de objeto e de lista também", async () => {
+    const reg: Registro = {
+      "t.aninhado": {
+        escopo: "usuario",
+        fn: (async () => ({ lista: [new Map([["x", 1]])], solto: new Map() })) as Registro[string]["fn"],
+      },
+    };
+    const [r] = await executarLote(reg, db, 1, [{ nome: "t.aninhado", args: [] }]);
+    const v = (r as { valor: { lista: unknown[]; solto: unknown } }).valor;
+
+    expect(v.lista[0]).toEqual({ __mapa: [["x", 1]] });
+    expect(v.solto).toEqual({ __mapa: [] });
+  });
+
+  it("objeto comum não vira mapa por engano", async () => {
+    const reg: Registro = {
+      "t.objeto": {
+        escopo: "usuario",
+        fn: (async () => ({ id: 1, nome: "Café", nulo: null })) as Registro[string]["fn"],
+      },
+    };
+    const [r] = await executarLote(reg, db, 1, [{ nome: "t.objeto", args: [] }]);
+    expect((r as { valor: unknown }).valor).toEqual({ id: 1, nome: "Café", nulo: null });
+  });
+});

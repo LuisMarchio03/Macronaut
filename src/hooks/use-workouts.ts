@@ -1,30 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
+import { useApi, useUserId } from "../lib/db-context";
 import type { TipoSerie } from "../domain/types";
-import {
-  createSession, getSessionByDate, listSessions, deleteSession,
-  addSet, listSetsBySession, deleteSet, setsForExercise, updateSet,
-  ultimaVezExercicio, updateSession, historicoExercicio, type SetInput,
-} from "../repositories/workouts";
+import type { SetInput } from "../repositories/workouts";
 
 export function useSessionByDate(data: string) {
-  const db = useDb();
-  const userId = useUserId();
-  return useQuery({ queryKey: ["session", data], queryFn: () => getSessionByDate(db, userId, data) });
+  const api = useApi();
+  return useQuery({ queryKey: ["session", data], queryFn: () => api["workouts"].getSessionByDate(data) });
 }
 
 export function useListSessions() {
-  const db = useDb();
-  const userId = useUserId();
-  return useQuery({ queryKey: ["sessions"], queryFn: () => listSessions(db, userId) });
+  const api = useApi();
+  return useQuery({ queryKey: ["sessions"], queryFn: () => api["workouts"].listSessions() });
 }
 
 export function useCreateSession() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (s: { data: string; nome: string | null }) => createSession(db, userId, s),
+    mutationFn: (s: { data: string; nome: string | null }) => api["workouts"].createSession(s),
     onSuccess: (_r, s) => {
       qc.invalidateQueries({ queryKey: ["session", s.data] });
       qc.invalidateQueries({ queryKey: ["sessions"] });
@@ -33,11 +26,10 @@ export function useCreateSession() {
 }
 
 export function useDeleteSession() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteSession(db, userId, id),
+    mutationFn: (id: number) => api["workouts"].deleteSession(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sessions"] });
       qc.invalidateQueries({ queryKey: ["session"] });
@@ -48,21 +40,19 @@ export function useDeleteSession() {
 }
 
 export function useSessionSets(sessionId: number | undefined) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: ["session-sets", sessionId],
-    queryFn: () => listSetsBySession(db, userId, sessionId as number),
+    queryFn: () => api["workouts"].listSetsBySession(sessionId as number),
     enabled: sessionId != null,
   });
 }
 
 export function useAddSet(sessionId: number | undefined) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (s: SetInput) => addSet(db, userId, s),
+    mutationFn: (s: SetInput) => api["workouts"].addSet(s),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["session-sets", sessionId] });
       qc.invalidateQueries({ queryKey: ["sets-exercise"] });
@@ -72,11 +62,10 @@ export function useAddSet(sessionId: number | undefined) {
 }
 
 export function useDeleteSet(sessionId: number | undefined) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteSet(db, userId, id),
+    mutationFn: (id: number) => api["workouts"].deleteSet(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["session-sets", sessionId] });
       qc.invalidateQueries({ queryKey: ["sets-exercise"] });
@@ -86,14 +75,13 @@ export function useDeleteSet(sessionId: number | undefined) {
 }
 
 export function useUpdateSet(sessionId: number | undefined) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (u: {
       id: number; reps?: number; peso_kg?: number;
       tipo?: TipoSerie; rir?: number | null; nota?: string | null;
-    }) => updateSet(db, userId, u.id, {
+    }) => api["workouts"].updateSet(u.id, {
       reps: u.reps, peso_kg: u.peso_kg, tipo: u.tipo, rir: u.rir, nota: u.nota,
     }),
     onSuccess: () => {
@@ -105,32 +93,30 @@ export function useUpdateSet(sessionId: number | undefined) {
 }
 
 export function useSetsForExercise(exerciseId: number | undefined) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: ["sets-exercise", exerciseId],
-    queryFn: () => setsForExercise(db, userId, exerciseId as number),
+    queryFn: () => api["workouts"].setsForExercise(exerciseId as number),
     enabled: exerciseId != null,
   });
 }
 
 export function useUltimaVez(exerciseId: number | undefined, antesDe: string) {
-  const db = useDb();
+  const api = useApi();
   const userId = useUserId();
   return useQuery({
     queryKey: ["ultima-vez", userId, exerciseId, antesDe],
-    queryFn: () => ultimaVezExercicio(db, userId, exerciseId as number, antesDe),
+    queryFn: () => api["workouts"].ultimaVezExercicio(exerciseId as number, antesDe),
     enabled: exerciseId != null,
   });
 }
 
 export function useUpdateSession(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (u: { id: number; nome?: string | null; nota?: string | null }) =>
-      updateSession(db, userId, u.id, { nome: u.nome, nota: u.nota }),
+      api["workouts"].updateSession(u.id, { nome: u.nome, nota: u.nota }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["session", data] });
       qc.invalidateQueries({ queryKey: ["sessions"] });
@@ -144,11 +130,11 @@ export function useHistoricoExercicio(
   antesDe: string,
   limite = 3,
 ) {
-  const db = useDb();
+  const api = useApi();
   const userId = useUserId();
   return useQuery({
     queryKey: ["historico-exercicio", userId, exerciseId, antesDe, limite],
-    queryFn: () => historicoExercicio(db, userId, exerciseId as number, antesDe, limite),
+    queryFn: () => api["workouts"].historicoExercicio(exerciseId as number, antesDe, limite),
     enabled: exerciseId != null,
   });
 }

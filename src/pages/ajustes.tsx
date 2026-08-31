@@ -6,15 +6,13 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../lib/auth-context";
-import { useDb, useUserId } from "../lib/db-context";
+import { useApi } from "../lib/db-context";
 import { useAiConfig } from "../hooks/use-ai-config";
-import { setGeminiKey } from "../repositories/ai";
 import { DispositivosCard } from "../components/dispositivos-card";
 
 export function Ajustes() {
   const { logout, session } = useAuth();
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   const { data: config } = useAiConfig();
   const [key, setKey] = useState("");
@@ -25,7 +23,7 @@ export function Ajustes() {
     if (!key.trim()) return;
     setErro("");
     try {
-      await setGeminiKey(db, userId, key.trim());
+      await api["ai"].setGeminiKey(key.trim());
       await qc.invalidateQueries({ queryKey: ["ai-config"] });
       setKey("");
       setSalvo(true);
@@ -51,7 +49,7 @@ export function Ajustes() {
             </dd>
           </div>
           {/* A URL do banco morava aqui. Ela não chega mais ao navegador: o
-              app fala com `/api/db`, e só o servidor conhece o Turso. */}
+              app fala com `/api/rpc`, e só o servidor conhece o Turso. */}
           <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
             <dt className="t-caption shrink-0">Dados</dt>
             <dd className="text-sm font-medium">no servidor do app</dd>

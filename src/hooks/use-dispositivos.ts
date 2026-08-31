@@ -1,22 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
+import { useApi } from "../lib/db-context";
 import { useAuth } from "../lib/auth-context";
-import { apagarDispositivo, listarDispositivos } from "../repositories/dispositivos";
 
 const CHAVE = ["dispositivos"] as const;
 
 export function useDispositivos() {
-  const db = useDb();
-  const userId = useUserId();
-  return useQuery({ queryKey: CHAVE, queryFn: () => listarDispositivos(db, userId) });
+  const api = useApi();
+  return useQuery({ queryKey: CHAVE, queryFn: () => api["dispositivos"].listarDispositivos() });
 }
 
 export function useApagarDispositivo() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => apagarDispositivo(db, userId, id),
+    mutationFn: (id: number) => api["dispositivos"].apagarDispositivo(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: CHAVE }),
   });
 }
