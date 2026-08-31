@@ -1,37 +1,31 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
-import {
-  listActivityTypes, createActivitySession, listActivitySessions, deleteActivitySession,
-} from "../repositories/activities";
+import { useApi } from "../lib/db-context";
 
 export function useActivityTypes() {
-  const db = useDb();
-  return useQuery({ queryKey: ["activity-types"], queryFn: () => listActivityTypes(db) });
+  const api = useApi();
+  return useQuery({ queryKey: ["activity-types"], queryFn: () => api["activities"].listActivityTypes() });
 }
 
 export function useActivitySessions() {
-  const db = useDb();
-  const userId = useUserId();
-  return useQuery({ queryKey: ["activity-sessions"], queryFn: () => listActivitySessions(db, userId) });
+  const api = useApi();
+  return useQuery({ queryKey: ["activity-sessions"], queryFn: () => api["activities"].listActivitySessions() });
 }
 
 export function useCreateActivity() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (a: { data: string; tipo: string; duracao_min: number; kcal: number }) =>
-      createActivitySession(db, userId, a),
+      api["activities"].createActivitySession(a),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["activity-sessions"] }),
   });
 }
 
 export function useDeleteActivity() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteActivitySession(db, userId, id),
+    mutationFn: (id: number) => api["activities"].deleteActivitySession(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["activity-sessions"] }),
   });
 }

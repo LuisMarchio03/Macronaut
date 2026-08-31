@@ -1,7 +1,7 @@
 import { it, expect, beforeEach } from "vitest";
 import { loadSession, saveSession, clearSession, type Session } from "./session";
 
-const s: Session = { userId: 1, email: "a@x.com", dbUrl: "libsql://x", token: "tok" };
+const s: Session = { userId: 1, email: "a@x.com", token: "tok" };
 beforeEach(() => localStorage.clear());
 
 it("salva e carrega de volta igual", () => {
@@ -15,8 +15,13 @@ it("retorna null e limpa quando falta token", () => {
   expect(localStorage.getItem("macronaut.session")).toBeNull();
 });
 
-it("retorna null e limpa quando falta dbUrl", () => {
-  saveSession({ ...s, dbUrl: "" });
+it("uma sessão do formato antigo (com dbUrl) é descartada", () => {
+  // Aquela carregava o token do Turso. Aceitá-la seria manter viva a
+  // credencial que este proxy veio tirar do navegador.
+  localStorage.setItem(
+    "macronaut.session",
+    JSON.stringify({ userId: 1, email: "a@x.com", token: "tok-do-turso", dbUrl: "libsql://x" }),
+  );
   expect(loadSession()).toBeNull();
   expect(localStorage.getItem("macronaut.session")).toBeNull();
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Repeat, X } from "lucide-react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
@@ -78,11 +78,17 @@ function TrocarItem({
   const { data: resultados = [] } = useFoods(termo);
   const { data: medidas = [], isSuccess: medidasProntas } = useMeasures(alimento?.id ?? null);
 
+  /** O usuário já mexeu na quantidade? Então a sugestão não manda mais. */
+  const tocouNaQtd = useRef(false);
+
   // Abre em "1 fatia", não em "100" — a mesma cortesia que o diário faz. Espera
-  // as medidas chegarem: pré-preencher antes escolheria a unidade base e o
-  // guard de "já preenchi" impediria a correção.
+  // as medidas chegarem, porque elas decidem a unidade.
+  //
+  // E não escreve por cima do que já foi digitado: as medidas vêm do servidor,
+  // e podem chegar DEPOIS de a pessoa ter apagado o campo e digitado o número
+  // dela. Sem esta guarda, "2" vira "12" — a sugestão reaparecendo na frente.
   useEffect(() => {
-    if (!alimento || !medidasProntas) return;
+    if (!alimento || !medidasProntas || tocouNaQtd.current) return;
     const s = sugerirPorcao(alimento, medidas);
     setQtd(formatarNumero(s.count));
     setMedidaId(s.measure ? String(s.measure.id) : BASE);
@@ -162,7 +168,13 @@ function TrocarItem({
                 value={termo}
                 autoComplete="off"
                 placeholder="Buscar alimento…"
-                onChange={(e) => { setTermo(e.target.value); setAlimento(null); }}
+                onChange={(e) => {
+                  setTermo(e.target.value);
+                  setAlimento(null);
+                  // Alimento novo, sugestão nova: o que foi digitado era do
+                  // anterior.
+                  tocouNaQtd.current = false;
+                }}
               />
             </div>
 
@@ -194,7 +206,7 @@ function TrocarItem({
                       id="troca-qtd"
                       inputMode="decimal"
                       value={qtd}
-                      onChange={(e) => setQtd(e.target.value)}
+                      onChange={(e) => { tocouNaQtd.current = true; setQtd(e.target.value); }}
                     />
                   </div>
                   <div className="flex-1">

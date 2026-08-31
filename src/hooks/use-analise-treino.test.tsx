@@ -4,6 +4,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { createSession, addSet } from "../repositories/workouts";
 import { useAnaliseTreino } from "./use-analise-treino";
 
@@ -15,7 +16,7 @@ it("busca sessões e sets do range", async () => {
 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={qc}><DbProvider client={db}>{children}</DbProvider></QueryClientProvider>
+    <QueryClientProvider client={qc}><DbProvider api={criarApiLocal(db, 1)}>{children}</DbProvider></QueryClientProvider>
   );
   const { result } = renderHook(() => useAnaliseTreino("2026-07-06", "2026-07-12"), { wrapper });
   await waitFor(() => expect(result.current.data).toBeTruthy());

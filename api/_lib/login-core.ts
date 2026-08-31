@@ -8,11 +8,18 @@ export type LoginDeps = {
   findUser: (email: string) => Promise<StoredUser | null>;
   verify: (senha: string, hash: string) => Promise<boolean>;
   dummyHash: string;
-  session: { dbUrl: string; token: string };
+  /**
+   * Emite o bilhete de sessão do usuário.
+   *
+   * Era `session: { dbUrl, token }` — a mesma credencial do Turso para todo
+   * mundo, entregue ao navegador. O login não devolve mais acesso ao banco:
+   * devolve uma identidade assinada, e quem fala com o banco é o servidor.
+   */
+  emitirToken: (userId: number) => string;
 };
 
 export type LoginResult =
-  | { ok: true; user: { id: number; email: string }; dbUrl: string; token: string }
+  | { ok: true; user: { id: number; email: string }; token: string }
   | { ok: false };
 
 export async function authenticate(
@@ -27,7 +34,6 @@ export async function authenticate(
   return {
     ok: true,
     user: { id: user.id, email: user.email },
-    dbUrl: deps.session.dbUrl,
-    token: deps.session.token,
+    token: deps.emitirToken(user.id),
   };
 }

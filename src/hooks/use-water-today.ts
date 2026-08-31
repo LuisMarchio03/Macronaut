@@ -1,29 +1,25 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
-import { getWaterTotal, addWater, resetWater } from "../repositories/water";
+import { useApi } from "../lib/db-context";
 
 export function useWaterToday(data: string) {
-  const db = useDb();
-  const userId = useUserId();
-  return useQuery({ queryKey: ["water", data], queryFn: () => getWaterTotal(db, userId, data) });
+  const api = useApi();
+  return useQuery({ queryKey: ["water", data], queryFn: () => api["water"].getWaterTotal(data) });
 }
 
 export function useAddWater(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (ml: number) => addWater(db, userId, data, ml),
+    mutationFn: (ml: number) => api["water"].addWater(data, ml),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["water", data] }),
   });
 }
 
 export function useResetWater(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => resetWater(db, userId, data),
+    mutationFn: () => api["water"].resetWater(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["water", data] }),
   });
 }

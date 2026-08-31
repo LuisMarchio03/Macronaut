@@ -1,0 +1,11 @@
+# Build
+build/
+.gradle/
+local.properties
+*.apk
+*.aab
+
+# Chave de assinatura — NUNCA versionar
+*.keystore
+*.jks
+keystore.properties

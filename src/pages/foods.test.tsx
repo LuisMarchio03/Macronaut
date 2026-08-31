@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { Foods } from "./foods";
 import { listCustomFoods } from "../repositories/foods";
 
@@ -16,7 +17,7 @@ function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}>
+      <DbProvider api={criarApiLocal(db, 1)}>
         <MemoryRouter>
           <Foods />
         </MemoryRouter>

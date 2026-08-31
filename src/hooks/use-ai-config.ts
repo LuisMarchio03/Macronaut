@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
-import { getAiConfig } from "../repositories/ai";
+import { useApi, useUserId } from "../lib/db-context";
 
 export function useAiConfig() {
-  const db = useDb();
+  const api = useApi();
   const userId = useUserId();
-  return useQuery({ queryKey: ["ai-config", userId], queryFn: () => getAiConfig(db, userId) });
+  return useQuery({ queryKey: ["ai-config", userId], queryFn: () => api["ai"].getAiConfig() });
 }

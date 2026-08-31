@@ -5,6 +5,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../../test/helpers/test-db";
 import { DbProvider } from "../../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { ExerciciosTab } from "./exercicios-tab";
 import { listExercises, seedExercicios } from "../../repositories/exercises";
 import { seedMuscleGroups } from "../../repositories/muscle-groups";
@@ -69,7 +70,7 @@ async function montar(opts: {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}><ExerciciosTab /></DbProvider>
+      <DbProvider api={criarApiLocal(db, 1)}><ExerciciosTab /></DbProvider>
     </QueryClientProvider>,
   );
   // Espera as duas queries (exercícios + grupos) hidratarem antes de devolver

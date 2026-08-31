@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
-import { getLatestSessionId, listMessages, type AiProvider } from "../repositories/ai";
+import { useApi, useUserId } from "../lib/db-context";
+import type { AiProvider } from "../repositories/ai";
 
 export type LoadedConversation = {
   sessionId: string;
@@ -8,14 +8,14 @@ export type LoadedConversation = {
 } | null;
 
 export function useAiConversation(provider: AiProvider) {
-  const db = useDb();
+  const api = useApi();
   const userId = useUserId();
   return useQuery<LoadedConversation>({
     queryKey: ["ai-messages", userId, provider],
     queryFn: async () => {
-      const sessionId = await getLatestSessionId(db, userId, provider);
+      const sessionId = await api["ai"].getLatestSessionId(provider);
       if (!sessionId) return null;
-      const msgs = await listMessages(db, userId, provider, sessionId);
+      const msgs = await api["ai"].listMessages(provider, sessionId);
       return { sessionId, messages: msgs.map((m) => ({ role: m.role, content: m.content })) };
     },
   });

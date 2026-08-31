@@ -5,6 +5,7 @@ import type { Client } from "@libsql/client";
 import type { ReactNode } from "react";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { useCreateSession, useSessionByDate } from "./use-workouts";
 
 let db: Client;
@@ -14,7 +15,7 @@ function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}>{children}</DbProvider>
+      <DbProvider api={criarApiLocal(db, 1)}>{children}</DbProvider>
     </QueryClientProvider>
   );
 }

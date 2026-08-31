@@ -1,25 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
+import { useApi } from "../lib/db-context";
 import { TRATADO_NA_TELA } from "../lib/query-client";
-import {
-  addAguaNoBloco,
-  aguaPorBloco,
-  ativarPlano,
-  deletarPlano,
-  getPlanoAtivo,
-  importarPlano,
-  listBlocos,
-  listChecksDoDia,
-  listItensPorBloco,
-  listMacros,
-  listPlanos,
-  listSubstituicoes,
-  listTrocasDoDia,
-  marcarBloco,
-  removerTroca,
-  salvarTroca,
-  type TrocaEntrada,
-} from "../repositories/plano";
+import type { TrocaEntrada } from "../repositories/plano";
 import type { DietPlan, RascunhoPlano } from "../domain/plano-types";
 
 const CHAVE = {
@@ -35,84 +17,78 @@ const CHAVE = {
 };
 
 export function usePlanoAtivo() {
-  const db = useDb();
-  const userId = useUserId();
-  return useQuery({ queryKey: CHAVE.ativo, queryFn: () => getPlanoAtivo(db, userId) });
+  const api = useApi();
+  return useQuery({ queryKey: CHAVE.ativo, queryFn: () => api["plano"].getPlanoAtivo() });
 }
 
 export function usePlanos() {
-  const db = useDb();
-  const userId = useUserId();
-  return useQuery({ queryKey: CHAVE.lista, queryFn: () => listPlanos(db, userId) });
+  const api = useApi();
+  return useQuery({ queryKey: CHAVE.lista, queryFn: () => api["plano"].listPlanos() });
 }
 
 export function useBlocos(planId: number | undefined) {
-  const db = useDb();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.blocos(planId),
-    queryFn: () => listBlocos(db, planId!),
+    queryFn: () => api["plano"].listBlocos(planId!),
     enabled: planId != null,
   });
 }
 
 export function useItensDoPlano(planId: number | undefined) {
-  const db = useDb();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.itens(planId),
-    queryFn: () => listItensPorBloco(db, planId!),
+    queryFn: () => api["plano"].listItensPorBloco(planId!),
     enabled: planId != null,
   });
 }
 
 export function useMacrosDoPlano(planId: number | undefined) {
-  const db = useDb();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.macros(planId),
-    queryFn: () => listMacros(db, planId!),
+    queryFn: () => api["plano"].listMacros(planId!),
     enabled: planId != null,
   });
 }
 
 export function useSubstituicoes(planId: number | undefined) {
-  const db = useDb();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.swaps(planId),
-    queryFn: () => listSubstituicoes(db, planId!),
+    queryFn: () => api["plano"].listSubstituicoes(planId!),
     enabled: planId != null,
   });
 }
 
 export function useChecksDoDia(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.checks(data),
-    queryFn: () => listChecksDoDia(db, userId, data),
+    queryFn: () => api["plano"].listChecksDoDia(data),
   });
 }
 
 /** As trocas de item do dia — a folha e o card do bloco leem daqui. */
 export function useTrocasDoDia(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.trocas(data),
-    queryFn: () => listTrocasDoDia(db, userId, data),
+    queryFn: () => api["plano"].listTrocasDoDia(data),
   });
 }
 
 export function useAguaPorBloco(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.agua(data),
-    queryFn: () => aguaPorBloco(db, userId, data),
+    queryFn: () => api["plano"].aguaPorBloco(data),
   });
 }
 
 export function useImportarPlano() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
     // A tela de import mostra a falha ao lado do botão, com detalhe técnico.
@@ -123,7 +99,7 @@ export function useImportarPlano() {
     }: {
       rascunho: RascunhoPlano;
       origem: DietPlan["origem"];
-    }) => importarPlano(db, userId, rascunho, origem),
+    }) => api["plano"].importarPlano(rascunho, origem),
     // Invalida a raiz "plano": o plano novo troca blocos, itens, macros e
     // trocas de uma vez, e listar cada chave aqui seria mais uma coisa para
     // esquecer de atualizar quando surgir a próxima.
@@ -132,28 +108,25 @@ export function useImportarPlano() {
 }
 
 export function useAtivarPlano() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (planId: number) => ativarPlano(db, userId, planId),
+    mutationFn: (planId: number) => api["plano"].ativarPlano(planId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["plano"] }),
   });
 }
 
 export function useDeletarPlano() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (planId: number) => deletarPlano(db, userId, planId),
+    mutationFn: (planId: number) => api["plano"].deletarPlano(planId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["plano"] }),
   });
 }
 
 export function useMarcarBloco(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -166,7 +139,7 @@ export function useMarcarBloco(data: string) {
       blockId: number;
       feito: boolean;
       swapId?: number | null;
-    }) => marcarBloco(db, userId, planId, data, blockId, feito, swapId),
+    }) => api["plano"].marcarBloco(planId, data, blockId, feito, swapId),
     // Marcar deixou de ser só um check: lança (e desmarcar apaga) no diário do
     // dia, e pode criar a refeição correspondente. Invalidar só os checks
     // deixaria o balanço energético da tela desatualizado até um F5.
@@ -186,14 +159,13 @@ export function useMarcarBloco(data: string) {
  * troca nova.
  */
 export function useSalvarTroca(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { entrada: TrocaEntrada } | { itemId: number }) =>
       "entrada" in v
-        ? salvarTroca(db, userId, v.entrada)
-        : removerTroca(db, userId, data, v.itemId),
+        ? api["plano"].salvarTroca(v.entrada)
+        : api["plano"].removerTroca(data, v.itemId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CHAVE.trocas(data) });
       qc.invalidateQueries({ queryKey: CHAVE.checks(data) });
@@ -203,12 +175,11 @@ export function useSalvarTroca(data: string) {
 }
 
 export function useAddAgua(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ ml, blockId }: { ml: number; blockId: number | null }) =>
-      addAguaNoBloco(db, userId, data, ml, blockId),
+      api["plano"].addAguaNoBloco(data, ml, blockId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CHAVE.agua(data) });
       // O total do dia vive noutra chave e é o que a tela de nutrição mostra.

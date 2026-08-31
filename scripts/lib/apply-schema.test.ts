@@ -178,3 +178,18 @@ it("medida nova nasce manual e confirmada (default das colunas aditivas)", async
   expect(rs.rows[0].source).toBe("manual");
   expect(rs.rows[0].status).toBe("confirmada");
 });
+
+it("índice de tabela que ainda não existe é pulado, não derruba a migração", async () => {
+  // `CREATE INDEX IF NOT EXISTS` cobre rodar de novo, e só isso: num banco
+  // legado que ainda não tem a tabela, ele erra igual — e abortava a migração
+  // inteira no meio, deixando as colunas seguintes por aplicar.
+  const db = createClient({ url: ":memory:" });
+  await db.execute(`CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL)`);
+
+  await expect(applyAdditiveColumns(db)).resolves.not.toThrow();
+
+  // E as colunas de `users` — que vêm depois dos índices na lista — entraram.
+  const cols = await db.execute("PRAGMA table_info(users)");
+  expect(cols.rows.map((r) => r.name)).toContain("aloy_enabled");
+});

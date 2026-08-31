@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { createEntry } from "../repositories/entries";
 import { addWater } from "../repositories/water";
 import { createActivitySession } from "../repositories/activities";
@@ -27,7 +28,7 @@ it("mostra o total de kcal do dia registrado no período atual", async () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}><Analise /></DbProvider>
+      <DbProvider api={criarApiLocal(db, 1)}><Analise /></DbProvider>
     </QueryClientProvider>,
   );
 
@@ -48,7 +49,7 @@ it("mostra água, atividades e balanço do período", async () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}><Analise /></DbProvider>
+      <DbProvider api={criarApiLocal(db, 1)}><Analise /></DbProvider>
     </QueryClientProvider>,
   );
 
@@ -78,7 +79,7 @@ it("mostra o painel de treino (sessões/volume/séries + grupo)", async () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}><Analise /></DbProvider>
+      <DbProvider api={criarApiLocal(db, 1)}><Analise /></DbProvider>
     </QueryClientProvider>,
   );
 
@@ -97,7 +98,7 @@ it("mostra o painel de peso com o peso atual e o input de registro", async () =>
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}><Analise /></DbProvider>
+      <DbProvider api={criarApiLocal(db, 1)}><Analise /></DbProvider>
     </QueryClientProvider>,
   );
 
@@ -137,7 +138,7 @@ it("a caloria da calistenia entra no gasto e no balanço", async () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}><Analise /></DbProvider>
+      <DbProvider api={criarApiLocal(db, 1)}><Analise /></DbProvider>
     </QueryClientProvider>,
   );
 

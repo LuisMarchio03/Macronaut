@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../../test/helpers/test-db";
@@ -217,8 +217,13 @@ describe("SheetTrocas — fora da lista do plano", () => {
     await user.type(screen.getByLabelText(/alimento/i), "tapioca");
     await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
 
-    await user.clear(screen.getByLabelText(/quantidade/i));
-    await user.type(screen.getByLabelText(/quantidade/i), "2");
+    // Espera a sugestão de porção chegar antes de limpar: as medidas vêm do
+    // servidor, e limpar um campo que ainda vai ser preenchido faz o dígito
+    // digitado virar sufixo da sugestão.
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.clear(qtd);
+    await user.type(qtd, "2");
     await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
 
     // 2 colheres × 15 g = 30 g; 240 kcal/100 g → 72 kcal.

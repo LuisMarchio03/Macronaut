@@ -5,6 +5,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { WaterCounter } from "./water-counter";
 import { getWaterTotal } from "../repositories/water";
 
@@ -15,7 +16,7 @@ function renderCounter() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}><WaterCounter data="2026-07-06" /></DbProvider>
+      <DbProvider api={criarApiLocal(db, 1)}><WaterCounter data="2026-07-06" /></DbProvider>
     </QueryClientProvider>,
   );
 }

@@ -20,7 +20,7 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 it("login popula a sessão e persiste; logout limpa", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-    user: { id: 1, email: "ana@exemplo.com" }, dbUrl: "libsql://x", token: "tok",
+    user: { id: 1, email: "ana@exemplo.com" }, token: "tok",
   }), { status: 200 })));
 
   render(<AuthProvider><Tela /></AuthProvider>);
@@ -29,7 +29,9 @@ it("login popula a sessão e persiste; logout limpa", async () => {
   await userEvent.click(screen.getByText("entrar"));
   await waitFor(() => expect(screen.getByTestId("email").textContent).toBe("ana@exemplo.com"));
   const persisted = JSON.parse(localStorage.getItem("macronaut.session") ?? "null");
-  expect(persisted).toEqual({ userId: 1, email: "ana@exemplo.com", dbUrl: "libsql://x", token: "tok" });
+  expect(persisted).toEqual({ userId: 1, email: "ana@exemplo.com", token: "tok" });
+  // A sessão não guarda mais credencial de banco nenhuma.
+  expect(localStorage.getItem("macronaut.session")).not.toMatch(/libsql|turso/i);
 
   await userEvent.click(screen.getByText("sair"));
   await waitFor(() => expect(screen.getByTestId("email").textContent).toBe("anon"));
@@ -38,7 +40,7 @@ it("login popula a sessão e persiste; logout limpa", async () => {
 
 it("logout limpa o cache do query client (isolamento entre usuários)", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-    user: { id: 1, email: "ana@exemplo.com" }, dbUrl: "libsql://x", token: "tok",
+    user: { id: 1, email: "ana@exemplo.com" }, token: "tok",
   }), { status: 200 })));
   const clearSpy = vi.spyOn(queryClient, "clear");
 

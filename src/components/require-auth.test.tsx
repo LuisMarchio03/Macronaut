@@ -6,7 +6,7 @@ import { saveSession } from "../lib/session";
 import { RequireAuth } from "./require-auth";
 
 // Evita instanciar o client libSQL/web de verdade no guard.
-vi.mock("../lib/db", () => ({ createUserDb: () => ({}) }));
+vi.mock("../lib/api", () => ({ criarApiRemota: () => ({}) }));
 
 beforeEach(() => localStorage.clear());
 
@@ -29,7 +29,7 @@ it("sem sessão, redireciona para /login", () => {
 });
 
 it("com sessão válida, renderiza o conteúdo protegido", () => {
-  saveSession({ userId: 1, email: "a@b.com", dbUrl: "libsql://x", token: "t" });
+  saveSession({ userId: 1, email: "a@b.com", token: "t" });
   renderApp();
   expect(screen.getByText("área secreta")).toBeInTheDocument();
 });

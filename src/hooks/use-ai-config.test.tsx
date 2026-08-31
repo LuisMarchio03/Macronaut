@@ -5,6 +5,7 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { setAiFlags } from "../repositories/ai";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { useAiConfig } from "./use-ai-config";
 
 let db: Client;
@@ -18,7 +19,7 @@ function wrap(children: React.ReactNode) {
   const qc = new QueryClient();
   return (
     <QueryClientProvider client={qc}>
-      <DbProvider client={db} userId={1}>{children}</DbProvider>
+      <DbProvider api={criarApiLocal(db, 1)} userId={1}>{children}</DbProvider>
     </QueryClientProvider>
   );
 }
