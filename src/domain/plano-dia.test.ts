@@ -2,12 +2,15 @@ import { describe, it, expect } from "vitest";
 import {
   aderenciaDoDia,
   blocoEmFoco,
+  descreverTroca,
+  itensResolvidos,
   metaDeAgua,
   montarDia,
+  trocaDoItem,
   trocasDoBloco,
   trocasPara,
 } from "./plano-dia";
-import type { PlanBlock, PlanCheck, PlanSwap } from "./plano-types";
+import type { PlanBlock, PlanCheck, PlanItem, PlanSwap, TrocaDeItem } from "./plano-types";
 
 const bloco = (p: Partial<PlanBlock> & { id: number }): PlanBlock => ({
   plan_id: 1,
@@ -230,5 +233,138 @@ describe("trocasDoBloco", () => {
 
   it("devolve mapa vazio para bloco sem trocas", () => {
     expect(trocasDoBloco([], "Almoço").size).toBe(0);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   TROCA POR ITEM
+   ══════════════════════════════════════════════════════════════════ */
+
+const item = (p: Partial<PlanItem> & { id: number }): PlanItem => ({
+  block_id: 1,
+  texto: `Item ${p.id}`,
+  categoria: null,
+  food_id: null,
+  qty_g: null,
+  ordem: p.id,
+  ...p,
+});
+
+const troca = (p: Partial<TrocaDeItem> & { item_id: number }): TrocaDeItem => ({
+  id: p.item_id,
+  data: "2026-08-31",
+  block_id: 1,
+  origem: "plano",
+  swap_id: null,
+  nome: "Tapioca",
+  porcao: null,
+  kcal: null,
+  food_id: null,
+  qty_g: null,
+  measure_id: null,
+  medidas: null,
+  ...p,
+});
+
+describe("trocaDoItem", () => {
+  const trocas = [troca({ item_id: 7, nome: "Tapioca" }), troca({ item_id: 9, nome: "Banana" })];
+
+  it("acha a troca do item", () => {
+    expect(trocaDoItem(trocas, 9)?.nome).toBe("Banana");
+  });
+
+  it("item sem troca devolve null", () => {
+    expect(trocaDoItem(trocas, 1)).toBeNull();
+  });
+});
+
+describe("descreverTroca", () => {
+  it("junta nome, porção e caloria", () => {
+    expect(descreverTroca(troca({ item_id: 1, nome: "Tapioca", porcao: "2 col. sopa (30g)", kcal: 90 })))
+      .toBe("Tapioca · 2 col. sopa (30g) · 90 kcal");
+  });
+
+  it("sem porção, só nome e caloria", () => {
+    expect(descreverTroca(troca({ item_id: 1, nome: "Banana", kcal: 90 }))).toBe("Banana · 90 kcal");
+  });
+
+  it("sem caloria, não inventa zero", () => {
+    // Uma troca escrita à mão pode não ter número. Dizer "0 kcal" seria pior
+    // do que não dizer nada — some no balanço e mente na tela.
+    expect(descreverTroca(troca({ item_id: 1, nome: "Pão da padaria" }))).toBe("Pão da padaria");
+  });
+
+  it("arredonda a caloria", () => {
+    expect(descreverTroca(troca({ item_id: 1, nome: "Aveia", kcal: 110.4 }))).toBe("Aveia · 110 kcal");
+  });
+});
+
+describe("itensResolvidos", () => {
+  it("lança o item que já tem alimento casado no plano", () => {
+    const itens = [item({ id: 1, texto: "1 fatia de pão", food_id: 50, qty_g: 30 })];
+    const { lancaveis, semAlimento } = itensResolvidos(itens, []);
+
+    expect(semAlimento).toEqual([]);
+    expect(lancaveis).toEqual([
+      { item_id: 1, food_id: 50, qty_g: 30, measure_id: null, medidas: null, label: "1 fatia de pão" },
+    ]);
+  });
+
+  it("a troca vence o item quando ela tem alimento", () => {
+    const itens = [item({ id: 1, texto: "1 fatia de pão", food_id: 50, qty_g: 30 })];
+    const trocas = [troca({ item_id: 1, origem: "catalogo", nome: "Tapioca", food_id: 88, qty_g: 30 })];
+
+    expect(itensResolvidos(itens, trocas).lancaveis).toEqual([
+      { item_id: 1, food_id: 88, qty_g: 30, measure_id: null, medidas: null, label: "Tapioca" },
+    ]);
+  });
+
+  it("item trocado por algo sem alimento NÃO cai de volta no original", () => {
+    // Você trocou o pão por outra coisa. Lançar o pão porque a troca não tem
+    // alimento casado registraria uma refeição que não aconteceu.
+    const itens = [item({ id: 1, texto: "1 fatia de pão", food_id: 50, qty_g: 30 })];
+    const trocas = [troca({ item_id: 1, origem: "texto", nome: "Pão da padaria" })];
+    const { lancaveis, semAlimento } = itensResolvidos(itens, trocas);
+
+    expect(lancaveis).toEqual([]);
+    expect(semAlimento.map((i) => i.id)).toEqual([1]);
+  });
+
+  it("item sem alimento nenhum fica de fora, e é nomeado", () => {
+    const itens = [item({ id: 1, texto: "Café preto sem açúcar" })];
+    const { lancaveis, semAlimento } = itensResolvidos(itens, []);
+
+    expect(lancaveis).toEqual([]);
+    expect(semAlimento.map((i) => i.texto)).toEqual(["Café preto sem açúcar"]);
+  });
+
+  it("quantidade zero ou negativa não é lançável", () => {
+    // `food_entries.qty_g` tem CHECK (qty_g > 0): deixar passar quebraria a
+    // gravação inteira do bloco, não só a linha.
+    const itens = [item({ id: 1, food_id: 50, qty_g: 0 }), item({ id: 2, food_id: 51, qty_g: -5 })];
+    const { lancaveis, semAlimento } = itensResolvidos(itens, []);
+
+    expect(lancaveis).toEqual([]);
+    expect(semAlimento).toHaveLength(2);
+  });
+
+  it("carrega a medida caseira quando a troca tem uma", () => {
+    const itens = [item({ id: 1 })];
+    const trocas = [
+      troca({ item_id: 1, origem: "catalogo", nome: "Aveia", food_id: 9, qty_g: 45, measure_id: 3, medidas: 3 }),
+    ];
+
+    expect(itensResolvidos(itens, trocas).lancaveis[0]).toMatchObject({
+      food_id: 9, qty_g: 45, measure_id: 3, medidas: 3,
+    });
+  });
+
+  it("preserva a ordem dos itens", () => {
+    const itens = [
+      item({ id: 3, food_id: 1, qty_g: 10 }),
+      item({ id: 1, food_id: 2, qty_g: 10 }),
+      item({ id: 2, food_id: 3, qty_g: 10 }),
+    ];
+    expect(itensResolvidos(itens, []).lancaveis.map((l) => l.item_id)).toEqual([3, 1, 2]);
   });
 });

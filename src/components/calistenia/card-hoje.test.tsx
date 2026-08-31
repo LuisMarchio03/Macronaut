@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../../test/helpers/test-db";
 import { criarWrapper } from "../../../test/helpers/query-wrapper";
-import { CardCalisteniaHoje } from "./card-hoje";
-import { registrarSerie, salvarMeta, seriesDoDia } from "../../repositories/calistenia";
+import { LinhaCalisteniaHoje } from "./card-hoje";
+import { registrarSerie, seriesDoDia } from "../../repositories/calistenia";
 
 const DATA = "2026-08-28";
 let db: Client;
@@ -26,7 +26,7 @@ function montar() {
   return render(
     <Wrapper>
       <MemoryRouter>
-        <CardCalisteniaHoje data={DATA} />
+        <LinhaCalisteniaHoje data={DATA} />
       </MemoryRouter>
     </Wrapper>,
   );
@@ -34,8 +34,16 @@ function montar() {
 
 beforeEach(async () => { db = await createTestDb(); });
 
-describe("CardCalisteniaHoje", () => {
-  it("soma as séries do dia por exercício", async () => {
+/**
+ * A calistenia no dashboard é UMA LINHA.
+ *
+ * Era um card com estado vazio, lista de totais e chips — repetido também na
+ * aba "Hoje" do treino. Muito espaço para algo que talvez nem aconteça hoje,
+ * e a mesma história contada em duas telas. O aprofundamento agora é a aba
+ * `/treino/calistenia`; aqui fica o resumo e o `+`.
+ */
+describe("LinhaCalisteniaHoje", () => {
+  it("resume o dia numa linha, somando as séries por exercício", async () => {
     const flexao = await exercicio("Flexão de braço");
     for (const reps of [20, 20]) {
       await registrarSerie(db, 1, {
@@ -44,10 +52,7 @@ describe("CardCalisteniaHoje", () => {
     }
     montar();
 
-    // O nome aparece duas vezes de propósito — na linha do total e no chip de
-    // registro —, então o que identifica a linha do total é a soma.
-    expect(await screen.findByText("40")).toBeInTheDocument();
-    expect(await screen.findAllByText("Flexão de braço")).not.toHaveLength(0);
+    expect(await screen.findByText("Flexão de braço 40")).toBeInTheDocument();
   });
 
   it("isometria aparece como relógio, não como número solto", async () => {
@@ -57,23 +62,34 @@ describe("CardCalisteniaHoje", () => {
     });
     montar();
 
-    expect(await screen.findByText("1:30")).toBeInTheDocument();
+    expect(await screen.findByText("Prancha 1:30")).toBeInTheDocument();
   });
 
-  it("com meta, mostra o quanto falta", async () => {
-    const flexao = await exercicio("Flexão de braço");
-    await salvarMeta(db, 1, flexao, 100);
-    await registrarSerie(db, 1, {
-      data: DATA, exercise_id: flexao, reps: 40, segundos: null, peso_extra_kg: null,
-    });
+  it("acima de dois exercícios vira contagem, que é o que cabe na linha", async () => {
+    for (const nome of ["Flexão", "Agachamento", "Barra"]) {
+      await registrarSerie(db, 1, {
+        data: DATA, exercise_id: await exercicio(nome), reps: 10, segundos: null, peso_extra_kg: null,
+      });
+    }
     montar();
 
-    expect(await screen.findByText("40 / 100")).toBeInTheDocument();
+    expect(await screen.findByText("3 exercícios")).toBeInTheDocument();
   });
 
-  // O chip é o caminho de dois toques: um abre a folha já no exercício certo,
-  // o outro confirma.
-  it("o chip de um exercício usado abre a folha e grava", async () => {
+  it("dia sem registro diz isso, sem ocupar um card inteiro", async () => {
+    montar();
+    expect(await screen.findByText("nada registrado hoje")).toBeInTheDocument();
+    // O texto longo de convite morava aqui e foi para a aba.
+    expect(screen.queryByText(/flexões e agachamentos soltos/i)).toBeNull();
+  });
+
+  it("leva para a aba da calistenia", async () => {
+    montar();
+    const linha = await screen.findByRole("link", { name: /calistenia/i });
+    expect(linha).toHaveAttribute("href", "/treino/calistenia");
+  });
+
+  it("o registro em dois toques sobrevive: o + abre a folha e grava", async () => {
     const flexao = await exercicio("Flexão de braço");
     await registrarSerie(db, 1, {
       data: DATA, exercise_id: flexao, reps: 20, segundos: null, peso_extra_kg: null,
@@ -81,31 +97,16 @@ describe("CardCalisteniaHoje", () => {
     montar();
 
     await userEvent.click(
-      await screen.findByRole("button", { name: /registrar flexão de braço/i }),
+      await screen.findByRole("button", { name: /registrar série de calistenia/i }),
     );
+    // A folha abre sem exercício escolhido: o `+` do dashboard é o caminho
+    // curto, e a escolha por atalho mora na aba.
+    await userEvent.type(await screen.findByRole("combobox"), "flex");
+    await userEvent.click(await screen.findByRole("button", { name: /flexão de braço/i }));
     await userEvent.click(await screen.findByRole("button", { name: /^registrar$/i }));
 
     await waitFor(async () => {
       expect(await seriesDoDia(db, 1, DATA)).toHaveLength(2);
     });
-  });
-
-  it("sem histórico nenhum, explica o que o card é", async () => {
-    montar();
-    expect(await screen.findByText(/flexões e agachamentos soltos/i)).toBeInTheDocument();
-  });
-
-  // Um dia sem registro mas com hábito não é um card vazio: os chips continuam
-  // lá, que é justamente o convite a fazer a primeira série do dia.
-  it("com hábito e nada hoje, ainda oferece os chips", async () => {
-    const flexao = await exercicio("Flexão de braço");
-    await registrarSerie(db, 1, {
-      data: "2026-08-27", exercise_id: flexao, reps: 20, segundos: null, peso_extra_kg: null,
-    });
-    montar();
-
-    expect(
-      await screen.findByRole("button", { name: /registrar flexão de braço/i }),
-    ).toBeInTheDocument();
   });
 });

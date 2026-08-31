@@ -1,5 +1,14 @@
-import { horaParaMinutos } from "../lib/date";
-import type { PlanBlock, PlanCheck, PlanSwap } from "./plano-types";
+// Com extensão pelo mesmo motivo de `repositories/plano.ts`: este módulo entrou
+// na cadeia de imports do `scripts/setup-db.ts`.
+import { horaParaMinutos } from "../lib/date.ts";
+import type {
+  LancamentoDoPlano,
+  PlanBlock,
+  PlanCheck,
+  PlanItem,
+  PlanSwap,
+  TrocaDeItem,
+} from "./plano-types";
 
 /**
  * Estado de um bloco no dia que está sendo visto.
@@ -138,6 +147,75 @@ export function trocasDoBloco(swaps: PlanSwap[], blockNome: string): Map<string,
   }
   for (const lista of out.values()) lista.sort((a, b) => a.kcal - b.kcal);
   return out;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TROCA POR ITEM
+
+   A troca é por LINHA da refeição, não por refeição. Uma refeição de cinco
+   linhas tem até cinco trocas, e trocar a refeição inteira é trocar cada uma
+   delas — que é o que `plan_checks.swap_id`, com sua coluna única, nunca
+   permitiu.
+   ══════════════════════════════════════════════════════════════════ */
+
+/** A troca vigente de um item, ou `null` se ele está como o plano manda. */
+export function trocaDoItem(trocas: TrocaDeItem[], itemId: number): TrocaDeItem | null {
+  return trocas.find((t) => t.item_id === itemId) ?? null;
+}
+
+/**
+ * "Tapioca · 2 col. sopa (30g) · 90 kcal" — o que a tela mostra sob o item.
+ *
+ * Porção e caloria são opcionais e somem quando não existem. Escrever "0 kcal"
+ * para uma troca sem número mentiria duas vezes: na tela, e para quem lesse
+ * aquilo como um valor medido.
+ */
+export function descreverTroca(t: TrocaDeItem): string {
+  return [t.nome, t.porcao, t.kcal !== null ? `${Math.round(t.kcal)} kcal` : null]
+    .filter((p): p is string => p !== null && p !== "")
+    .join(" · ");
+}
+
+/**
+ * O que "Comi" pode lançar no diário, e o que fica de fora.
+ *
+ * Um item só é lançável quando resolve para um alimento do catálogo com
+ * quantidade positiva — `food_entries` exige `food_id` e tem
+ * `CHECK (qty_g > 0)`.
+ *
+ * A regra que importa: **item trocado só pode ser lançado pela troca**. Cair
+ * de volta no alimento original porque a troca não casou com o catálogo
+ * registraria uma refeição que não aconteceu — e é justamente no dia em que
+ * você trocou que o diário precisa estar certo.
+ */
+export function itensResolvidos(
+  itens: PlanItem[],
+  trocas: TrocaDeItem[],
+): { lancaveis: LancamentoDoPlano[]; semAlimento: PlanItem[] } {
+  const lancaveis: LancamentoDoPlano[] = [];
+  const semAlimento: PlanItem[] = [];
+
+  for (const item of itens) {
+    const troca = trocaDoItem(trocas, item.id);
+    const fonte = troca
+      ? { food_id: troca.food_id, qty_g: troca.qty_g, measure_id: troca.measure_id, medidas: troca.medidas, label: troca.nome }
+      : { food_id: item.food_id, qty_g: item.qty_g, measure_id: null, medidas: null, label: item.texto };
+
+    if (fonte.food_id === null || fonte.qty_g === null || fonte.qty_g <= 0) {
+      semAlimento.push(item);
+      continue;
+    }
+    lancaveis.push({
+      item_id: item.id,
+      food_id: fonte.food_id,
+      qty_g: fonte.qty_g,
+      measure_id: fonte.measure_id,
+      medidas: fonte.medidas,
+      label: fonte.label,
+    });
+  }
+
+  return { lancaveis, semAlimento };
 }
 
 function normalizar(s: string): string {

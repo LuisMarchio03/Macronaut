@@ -102,8 +102,21 @@ export async function getRotinaAtiva(db: Client, userId: number): Promise<Rotina
   return rs.rows.length ? mapRotina(rs.rows[0]) : null;
 }
 
+/**
+ * Cria a rotina e a torna a única ativa.
+ *
+ * A anterior é DESATIVADA, não apagada — os dias e exercícios dela continuam
+ * de pé, e o histórico de sessões aponta para eles. Sem o `UPDATE`, duas
+ * rotinas ficavam `ativa=1` e quem ganhava era o `ORDER BY id DESC` de
+ * `getRotinaAtiva`: verdadeiro por acidente, e mentira no dia em que a ordem
+ * mudasse. `ativarPlano` do plano alimentar já fazia esse par; aqui faltava.
+ */
 export async function criarRotina(db: Client, userId: number, nome: string): Promise<Rotina> {
   const created_at = new Date().toISOString();
+  await db.execute({
+    sql: "UPDATE routines SET ativa=0 WHERE user_id=? AND ativa=1",
+    args: [userId],
+  });
   const rs = await db.execute({
     sql: "INSERT INTO routines (user_id, nome, ativa, created_at) VALUES (?, ?, 1, ?)",
     args: [userId, nome, created_at],

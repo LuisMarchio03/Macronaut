@@ -1,13 +1,14 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CalendarDays, ChevronRight, Play } from "lucide-react";
+import { CalendarDays, ChevronRight, Play, Plus } from "lucide-react";
 import { Card, CardRow } from "@/components/ui/card";
 import { SectionLabel } from "@/components/ui/page";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CardCalisteniaHoje } from "@/components/calistenia/card-hoje";
+import { SheetTreinoAvulso } from "@/components/treino/sheet-treino-avulso";
 import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
 import { useDiasDaRotina, useRotinaAtiva } from "@/hooks/use-rotina";
-import { useIniciarSessao, usePlanoDoDia, useSessaoEmAndamento } from "@/hooks/use-sessao";
+import { useIniciarSessao, usePlanoDoDia, useSessoesEmAndamento } from "@/hooks/use-sessao";
 import { useListSessions } from "@/hooks/use-workouts";
 import { proximoTreino, treinoDoDia } from "@/domain/prescricao";
 import type { ItemPlanejado } from "@/repositories/sessao";
@@ -63,16 +64,36 @@ export function Treino() {
   const proximo = proximoTreino(dias, hojeSemana);
 
   const { data: plano = [] } = usePlanoDoDia(dia?.id, data);
-  const { data: emAndamento } = useSessaoEmAndamento(data);
+  const { data: abertas = [] } = useSessoesEmAndamento(data);
   const { data: recentes = [] } = useListSessions();
   const iniciar = useIniciarSessao();
+  const [pedindoNome, setPedindoNome] = useState(false);
 
-  function comecar(itens: ItemPlanejado[]) {
+  function comecar(itens: ItemPlanejado[], nome: string) {
     iniciar.mutate(
-      { data, nome: dia?.nome ?? "Treino livre", itens },
+      { data, nome, itens },
       { onSuccess: (id) => navigate(`/treino/sessao?s=${id}`) },
     );
   }
+
+  /**
+   * Treinar fora da rotina, todo dia.
+   *
+   * Vivia só no ramo do dia de descanso, então num dia que tem rotina não
+   * havia caminho nenhum para um treino extra — e com uma sessão aberta o card
+   * só sabia oferecer "retomar".
+   */
+  const botaoAvulso = (
+    <button
+      type="button"
+      onClick={() => setPedindoNome(true)}
+      disabled={iniciar.isPending}
+      className="flex min-h-11 items-center gap-1.5 text-[0.8125rem] font-medium text-primary"
+    >
+      <Plus className="size-4" />
+      Treino avulso
+    </button>
+  );
 
   if (isLoading) {
     return (
@@ -94,18 +115,28 @@ export function Treino() {
             action={<ButtonLink to="/treino/rotina">Montar rotina</ButtonLink>}
           />
         </Card>
-      ) : emAndamento ? (
-        <Card tone="primary">
-          <p className="t-caption">Sessão em andamento</p>
-          <h2 className="t-title mt-0.5">{emAndamento.nome ?? "Treino"}</h2>
-          <p className="t-caption mt-1 tabular-nums">
-            {emAndamento.feitas} de {emAndamento.total} séries
-          </p>
-          <ButtonLink to={`/treino/sessao?s=${emAndamento.session_id}`} block className="mt-4">
-            <Play className="size-4" />
-            Retomar treino
-          </ButtonLink>
-        </Card>
+      ) : abertas.length > 0 ? (
+        /* Uma linha por sessão aberta: com o treino da rotina e um avulso da
+           noite ao mesmo tempo, oferecer só a mais recente escondia a outra
+           sem dizer que ela existia. */
+        <>
+          {abertas.map((s) => (
+            <Card key={s.session_id} tone="primary">
+              <p className="t-caption">Sessão em andamento</p>
+              <h2 className="t-title mt-0.5">{s.nome ?? "Treino"}</h2>
+              <p className="t-caption mt-1 tabular-nums">
+                {s.total === 0
+                  ? "sem exercício ainda"
+                  : `${s.feitas} de ${s.total} séries`}
+              </p>
+              <ButtonLink to={`/treino/sessao?s=${s.session_id}`} block className="mt-4">
+                <Play className="size-4" />
+                Retomar treino
+              </ButtonLink>
+            </Card>
+          ))}
+          <div className="flex justify-center">{botaoAvulso}</div>
+        </>
       ) : dia ? (
         <Card tone="primary">
           <p className="t-caption">{DIAS_DA_SEMANA[hojeSemana]}</p>
@@ -129,10 +160,16 @@ export function Treino() {
             </p>
           )}
 
-          <Button block className="mt-4" onClick={() => comecar(plano)} disabled={iniciar.isPending}>
+          <Button
+            block
+            className="mt-4"
+            onClick={() => comecar(plano, dia.nome)}
+            disabled={iniciar.isPending}
+          >
             <Play className="size-4" />
             Começar treino
           </Button>
+          <div className="mt-1 flex justify-center">{botaoAvulso}</div>
         </Card>
       ) : (
         <Card>
@@ -145,18 +182,16 @@ export function Treino() {
           ) : (
             <p className="t-caption mt-1">Sua rotina ainda não tem nenhum dia de treino.</p>
           )}
-          <button
-            type="button"
-            onClick={() => comecar([])}
-            disabled={iniciar.isPending}
-            className="mt-3 min-h-11 text-[0.8125rem] font-medium text-primary"
-          >
-            Treinar mesmo assim
-          </button>
+          <div className="mt-3">{botaoAvulso}</div>
         </Card>
       )}
 
-      <CardCalisteniaHoje data={data} />
+      <SheetTreinoAvulso
+        aberto={pedindoNome}
+        onFechar={() => setPedindoNome(false)}
+        pendente={iniciar.isPending}
+        onComecar={(nome) => { setPedindoNome(false); comecar([], nome); }}
+      />
 
       {recentes.length > 0 && (
         <div className="space-y-2">

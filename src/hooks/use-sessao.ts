@@ -17,6 +17,7 @@ import {
   removerSerie,
   reordenarExerciciosDaSessao,
   sessaoEmAndamento,
+  sessoesEmAndamento,
   trocarExercicioDaSessao,
   type ItemPlanejado,
 } from "../repositories/sessao";
@@ -39,6 +40,22 @@ export function useSessaoEmAndamento(data: string) {
   return useQuery({
     queryKey: ["sessao", "andamento", data],
     queryFn: () => sessaoEmAndamento(db, userId, data),
+  });
+}
+
+/**
+ * Todas as sessões abertas do dia.
+ *
+ * O hub lista uma linha por sessão: com duas abertas — o treino da rotina e um
+ * avulso da noite — oferecer só a mais recente escondia a outra sem dizer que
+ * ela existia.
+ */
+export function useSessoesEmAndamento(data: string) {
+  const db = useDb();
+  const userId = useUserId();
+  return useQuery({
+    queryKey: ["sessao", "abertas", data],
+    queryFn: () => sessoesEmAndamento(db, userId, data),
   });
 }
 

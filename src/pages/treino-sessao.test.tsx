@@ -48,6 +48,10 @@ function montar(sessionId: number) {
 
 beforeEach(async () => {
   db = await createTestDb();
+  // O cronômetro persiste por `session_id`, e o banco de teste reinicia a
+  // sequência a cada arquivo — sem limpar, o descanso de um teste vazaria
+  // para o seguinte por colisão de id.
+  localStorage.clear();
 });
 
 describe("TreinoSessao", () => {
@@ -142,12 +146,12 @@ describe("TreinoSessao", () => {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
-    expect(await screen.findByText("0/3")).toBeInTheDocument();
+    expect(await screen.findByText(/0\/3/)).toBeInTheDocument();
 
     await userEvent.click(
       await screen.findByRole("button", { name: /registrar série 1 de supino reto/i }),
     );
-    expect(await screen.findByText("1/3")).toBeInTheDocument();
+    expect(await screen.findByText(/1\/3/)).toBeInTheDocument();
   });
 
   it("adiciona um exercício fora da rotina no meio da sessão", async () => {
@@ -591,5 +595,44 @@ describe("TreinoSessao — editar", () => {
     expect(await screen.findByRole("button", { name: /remover da sessão/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /mover para cima/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /mover para baixo/i })).toBeNull();
+  });
+});
+
+describe("cronômetro de descanso na sessão", () => {
+  it("está na tela ANTES da primeira série, para dar para cronometrar aquecimento", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    expect(await screen.findByText("Descanso")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Iniciar descanso" })).toBeInTheDocument();
+  });
+
+  it("registrar a série põe o cronômetro a correr", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /registrar série 1 de supino reto/i }),
+    );
+
+    // Correndo = tem como pausar. Antes o primeiro descanso nascia parado em
+    // produção, porque a guarda dependia da ordem dos efeitos do React.
+    expect(await screen.findByRole("button", { name: "Pausar descanso" })).toBeInTheDocument();
+  });
+
+  it("o cabeçalho mostra há quanto tempo o treino começou", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await iniciarSessao(db, 1, {
+      data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    expect(await screen.findByText(/0 min · 0\/3/)).toBeInTheDocument();
   });
 });

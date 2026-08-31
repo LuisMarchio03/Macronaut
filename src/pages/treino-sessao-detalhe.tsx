@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Ellipsis, Pencil, Trash2 } from "lucide-react";
+import { Ellipsis, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { ExercicioAutocomplete } from "@/components/treino/exercicio-autocomplete";
 import { SheetConfirmar } from "@/components/ui/confirmar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BackLink } from "@/components/ui/page";
@@ -11,6 +13,7 @@ import { SheetAjustarSerie } from "@/components/treino/sheet-ajustar-serie";
 import { SheetEditarExercicio } from "@/components/treino/sheet-editar-exercicio";
 import { SheetEditarSessao } from "@/components/treino/sheet-editar-sessao";
 import {
+  useAdicionarAoPlano,
   useAdicionarSerie,
   useEditarSessao,
   usePlano,
@@ -24,7 +27,7 @@ import { useDeleteSession, useSessionSets, useUpdateSet } from "@/hooks/use-work
 import { useExercises } from "@/hooks/use-exercises";
 import { useSessoesComResumo } from "@/hooks/use-progresso";
 import { seriesEfetivas, resumirSets } from "@/domain/treino";
-import { dataPorExtenso } from "@/lib/date";
+import { dataPorExtenso, hoje } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { PlanoSerie } from "@/repositories/sessao";
 import type { WorkoutSet } from "@/domain/types";
@@ -124,11 +127,13 @@ export function TreinoSessaoDetalhe() {
   const adicionarSerie = useAdicionarSerie();
   const removerSerie = useRemoverSerie();
   const editarSessao = useEditarSessao();
+  const adicionarExercicio = useAdicionarAoPlano();
 
   const [editando, setEditando] = useState<PlanoSerie | null>(null);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [editandoBloco, setEditandoBloco] = useState<number | null>(null);
   const [editandoSessao, setEditandoSessao] = useState(false);
+  const [adicionando, setAdicionando] = useState(false);
   const sessao = sessoes.find((s) => s.id === sessionId);
 
   if (carregandoPlano) return <SkeletonList rows={4} />;
@@ -175,8 +180,8 @@ export function TreinoSessaoDetalhe() {
         sets.length === 0 ? (
           <Card>
             <EmptyState
-              title="Sessão sem registro"
-              description="Nenhuma série foi registrada nesta sessão."
+              title="Sessão sem exercício"
+              description="Nenhum exercício foi adicionado a esta sessão ainda. Adicione o primeiro abaixo, ou apague a sessão."
             />
           </Card>
         ) : (
@@ -206,6 +211,46 @@ export function TreinoSessaoDetalhe() {
             </ul>
           </Card>
         ))
+      )}
+
+      {/* Um treino já criado podia ter série somada, exercício trocado, movido
+          e removido — mas não ganhar um exercício NOVO. A sessão vazia era o
+          caso extremo: caía num estado com um único botão, o de apagar.
+          Fora daqui só a sessão legada (`SemPlano`), que não tem plano onde
+          encaixar um exercício novo. */}
+      {sessionId !== undefined && !(plano.length === 0 && sets.length > 0) && (
+        <div className="rounded-xl border border-dashed border-border p-3">
+          {adicionando ? (
+            <div>
+              <Label htmlFor="add-detalhe">Exercício</Label>
+              <ExercicioAutocomplete
+                id="add-detalhe"
+                exercicios={exercicios}
+                selecionado={null}
+                onSelecionar={(ex) => {
+                  // A data da SESSÃO, não a de hoje: a carga sai do histórico
+                  // até aquele dia, e usar hoje contaminaria um treino antigo
+                  // com o que veio depois dele.
+                  adicionarExercicio.mutate({
+                    sessionId,
+                    exerciseId: ex.id,
+                    data: sessao?.data ?? hoje(),
+                  });
+                  setAdicionando(false);
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdicionando(true)}
+              className="flex min-h-11 w-full items-center justify-center gap-1.5 text-[0.8125rem] font-medium text-primary"
+            >
+              <Plus className="size-4" />
+              Adicionar exercício
+            </button>
+          )}
+        </div>
       )}
 
       <Button

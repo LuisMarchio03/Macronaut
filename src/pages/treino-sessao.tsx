@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Check, ChevronDown, Ellipsis, Minus, Pencil, Plus, Trophy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,29 @@ function Bolinha({ ok }: { ok: boolean }) {
       {ok && <Check className="size-4" strokeWidth={3} />}
     </span>
   );
+}
+
+/**
+ * Há quanto tempo o treino começou.
+ *
+ * Sai de `workout_sessions.created_at`, não de um contador na tela: assim ele
+ * é verdadeiro depois de fechar o app, e não precisa ser guardado em lugar
+ * nenhum. Só minutos — segundos aqui seriam um número piscando sem uso.
+ */
+function TempoDeTreino({ desde }: { desde: string | undefined }) {
+  const [agora, setAgora] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setAgora(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!desde) return null;
+  const inicio = new Date(desde).getTime();
+  if (Number.isNaN(inicio)) return null;
+
+  const min = Math.max(0, Math.floor((agora - inicio) / 60_000));
+  return <>{min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}`}</>;
 }
 
 /** "Última vez · 3×10 @ 40 kg" — o contexto que justifica a carga de hoje. */
@@ -467,7 +490,7 @@ export function TreinoSessao() {
           {sessao?.nome ?? "Treino"}
         </span>
         <span className="t-caption shrink-0 tabular-nums">
-          {feitas}/{plano.length}
+          <TempoDeTreino desde={sessao?.created_at} /> · {feitas}/{plano.length}
         </span>
       </header>
 
@@ -563,13 +586,19 @@ export function TreinoSessao() {
               )}
             </ul>
 
-            {registros > 0 && <CronometroDescanso chave={registros} segundos={descanso} />}
+
           </>
         ) : (
           <p className="t-caption">
             Esta sessão ainda não tem exercício nenhum. Adicione o primeiro abaixo.
           </p>
         )}
+
+        {/* Fora do ramo do exercício: ele acompanha a SESSÃO, não o bloco da
+            vez. Antes só existia depois da primeira série, então não havia
+            como cronometrar um aquecimento — e trocar de exercício o
+            desmontava com o descanso em curso dentro. */}
+        <CronometroDescanso chave={registros} segundos={descanso} sessionId={sessionId} />
 
         <div className="rounded-xl border border-dashed border-border p-3">
           {adicionando ? (
