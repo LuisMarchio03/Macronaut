@@ -43,6 +43,34 @@ const PADRAO: Omit<ExercicioRotinaInput, "exercise_id"> = {
 };
 
 /**
+ * O padrão certo PARA AQUELE exercício.
+ *
+ * A constante acima valia para qualquer um, e adicionar "Corrida" na rotina
+ * gravava "3 × 8–12" — três séries de oito a doze repetições de corrida, a
+ * zero quilo. O outro caminho para o mesmo exercício (`montarItemAvulso`, no
+ * meio da sessão) sempre soube olhar `equipamento`; as duas portas discordavam
+ * sobre o mesmo catálogo.
+ */
+export function padraoDe(e: { equipamento?: string | null }): Omit<ExercicioRotinaInput, "exercise_id"> {
+  if (e.equipamento === "cardio") {
+    return {
+      ...PADRAO,
+      prescricao: "cardio",
+      // Cardio não tem série nem faixa de repetição: mantê-las preenchidas
+      // faria o resumo e a folha de prescrição descreverem uma bicicleta em
+      // repetições no dia em que alguém trocasse o tipo de volta.
+      series: 1,
+      reps_min: null,
+      reps_max: null,
+      peso_kg: 0,
+      descanso_s: null,
+      duracao_min: 30,
+    };
+  }
+  return PADRAO;
+}
+
+/**
  * "3 × 8–12" na dupla, "3 × 15" na fixa, "5/3/1 · TM 120 kg" no método,
  * "30 min" no cardio.
  *
@@ -221,7 +249,10 @@ function Dia({
                   exercicios={catalogo}
                   selecionado={null}
                   onSelecionar={(ex) => {
-                    adicionar.mutate({ dayId, entrada: { ...PADRAO, exercise_id: ex.id } });
+                    adicionar.mutate({
+                      dayId,
+                      entrada: { ...padraoDe(ex), exercise_id: ex.id },
+                    });
                     setAdicionando(false);
                   }}
                 />

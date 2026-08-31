@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { criarWrapper } from "../../test/helpers/query-wrapper";
-import { TreinoRotina } from "./treino-rotina";
+import { TreinoRotina, padraoDe } from "./treino-rotina";
 import {
   criarRotina,
   salvarDia,
@@ -274,4 +274,26 @@ describe("TreinoRotina", () => {
     expect(d).toBeTruthy();
   });
 
+});
+
+describe("padraoDe", () => {
+  it("exercício de musculação nasce em dupla progressão", () => {
+    expect(padraoDe({ equipamento: "barra" })).toMatchObject({
+      prescricao: "dupla", series: 3, reps_min: 8, reps_max: 12, duracao_min: null,
+    });
+  });
+
+  it("exercício de cardio nasce como cardio, em minutos", () => {
+    // Adicionar "Corrida" na rotina gravava "3 × 8–12" — três séries de oito a
+    // doze repetições de corrida, a zero quilo. O caminho da sessão
+    // (`montarItemAvulso`) sempre olhou `equipamento`; a rotina, não.
+    expect(padraoDe({ equipamento: "cardio" })).toMatchObject({
+      prescricao: "cardio", duracao_min: 30, series: 1, reps_min: null, reps_max: null,
+    });
+  });
+
+  it("exercício sem equipamento cai no padrão de musculação", () => {
+    expect(padraoDe({}).prescricao).toBe("dupla");
+    expect(padraoDe({ equipamento: null }).prescricao).toBe("dupla");
+  });
 });
