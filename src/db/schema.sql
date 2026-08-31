@@ -318,6 +318,45 @@ CREATE TABLE IF NOT EXISTS plan_checks (
 );
 CREATE INDEX IF NOT EXISTS idx_plan_checks_dia ON plan_checks (user_id, data);
 
+-- A troca de UM item da refeição, num dia.
+--
+-- `plan_checks.swap_id` guardava uma troca por bloco — e uma refeição de cinco
+-- linhas tem até cinco trocas. Escolher a segunda sobrescrevia a primeira, o
+-- que na tela aparecia como "só dá para trocar uma coisa". Aqui a chave é o
+-- ITEM, então trocar a refeição inteira é trocar cada linha dela.
+--
+-- Três origens, mutuamente exclusivas: a substituição prevista no plano
+-- (`swap_id`), um alimento do catálogo (`food_id` + quantidade), ou texto
+-- livre. O CHECK é o que impede uma linha ambígua — e uma linha ambígua não
+-- teria como ser desenhada nem contada.
+CREATE TABLE IF NOT EXISTS plan_item_swaps (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  data       TEXT    NOT NULL,             -- 'YYYY-MM-DD'
+  block_id   INTEGER NOT NULL,
+  item_id    INTEGER NOT NULL,             -- plan_items.id: QUAL linha foi trocada
+  swap_id    INTEGER,                      -- plan_swaps.id  → prevista no plano
+  food_id    INTEGER,                      -- foods.id       → alimento do catálogo
+  texto      TEXT,                         -- o que você escreveu
+  qty_g      REAL,                         -- quando veio do catálogo
+  measure_id INTEGER,                      -- food_measures.id, quando escolhida
+  medidas    REAL,                         -- quantas medidas caseiras
+  -- NULL = kcal desconhecida, e a tela DIZ isso em vez de contar zero.
+  kcal       REAL,
+  created_at TEXT NOT NULL,
+  -- Uma troca por item por dia; trocar de novo é corrigir, não acumular.
+  UNIQUE (user_id, data, item_id),
+  CHECK (
+    (swap_id IS NOT NULL) + (food_id IS NOT NULL) + (texto IS NOT NULL) = 1
+  ),
+  FOREIGN KEY (block_id)   REFERENCES plan_blocks (id)   ON DELETE CASCADE,
+  FOREIGN KEY (item_id)    REFERENCES plan_items (id)    ON DELETE CASCADE,
+  FOREIGN KEY (swap_id)    REFERENCES plan_swaps (id)    ON DELETE SET NULL,
+  FOREIGN KEY (food_id)    REFERENCES foods (id)         ON DELETE SET NULL,
+  FOREIGN KEY (measure_id) REFERENCES food_measures (id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_plan_item_swaps_dia ON plan_item_swaps (user_id, data);
+
 -- ═══════════════════════════════════════════════════════════════════
 -- ROTINA DE TREINO
 --

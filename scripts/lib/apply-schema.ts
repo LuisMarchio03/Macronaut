@@ -65,6 +65,10 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   // 'reps' | 'segundos'. Prancha se mede em segundos, e a folha de registro
   // precisa saber disso ANTES de o usuário digitar. NULL = reps.
   { table: "exercises", column: "medida", ddl: "ALTER TABLE exercises ADD COLUMN medida TEXT" },
+  // De qual bloco do plano este lançamento veio. É o que permite desmarcar
+  // "Comi" e apagar exatamente o que aquele bloco lançou naquele dia, sem
+  // encostar no que você digitou à mão. NULL = registro do diário livre.
+  { table: "food_entries", column: "plan_block_id", ddl: "ALTER TABLE food_entries ADD COLUMN plan_block_id INTEGER" },
 ];
 
 /**
@@ -82,6 +86,7 @@ const ADDITIVE_INDEXES: { ddl: string }[] = [
   { ddl: "CREATE INDEX IF NOT EXISTS idx_exercises_source_nome ON exercises (source, nome)" },
   { ddl: "CREATE INDEX IF NOT EXISTS idx_food_measures_status ON food_measures (food_id, status)" },
   { ddl: "CREATE INDEX IF NOT EXISTS idx_foods_nome_norm ON foods (nome_norm)" },
+  { ddl: "CREATE INDEX IF NOT EXISTS idx_entries_plan_block ON food_entries (user_id, data, plan_block_id)" },
 ];
 
 /**

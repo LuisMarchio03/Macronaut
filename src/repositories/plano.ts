@@ -1,4 +1,10 @@
 import type { Client, Row } from "@libsql/client";
+// Com extensão: este módulo é alcançado por `scripts/setup-db.ts` (a migração
+// das trocas de bloco), que roda no Node com --experimental-strip-types, e lá o
+// import extensionless não resolve. Vite e Vitest resolvem os dois, então a
+// falha só apareceria no `db:setup`.
+import { itensResolvidos } from "../domain/plano-dia.ts";
+import { normalizar } from "../domain/texto.ts";
 import type {
   CategoriaItem,
   DietPlan,
@@ -9,6 +15,7 @@ import type {
   PlanSwap,
   RascunhoPlano,
   TipoBloco,
+  TrocaDeItem,
 } from "../domain/plano-types";
 
 /* ── mapeamento ─────────────────────────────────────────────────── */
@@ -318,12 +325,226 @@ export async function deletarPlano(db: Client, userId: number, planId: number): 
   });
 }
 
+/* ── troca por item ─────────────────────────────────────────────── */
+
 /**
- * Marca (ou desmarca) um bloco no dia.
+ * Uma linha de `plan_item_swaps` já resolvida para a tela.
+ *
+ * O nome e a porção moram em tabelas diferentes conforme a origem — em
+ * `plan_swaps` quando a troca é prevista no plano, em `foods` quando é do
+ * catálogo, na própria linha quando foi escrita à mão. O join sai daqui uma
+ * vez, e não de cada tela que desenha uma troca.
+ */
+function mapTroca(r: Row): TrocaDeItem {
+  const swapId = (r.swap_id as number | null) ?? null;
+  const foodProprio = (r.food_id as number | null) ?? null;
+  const texto = (r.texto as string | null) ?? null;
+
+  const origem: TrocaDeItem["origem"] =
+    swapId !== null ? "plano" : foodProprio !== null ? "catalogo" : "texto";
+
+  const qty_g = (r.qty_g as number | null) ?? (r.swap_qty_g as number | null) ?? null;
+
+  return {
+    id: r.id as number,
+    data: r.data as string,
+    block_id: r.block_id as number,
+    item_id: r.item_id as number,
+    origem,
+    swap_id: swapId,
+    nome:
+      (r.swap_alimento as string | null) ??
+      (r.food_nome as string | null) ??
+      texto ??
+      "?",
+    porcao:
+      (r.swap_porcao as string | null) ??
+      (qty_g !== null && foodProprio !== null ? `${qty_g} g` : null),
+    kcal: (r.kcal as number | null) ?? (r.swap_kcal as number | null) ?? null,
+    // O alimento efetivo: o do catálogo que você escolheu, ou o que o
+    // importador conseguiu casar com a substituição do plano. Sem um dos dois
+    // a troca é só texto na tela, e `itensResolvidos` a mantém fora do diário.
+    food_id: foodProprio ?? (r.swap_food_id as number | null) ?? null,
+    qty_g,
+    measure_id: (r.measure_id as number | null) ?? null,
+    medidas: (r.medidas as number | null) ?? null,
+  };
+}
+
+const SELECT_TROCAS = `
+  SELECT t.*,
+         s.alimento AS swap_alimento, s.porcao AS swap_porcao,
+         s.kcal AS swap_kcal, s.qty_g AS swap_qty_g, s.food_id AS swap_food_id,
+         f.nome AS food_nome
+  FROM plan_item_swaps t
+  LEFT JOIN plan_swaps s ON s.id = t.swap_id
+  LEFT JOIN foods f      ON f.id = t.food_id
+  WHERE t.user_id = ? AND t.data = ?
+  ORDER BY t.item_id`;
+
+export async function listTrocasDoDia(
+  db: Client,
+  userId: number,
+  data: string,
+): Promise<TrocaDeItem[]> {
+  const rs = await db.execute({ sql: SELECT_TROCAS, args: [userId, data] });
+  return rs.rows.map(mapTroca);
+}
+
+export interface TrocaEntrada {
+  data: string;
+  block_id: number;
+  item_id: number;
+  /** Exatamente um dos três: o CHECK da tabela recusa uma linha ambígua. */
+  swap_id?: number | null;
+  food_id?: number | null;
+  texto?: string | null;
+  qty_g?: number | null;
+  measure_id?: number | null;
+  medidas?: number | null;
+  kcal?: number | null;
+}
+
+/**
+ * Grava a troca de um item, ou corrige a que já existia.
+ *
+ * `UNIQUE (user_id, data, item_id)` é o que faz "trocar de novo" ser uma
+ * correção. O upsert zera as colunas da origem que não vieram nesta chamada —
+ * senão trocar do catálogo para o plano deixaria as duas preenchidas e a linha
+ * pararia de passar no CHECK na próxima escrita.
+ */
+export async function salvarTroca(
+  db: Client,
+  userId: number,
+  e: TrocaEntrada,
+): Promise<void> {
+  await db.execute({
+    sql: `INSERT INTO plan_item_swaps
+            (user_id, data, block_id, item_id, swap_id, food_id, texto,
+             qty_g, measure_id, medidas, kcal, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (user_id, data, item_id) DO UPDATE SET
+            block_id   = excluded.block_id,
+            swap_id    = excluded.swap_id,
+            food_id    = excluded.food_id,
+            texto      = excluded.texto,
+            qty_g      = excluded.qty_g,
+            measure_id = excluded.measure_id,
+            medidas    = excluded.medidas,
+            kcal       = excluded.kcal`,
+    args: [
+      userId, e.data, e.block_id, e.item_id,
+      e.swap_id ?? null, e.food_id ?? null, e.texto ?? null,
+      e.qty_g ?? null, e.measure_id ?? null, e.medidas ?? null, e.kcal ?? null,
+      new Date().toISOString(),
+    ],
+  });
+}
+
+/**
+ * Traz para `plan_item_swaps` as trocas gravadas no jeito antigo.
+ *
+ * `plan_checks.swap_id` guardava UMA troca por bloco, sem dizer qual linha da
+ * refeição ela substituía. O item é reencontrado pela categoria do swap — que
+ * é a mesma chave que a folha usa para oferecer a troca. Quando nenhum item do
+ * bloco tem aquela categoria, a linha antiga é deixada onde está: a coluna
+ * continua no banco, então nada é perdido.
+ *
+ * Idempotente, como os outros backfills do `setup-db`: item que já tem troca
+ * naquele dia não é tocado. Devolve quantas linhas migrou.
+ */
+export async function migrarTrocasDeBloco(db: Client): Promise<number> {
+  const rs = await db.execute(`
+    SELECT c.user_id, c.data, c.block_id, c.swap_id, s.categoria
+    FROM plan_checks c
+    JOIN plan_swaps s ON s.id = c.swap_id
+    WHERE c.swap_id IS NOT NULL`);
+
+  let migradas = 0;
+  for (const r of rs.rows) {
+    const userId = r.user_id as number;
+    const data = r.data as string;
+    const blockId = r.block_id as number;
+    const categoria = normalizar(r.categoria as string);
+
+    const itens = await db.execute({
+      sql: "SELECT id, categoria FROM plan_items WHERE block_id=? ORDER BY ordem",
+      args: [blockId],
+    });
+    const alvo = itens.rows.find(
+      (i) => i.categoria !== null && normalizar(i.categoria as string) === categoria,
+    );
+    if (!alvo) continue;
+
+    const jaTem = await db.execute({
+      sql: "SELECT 1 FROM plan_item_swaps WHERE user_id=? AND data=? AND item_id=?",
+      args: [userId, data, alvo.id as number],
+    });
+    if (jaTem.rows.length) continue;
+
+    await db.execute({
+      sql: `INSERT INTO plan_item_swaps (user_id, data, block_id, item_id, swap_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [userId, data, blockId, alvo.id as number, r.swap_id as number, new Date().toISOString()],
+    });
+    migradas++;
+  }
+  return migradas;
+}
+
+/** Devolve o item ao que o plano manda. */
+export async function removerTroca(
+  db: Client,
+  userId: number,
+  data: string,
+  itemId: number,
+): Promise<void> {
+  await db.execute({
+    sql: "DELETE FROM plan_item_swaps WHERE user_id=? AND data=? AND item_id=?",
+    args: [userId, data, itemId],
+  });
+}
+
+/**
+ * A refeição do diário que corresponde a um bloco do plano.
+ *
+ * Casa pelo nome normalizado, e cria quando não existe — o que torna a
+ * operação idempotente da segunda vez em diante. Sem isso, o que "Comi" lança
+ * cairia em "avulsas" e o diário deixaria de espelhar o plano justamente para
+ * quem segue um.
+ */
+async function refeicaoDoBloco(db: Client, userId: number, bloco: PlanBlock): Promise<number> {
+  const rs = await db.execute({
+    sql: "SELECT id, nome FROM meals WHERE user_id=? ORDER BY ordem",
+    args: [userId],
+  });
+  const alvo = normalizar(bloco.nome);
+  const achada = rs.rows.find((r) => normalizar(r.nome as string) === alvo);
+  if (achada) return achada.id as number;
+
+  const proxima = rs.rows.length;
+  const novo = await db.execute({
+    sql: "INSERT INTO meals (user_id, nome, horario, ordem) VALUES (?, ?, ?, ?)",
+    args: [userId, bloco.nome, bloco.hora_inicio, proxima],
+  });
+  return Number(novo.lastInsertRowid);
+}
+
+/**
+ * Marca (ou desmarca) um bloco no dia, e lança no diário o que ele contém.
  *
  * `UNIQUE (user_id, data, block_id)` garante um registro por bloco por dia; o
- * upsert atualiza em vez de acumular duplicatas quando o usuário troca de
- * ideia sobre a substituição escolhida.
+ * upsert atualiza em vez de acumular duplicatas.
+ *
+ * O lançamento é o que faz o plano encontrar o balanço energético: até aqui
+ * marcar as quatro refeições do dia deixava o consumo em zero, porque o
+ * consumo só olha `food_entries`. Só entra o item que resolve para um alimento
+ * de verdade (ver `itensResolvidos`) — o resto o app não sabe contar, e não
+ * inventa.
+ *
+ * `plan_block_id` é o que permite desmarcar sem tocar no que você digitou à
+ * mão: apagar por `(data, bloco)` é preciso, apagar por "parece com o plano"
+ * seria adivinhação.
  */
 export async function marcarBloco(
   db: Client,
@@ -341,6 +562,47 @@ export async function marcarBloco(
           DO UPDATE SET feito=excluded.feito, swap_id=excluded.swap_id`,
     args: [userId, planId, data, blockId, feito ? 1 : 0, swapId, new Date().toISOString()],
   });
+
+  // Sempre limpa antes: é o que faz marcar duas vezes não duplicar, e é o
+  // caminho inteiro do desmarcar.
+  await db.execute({
+    sql: "DELETE FROM food_entries WHERE user_id=? AND data=? AND plan_block_id=?",
+    args: [userId, data, blockId],
+  });
+  if (!feito) return;
+
+  const rsBloco = await db.execute({
+    sql: "SELECT * FROM plan_blocks WHERE id=?",
+    args: [blockId],
+  });
+  if (!rsBloco.rows.length) return;
+  const bloco = mapBlock(rsBloco.rows[0]);
+  // Água não tem item para lançar, e suplemento não é caloria.
+  if (bloco.tipo !== "refeicao") return;
+
+  const rsItens = await db.execute({
+    sql: "SELECT * FROM plan_items WHERE block_id=? ORDER BY ordem",
+    args: [blockId],
+  });
+  const itens = rsItens.rows.map(mapItem);
+  const { lancaveis } = itensResolvidos(itens, await listTrocasDoDia(db, userId, data));
+  if (lancaveis.length === 0) return;
+
+  const mealId = await refeicaoDoBloco(db, userId, bloco);
+  const created_at = new Date().toISOString();
+  await db.batch(
+    lancaveis.map((l) => ({
+      sql: `INSERT INTO food_entries
+              (user_id, data, meal_id, food_id, qty_g, measure_id, measure_count,
+               label, plan_block_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        userId, data, mealId, l.food_id, l.qty_g, l.measure_id, l.medidas,
+        l.label, blockId, created_at,
+      ] as (number | string | null)[],
+    })),
+    "write",
+  );
 }
 
 /** Água creditada a cada bloco de período no dia. */
