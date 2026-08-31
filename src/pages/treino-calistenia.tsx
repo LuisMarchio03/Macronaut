@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { BackLink } from "@/components/ui/page";
 import { Segmented } from "@/components/ui/segmented";
 import { SkeletonList } from "@/components/ui/skeleton";
 import { Stat } from "@/components/ui/stat";
@@ -85,13 +84,11 @@ export function TreinoCalistenia() {
 
   return (
     <>
-      <div>
-        <BackLink to="/treino">Treino</BackLink>
-        <h2 className="t-title mt-0.5">Calistenia</h2>
-        <p className="t-caption">
-          As séries soltas do dia. Contam no seu gasto de calorias, e não como dia de rotina.
-        </p>
-      </div>
+      {/* Sem link de volta: isto é uma aba, não uma tela filha de "Hoje". O
+          título também sai — a aba acesa já diz onde você está. */}
+      <p className="t-caption">
+        As séries soltas do dia. Contam no seu gasto de calorias, e não como dia de rotina.
+      </p>
 
       <Segmented opcoes={VISOES} valor={visao} onChange={setVisao} rotulo="O que ver" />
 
