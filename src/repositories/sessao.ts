@@ -385,11 +385,27 @@ export async function finalizarSessao(
 }
 
 /**
- * A sessão de hoje que ainda não foi encerrada.
+ * As sessões do dia que ainda não foram encerradas.
  *
  * O filtro por `concluida_em` é o que impede o hub de oferecer "retomar" um
  * treino que já acabou — antes ele oferecia para sempre, inclusive com todas
  * as séries feitas.
+ *
+ * Duas decisões que este `SELECT` já errou:
+ *
+ * **`LEFT JOIN`, não `JOIN`.** Uma sessão sem nenhuma linha de plano
+ * simplesmente não aparecia — e é exatamente assim que um treino avulso
+ * nasce: a sessão é criada vazia e os exercícios entram depois. No intervalo
+ * entre as duas coisas o treino era invisível ao hub, então sair da tela o
+ * perdia para sempre e a tentativa seguinte criava mais uma sessão órfã.
+ *
+ * **Todas, não `LIMIT 1`.** Treinar duas vezes no mesmo dia é uma coisa que
+ * acontece, e com uma sessão aberta o hub só sabia oferecer aquela.
+ *
+ * A `id` desempata a ordenação: duas sessões criadas no mesmo milissegundo têm
+ * o mesmo `created_at`, e sem o desempate a ordem entre elas era a que o SQLite
+ * resolvesse dar. A id é monotônica, então decide quem é a mais recente quando
+ * o relógio não decide.
  */
 export interface SessaoAberta {
   session_id: number;
@@ -398,31 +414,37 @@ export interface SessaoAberta {
   feitas: number;
 }
 
-export async function sessaoEmAndamento(
+export async function sessoesEmAndamento(
   db: Client,
   userId: number,
   data: string,
-): Promise<SessaoAberta | null> {
+): Promise<SessaoAberta[]> {
   const rs = await db.execute({
     sql: `SELECT s.id AS session_id, s.nome AS nome,
                  COUNT(p.id) AS total,
                  SUM(CASE WHEN p.set_id IS NOT NULL OR p.activity_id IS NOT NULL THEN 1 ELSE 0 END) AS feitas
           FROM workout_sessions s
-          JOIN session_plan_sets p ON p.session_id = s.id
+          LEFT JOIN session_plan_sets p ON p.session_id = s.id
           WHERE s.user_id = ? AND s.data = ? AND s.concluida_em IS NULL
           GROUP BY s.id
-          ORDER BY s.created_at DESC
-          LIMIT 1`,
+          ORDER BY s.created_at DESC, s.id DESC`,
     args: [userId, data],
   });
-  if (!rs.rows.length) return null;
-  const r = rs.rows[0];
-  return {
+  return rs.rows.map((r) => ({
     session_id: r.session_id as number,
     nome: (r.nome as string | null) ?? null,
     total: Number(r.total),
     feitas: Number(r.feitas ?? 0),
-  };
+  }));
+}
+
+/** A mais recente das abertas — o atalho de quem só precisa de uma. */
+export async function sessaoEmAndamento(
+  db: Client,
+  userId: number,
+  data: string,
+): Promise<SessaoAberta | null> {
+  return (await sessoesEmAndamento(db, userId, data))[0] ?? null;
 }
 
 /**

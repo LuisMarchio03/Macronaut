@@ -17,6 +17,7 @@ import {
   removerSerie,
   reordenarExerciciosDaSessao,
   sessaoEmAndamento,
+  sessoesEmAndamento,
   trocarExercicioDaSessao,
   type ItemPlanejado,
 } from "./sessao";
@@ -246,6 +247,52 @@ describe("sessaoEmAndamento", () => {
 
     const em = await sessaoEmAndamento(db, USER, "2026-08-17");
     expect(em).toEqual({ session_id: sid, nome: "Peito", total: 3, feitas: 1 });
+  });
+
+  it("uma sessão SEM exercício nenhum continua existindo", async () => {
+    // O `JOIN` com `session_plan_sets` a fazia sumir — e é assim que todo
+    // treino avulso nasce. Sair da tela perdia o treino, e a tentativa
+    // seguinte criava outra sessão órfã.
+    const sid = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Treino avulso", itens: [],
+    });
+
+    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).toEqual({
+      session_id: sid, nome: "Treino avulso", total: 0, feitas: 0,
+    });
+  });
+});
+
+describe("sessoesEmAndamento", () => {
+  it("devolve TODAS as sessões abertas do dia, da mais recente para a mais antiga", async () => {
+    // Treinar duas vezes no mesmo dia é uma coisa que acontece; o hub só
+    // sabia oferecer a última.
+    const supino = await exercicio("Supino");
+    const primeira = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Manhã", itens: [item(supino)],
+    });
+    const segunda = await iniciarSessao(db, USER, {
+      data: "2026-08-17", nome: "Noite", itens: [],
+    });
+
+    const abertas = await sessoesEmAndamento(db, USER, "2026-08-17");
+    expect(abertas.map((s) => s.session_id)).toEqual([segunda, primeira]);
+    expect(abertas[0]).toMatchObject({ nome: "Noite", total: 0, feitas: 0 });
+    expect(abertas[1]).toMatchObject({ nome: "Manhã", total: 3 });
+  });
+
+  it("a encerrada sai da lista, as outras ficam", async () => {
+    const a = await iniciarSessao(db, USER, { data: "2026-08-17", nome: "A", itens: [] });
+    const b = await iniciarSessao(db, USER, { data: "2026-08-17", nome: "B", itens: [] });
+
+    await finalizarSessao(db, USER, b);
+
+    expect((await sessoesEmAndamento(db, USER, "2026-08-17")).map((s) => s.session_id)).toEqual([a]);
+  });
+
+  it("não enxerga sessão de outro usuário", async () => {
+    await iniciarSessao(db, OUTRO, { data: "2026-08-17", nome: "Alheia", itens: [] });
+    expect(await sessoesEmAndamento(db, USER, "2026-08-17")).toEqual([]);
   });
 });
 
