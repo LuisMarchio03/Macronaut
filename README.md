@@ -10,7 +10,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38BDF8?logo=tailwindcss&logoColor=white)
 ![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2?logo=turso&logoColor=black)
 ![PWA](https://img.shields.io/badge/PWA-instalável-5A0FC8?logo=pwa&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-1087%20passando-3FB950)
+![Testes](https://img.shields.io/badge/testes-1177%20passando-3FB950)
 
 </div>
 
@@ -22,7 +22,9 @@ Um **PWA** que segue o seu plano alimentar. Você importa a planilha da sua diet
 — a que o nutricionista mandou, ou uma que você mesmo montou a partir do
 template — e o app passa a guiar o dia: qual é a próxima refeição, o que comer
 nela, quanto de água em cada período, quando tomar o suplemento. Um toque marca
-como feito; outro troca um alimento por uma substituição prevista no seu plano.
+como feito; outro abre a refeição linha a linha e troca o que você não comeu —
+pela substituição que o plano prevê, por um alimento do catálogo, ou pelo que
+você escrever.
 
 Além disso é um diário de nutrição e um registro de treino completos, para o que
 não está no plano.
@@ -32,8 +34,8 @@ não está no plano.
 ```
 sua planilha .xlsx        →   Importar   →   o app guia o dia
 ├── Plano                     prévia com      ├── refeição da vez, expandida
-│   Café da Manhã  7h-8h      erros e         ├── [Comi] grava e marca
-│   💧 ÁGUA       8h-12h      avisos          ├── [Trocar] abre as substituições
+│   Café da Manhã  7h-8h      erros e         ├── [Comi] grava e lança no diário
+│   💧 ÁGUA       8h-12h      avisos          ├── [Trocar] troca item a item
 │   🥤 CREATINA   após almoço                 ├── água por período (+200/+500ml)
 ├── Macros                                    └── aderência: 3 de 4 refeições
 └── Substituicoes
@@ -53,8 +55,12 @@ continua o bloco de cima — é assim que uma refeição ganha vários alimentos
 - 📥 Importação de `.xlsx` e `.csv`, com prévia antes de gravar qualquer coisa
 - 📄 Template baixável, gerado no build e validado pelo próprio importador
 - 🕐 Linha do tempo do dia com refeições, períodos de água e suplementos
-- 🔄 Substituições por refeição e categoria, direto do seu plano
-- ✅ Aderência diária às refeições
+- 🔄 **Troca por item**, não pela refeição inteira: cada linha do prato tem a
+      sua substituição, e trocar todas é trocar a refeição. Vem do seu plano,
+      do catálogo (com medida caseira e caloria calculada) ou do que você
+      escrever — e continua disponível fora do horário e depois de marcada
+- ✅ Aderência diária às refeições, e o "Comi" lança no diário o que tem
+      alimento casado — o que não tem, a tela diz que não entra no balanço
 
 **Nutrição**
 - 🎯 Meta de calorias (ou faixa, quando o plano define uma) e macros
@@ -66,13 +72,17 @@ continua o bloco de cima — é assim que uma refeição ganha vários alimentos
 - 💧 Hidratação por período do plano, ou total do dia sem plano
 
 **Treino**
-- 🗂️ Uma tela com quatro abas: **Hoje**, **Rotina**, **Progresso** e
-      **Exercícios** — as quatro perguntas que se faz sobre treino
+- 🗂️ Uma tela com cinco abas: **Hoje**, **Rotina**, **Progresso**,
+      **Calistenia** e **Exercícios** — as perguntas que se faz sobre treino
 - 📅 Rotina por dia da semana — segunda é peito, e o app sabe disso
 - 🎯 Sessão guiada: as séries já vêm com carga e reps; um toque registra
 - 📈 Dupla progressão: bateu o topo da faixa em todas as séries, a carga sobe
 - 🏋️ 5/3/1 disponível como prescrição de qualquer exercício da rotina
-- ⏱️ Cronômetro de descanso, e a sessão sobrevive a fechar o app
+- ⏱️ Cronômetro de descanso sempre na tela: começa sozinho na série, vibra e
+      bipa ao zerar, ajusta em ±15s e **sobrevive a fechar o app** — ele conta
+      pelo relógio, não por um contador que morre com a aba. A sessão também
+- 🆕 **Treino avulso** em qualquer dia, com nome, mesmo com outro já aberto — e
+      exercício novo entra até num treino já registrado
 - ➕ Exercício fora da rotina entra no meio do treino, já com a carga que o
       histórico dele manda
 - 🏃 Cardio é um item do treino como qualquer outro — na rotina ou no meio da
@@ -83,8 +93,8 @@ continua o bloco de cima — é assim que uma refeição ganha vários alimentos
       séries por grupo muscular na semana
 
 **Calistenia**
-- 🤸 As séries soltas do dia — flexão, agachamento, prancha — em dois toques,
-      do dashboard ou da aba Hoje
+- 🤸 Aba própria, e no dashboard uma linha só com o resumo do dia e o `+` —
+      as séries soltas (flexão, agachamento, prancha) continuam a dois toques
 - 🎯 Meta diária opcional por exercício, e ela nasce do que você já faz
 - 📊 Volume equivalente pela fração do peso corporal, recorde de série única e
       a tendência contra a média das quatro semanas anteriores
@@ -131,6 +141,7 @@ telas / componentes  →  hooks (TanStack Query)  →  repositories  →  Turso 
 | `src/components/ui/` | Design system: `Card`, `Progress`, `Stat`, `Segmented`, `Page`… |
 | `src/design/` | Verificação de contraste da paleta (roda como teste). |
 | `src/db/schema.sql` | Schema completo. |
+| `plan_item_swaps` | A troca de UMA linha da refeição, num dia. A chave é o item — é isso que permite trocar o prato inteiro. |
 
 ### Design system
 
