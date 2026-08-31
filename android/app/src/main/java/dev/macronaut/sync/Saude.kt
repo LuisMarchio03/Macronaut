@@ -5,6 +5,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.aggregate.AggregationResult
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.AggregateRequest
@@ -29,6 +30,7 @@ class Saude(private val context: Context) {
             HealthPermission.getReadPermission(ExerciseSessionRecord::class),
             HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
             HealthPermission.getReadPermission(WeightRecord::class),
+            HealthPermission.getReadPermission(HydrationRecord::class),
         )
 
         /**
@@ -53,7 +55,11 @@ class Saude(private val context: Context) {
     /** Tudo o que aconteceu na janela, pronto para virar lote. */
     suspend fun ler(agora: Instant = Instant.now()): Lote {
         val inicio = agora.minus(JANELA_DIAS, ChronoUnit.DAYS)
-        return Lote(atividades = lerAtividades(inicio, agora), pesos = lerPesos(inicio, agora))
+        return Lote(
+            atividades = lerAtividades(inicio, agora),
+            pesos = lerPesos(inicio, agora),
+            aguas = lerAguas(inicio, agora),
+        )
     }
 
     private suspend fun lerAtividades(inicio: Instant, fim: Instant): List<Atividade> {
@@ -116,6 +122,32 @@ class Saude(private val context: Context) {
                 val ultimo = doDia.maxBy { it.time }
                 Peso(data = dia.toString(), pesoKg = arredondar(ultimo.weight.inKilograms))
             }
+    }
+
+    /**
+     * Os goles do período.
+     *
+     * Um por registro, não somados por dia: cada `HydrationRecord` tem
+     * `metadata.id`, e é ele que faz a releitura da janela não somar o mesmo
+     * gole de novo. Agrupar por dia aqui destruiria justamente essa chave.
+     */
+    private suspend fun lerAguas(inicio: Instant, fim: Instant): List<Agua> {
+        val registros = cliente.readRecords(
+            ReadRecordsRequest(
+                recordType = HydrationRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(inicio, fim),
+            ),
+        ).records
+
+        return registros.mapNotNull { r ->
+            val ml = r.volume.inMilliliters
+            if (ml < 1) return@mapNotNull null
+            Agua(
+                origemId = r.metadata.id,
+                data = r.startTime.atZone(ZoneId.systemDefault()).toLocalDate().toString(),
+                ml = arredondar(ml),
+            )
+        }
     }
 
     private fun fusoDe(sessao: ExerciseSessionRecord): ZoneId =

@@ -101,11 +101,22 @@ relógio corrige o que o relógio mandou.
 
 ### Escopo dos dados
 
-Entram **atividade** e **peso**: são os dois que o app já sabe usar — atividade
-alimenta o balanço energético, peso alimenta o gráfico.
+Entram **atividade**, **peso** e **água** — os três que o app já sabe usar:
+atividade alimenta o balanço energético, peso alimenta o gráfico, água conta na
+hidratação do dia (e nos períodos, quando há plano).
 
-Ficam de fora, por ora: água e nutrição (precisariam de deduplicação própria) e
-passos (contariam de novo o que a caminhada registrada já contou).
+> Correção de uma afirmação anterior deste documento: eu tinha deixado a água
+> de fora dizendo que ela "precisaria de deduplicação própria". Não precisa. O
+> `HydrationRecord` do Health Connect tem `metadata.id`, exatamente como a
+> sessão de exercício — é a mesma deduplicação, e eu não tinha olhado.
+
+Ficam de fora, e agora por motivos examinados:
+
+- **nutrição** exigiria casar cada alimento com o catálogo, que é um problema
+  de outra natureza (e o mesmo que faz `plan_items.food_id` estar vazio hoje);
+- **passos** contariam de novo o que a caminhada registrada já contou no
+  balanço energético;
+- **sono** não tem lugar no app.
 
 ---
 

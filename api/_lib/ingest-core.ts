@@ -10,11 +10,14 @@ import type { Client } from "@libsql/client";
  * por um pior. Aqui ele só consegue dizer "corri 30 minutos", e o servidor
  * decide o que isso vira no banco.
  *
- * Escopo desta fase: **atividade e peso**. São os dois que o app já sabe usar
- * — atividade entra no balanço energético, peso alimenta o gráfico. Água,
- * passos, sono e nutrição ficam de fora por ora: água e nutrição precisariam
- * de deduplicação própria, e passos contariam de novo o que a caminhada
- * registrada já contou.
+ * Escopo: **atividade, peso e água**. Os três que o app já sabe usar —
+ * atividade entra no balanço energético, peso alimenta o gráfico, água conta
+ * na hidratação do dia (e nos períodos, quando há plano).
+ *
+ * Ficam de fora, e por motivos diferentes: **nutrição** exigiria casar cada
+ * alimento com o catálogo, que é um problema de outra natureza; **passos**
+ * contariam de novo o que a caminhada registrada já contou no balanço;
+ * **sono** não tem lugar no app.
  */
 
 export type Origem = "samsung-health" | "health-connect";
@@ -35,15 +38,24 @@ export interface PesoRecebido {
   peso_kg: number;
 }
 
+export interface AguaRecebida {
+  /** `metadata.id` do `HydrationRecord`. É a chave da deduplicação. */
+  origem_id: string;
+  data: string;
+  ml: number;
+}
+
 export interface Lote {
   origem: Origem;
   atividades: AtividadeRecebida[];
   pesos: PesoRecebido[];
+  aguas: AguaRecebida[];
 }
 
 export interface Resultado {
   atividades: number;
   pesos: number;
+  aguas: number;
 }
 
 export class LoteInvalido extends Error {}
@@ -80,10 +92,11 @@ export function lerLote(corpo: unknown): Lote {
 
   const atividadesCru = c.atividades ?? [];
   const pesosCru = c.pesos ?? [];
-  if (!Array.isArray(atividadesCru) || !Array.isArray(pesosCru)) {
-    throw new LoteInvalido("atividades e pesos devem ser listas");
+  const aguasCru = c.aguas ?? [];
+  if (!Array.isArray(atividadesCru) || !Array.isArray(pesosCru) || !Array.isArray(aguasCru)) {
+    throw new LoteInvalido("atividades, pesos e aguas devem ser listas");
   }
-  if (atividadesCru.length + pesosCru.length > LIMITE_ITENS) {
+  if (atividadesCru.length + pesosCru.length + aguasCru.length > LIMITE_ITENS) {
     throw new LoteInvalido(`lote acima de ${LIMITE_ITENS} itens`);
   }
 
@@ -107,7 +120,18 @@ export function lerLote(corpo: unknown): Lote {
     };
   });
 
-  return { origem: c.origem, atividades, pesos };
+  const aguas = aguasCru.map((a): AguaRecebida => {
+    const o = a as Record<string, unknown>;
+    return {
+      origem_id: texto(o.origem_id, "origem_id"),
+      data: data(o.data, "data"),
+      // Cinco litros num gole é erro de unidade (ml lido como litro, ou o
+      // contrário), não sede.
+      ml: numero(o.ml, "ml", { min: 1, max: 5000 }),
+    };
+  });
+
+  return { origem: c.origem, atividades, pesos, aguas };
 }
 
 /**
@@ -155,6 +179,25 @@ export async function gravarLote(
     });
   }
 
+  for (const a of lote.aguas) {
+    // Mesmo apaga-e-insere da atividade, e pelo mesmo motivo: `water_log` não
+    // tem chave natural (o dia tem vários registros de propósito), então a
+    // identidade vem da origem.
+    comandos.push({
+      sql: "DELETE FROM water_log WHERE user_id=? AND origem=? AND origem_id=?",
+      args: [userId, lote.origem, a.origem_id],
+    });
+    comandos.push({
+      sql: `INSERT INTO water_log (user_id, data, ml, origem, origem_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [userId, a.data, a.ml, lote.origem, a.origem_id, agora],
+    });
+  }
+
   if (comandos.length > 0) await db.batch(comandos, "write");
-  return { atividades: lote.atividades.length, pesos: lote.pesos.length };
+  return {
+    atividades: lote.atividades.length,
+    pesos: lote.pesos.length,
+    aguas: lote.aguas.length,
+  };
 }

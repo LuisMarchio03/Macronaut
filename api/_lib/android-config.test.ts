@@ -80,8 +80,13 @@ describe("assetlinks.json", () => {
 describe("permissões do Health Connect", () => {
   const declaradas = [...manifesto.matchAll(/android\.permission\.health\.(\w+)/g)].map((m) => m[1]);
 
-  it("declara exatamente as três que o app lê", () => {
-    expect(declaradas.sort()).toEqual(["READ_EXERCISE", "READ_TOTAL_CALORIES_BURNED", "READ_WEIGHT"]);
+  it("declara exatamente as que o app lê", () => {
+    expect(declaradas.sort()).toEqual([
+      "READ_EXERCISE",
+      "READ_HYDRATION",
+      "READ_TOTAL_CALORIES_BURNED",
+      "READ_WEIGHT",
+    ]);
   });
 
   it("cada permissão declarada tem um tipo de registro correspondente no código", () => {
@@ -91,6 +96,7 @@ describe("permissões do Health Connect", () => {
     expect(saude).toContain("ExerciseSessionRecord::class");
     expect(saude).toContain("TotalCaloriesBurnedRecord::class");
     expect(saude).toContain("WeightRecord::class");
+    expect(saude).toContain("HydrationRecord::class");
   });
 
   it("não pede escrita — o app só lê", () => {

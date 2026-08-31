@@ -14,5 +14,5 @@
     <string name="sem_health_connect">Este aparelho não tem o Health Connect. Instale-o pela Play Store e abra o Samsung Health uma vez para ele começar a compartilhar os dados.</string>
 
     <string name="politica_titulo">Como o Macronaut usa seus dados</string>
-    <string name="politica_texto">O Macronaut lê do Health Connect apenas as suas sessões de exercício, as calorias delas e as suas pesagens.\n\nEsses dados vão para a sua própria conta no Macronaut, e para lugar nenhum além dela: não há terceiros, não há publicidade e não há venda de dados.\n\nA leitura acontece no seu aparelho. Você pode revogar a permissão a qualquer momento no Health Connect, e desconectar este aparelho em Ajustes → Aparelhos conectados — o que corta o envio na hora.</string>
+    <string name="politica_texto">O Macronaut lê do Health Connect apenas as suas sessões de exercício, as calorias delas, as suas pesagens e a água que você registrou.\n\nEsses dados vão para a sua própria conta no Macronaut, e para lugar nenhum além dela: não há terceiros, não há publicidade e não há venda de dados.\n\nA leitura acontece no seu aparelho. Você pode revogar a permissão a qualquer momento no Health Connect, e desconectar este aparelho em Ajustes → Aparelhos conectados — o que corta o envio na hora.</string>
 </resources>

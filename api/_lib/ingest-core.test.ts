@@ -4,6 +4,7 @@ import { createTestDb } from "../../test/helpers/test-db";
 import { LIMITE_ITENS, LoteInvalido, gravarLote, lerLote, type Lote } from "./ingest-core";
 import { listActivitySessionsByRange } from "../../src/repositories/activities";
 import { getWeighInsByRange } from "../../src/repositories/weighins";
+import { addWater, getWaterTotal } from "../../src/repositories/water";
 
 const USER = 1;
 let db: Client;
@@ -16,6 +17,7 @@ const lote = (over: Partial<Lote> = {}): Lote => ({
   origem: "health-connect",
   atividades: [],
   pesos: [],
+  aguas: [],
   ...over,
 });
 
@@ -101,6 +103,7 @@ describe("gravarLote", () => {
       origem: "health-connect",
       atividades: [corrida({ origem_id: "a" }), corrida({ origem_id: "b" })],
       pesos: [],
+      aguas: [],
     });
     expect(await listActivitySessionsByRange(db, USER, "2026-08-01", "2026-08-31")).toHaveLength(2);
   });
@@ -148,11 +151,59 @@ describe("gravarLote", () => {
       origem: "health-connect",
       atividades: [corrida({ origem_id: "a" }), corrida({ origem_id: "b" })],
       pesos: [{ data: "2026-08-31", peso_kg: 82 }],
+      aguas: [{ origem_id: "h1", data: "2026-08-31", ml: 250 }],
     });
-    expect(r).toEqual({ atividades: 2, pesos: 1 });
+    expect(r).toEqual({ atividades: 2, pesos: 1, aguas: 1 });
   });
 
   it("lote vazio não escreve nada e não explode", async () => {
-    expect(await gravarLote(db, USER, lote())).toEqual({ atividades: 0, pesos: 0 });
+    expect(await gravarLote(db, USER, lote())).toEqual({ atividades: 0, pesos: 0, aguas: 0 });
+  });
+});
+
+describe("água", () => {
+  const gole = (over: Record<string, unknown> = {}) => ({
+    origem_id: "hc-agua-1",
+    data: "2026-08-31",
+    ml: 250,
+    ...over,
+  });
+
+  it("grava o gole e ele conta no total do dia", async () => {
+    await gravarLote(db, USER, lote({ aguas: [gole(), gole({ origem_id: "hc-agua-2", ml: 500 })] }));
+    expect(await getWaterTotal(db, USER, "2026-08-31")).toBe(750);
+  });
+
+  it("sincronizar de novo NÃO soma o mesmo gole outra vez", async () => {
+    // Era o motivo pelo qual eu tinha deixado a água de fora — errado: o
+    // `HydrationRecord` tem `metadata.id`, e é a mesma deduplicação da
+    // atividade.
+    await gravarLote(db, USER, lote({ aguas: [gole()] }));
+    await gravarLote(db, USER, lote({ aguas: [gole()] }));
+    expect(await getWaterTotal(db, USER, "2026-08-31")).toBe(250);
+  });
+
+  it("o gole corrigido na origem é corrigido aqui", async () => {
+    await gravarLote(db, USER, lote({ aguas: [gole({ ml: 200 })] }));
+    await gravarLote(db, USER, lote({ aguas: [gole({ ml: 300 })] }));
+    expect(await getWaterTotal(db, USER, "2026-08-31")).toBe(300);
+  });
+
+  it("NÃO toca no que você registrou no app", async () => {
+    // Os +200 ml que você tocou na tela têm `origem` nula.
+    await addWater(db, USER, "2026-08-31", 200);
+    await gravarLote(db, USER, lote({ aguas: [gole()] }));
+    await gravarLote(db, USER, lote({ aguas: [gole()] }));
+    expect(await getWaterTotal(db, USER, "2026-08-31")).toBe(450);
+  });
+
+  it("recusa gole sem id de origem e volume implausível", async () => {
+    expect(() => lerLote({ origem: "health-connect", aguas: [gole({ origem_id: "" })] }))
+      .toThrow(/origem_id ausente/);
+    // 5 litros num registro é erro de unidade, não sede.
+    expect(() => lerLote({ origem: "health-connect", aguas: [gole({ ml: 9000 })] }))
+      .toThrow(/fora da faixa/);
+    expect(() => lerLote({ origem: "health-connect", aguas: [gole({ ml: 0 })] }))
+      .toThrow(/fora da faixa/);
   });
 });

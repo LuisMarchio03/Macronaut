@@ -25,8 +25,8 @@ Duas coisas, e nada além:
 
 1. **Abre o Macronaut em tela cheia** (Trusted Web Activity). É o PWA de
    sempre, sem barra de endereço, com ícone na gaveta de apps.
-2. **Lê o Health Connect a cada 6 horas** e manda exercício e peso para o
-   Macronaut.
+2. **Lê o Health Connect a cada 6 horas** e manda exercício, peso e água para
+   o Macronaut.
 
 O Samsung Health não é lido direto — ele **escreve** no Health Connect, e este
 app lê de lá. É de propósito: o mesmo código serve a quem usa Garmin, Fitbit ou
@@ -142,9 +142,14 @@ dois lugares — e ele já é, em `strings.xml`.
 
 ## O que ficou de fora
 
-Água, nutrição, passos e sono. Água e nutrição precisariam de deduplicação
-própria (não têm id estável como a sessão de exercício tem), e passos
-contariam de novo o que a caminhada registrada já contou no balanço energético.
+Nutrição, passos e sono. Nutrição exigiria casar cada alimento com o catálogo
+do app; passos contariam de novo o que a caminhada registrada já contou no
+balanço energético; sono não tem lugar no app.
+
+Água **entrou**: o `HydrationRecord` tem `metadata.id`, então é a mesma
+deduplicação da sessão de exercício. Cada gole vai como um registro próprio, e
+não somado por dia — agrupar aqui destruiria justamente a chave que impede a
+releitura da janela de somar o mesmo gole de novo.
 
 A janela de releitura é de 7 dias: reler é barato e a deduplicação do servidor
 absorve a repetição, mas um relógio que sincroniza tarde grava o treino de

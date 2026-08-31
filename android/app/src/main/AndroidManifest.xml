@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_HYDRATION" />
 
     <!-- Sem isto o app não enxerga que o Health Connect existe no aparelho
          (visibilidade de pacotes, obrigatória desde o Android 11). -->

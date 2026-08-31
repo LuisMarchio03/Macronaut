@@ -75,6 +75,12 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   { table: "activity_sessions", column: "origem",    ddl: "ALTER TABLE activity_sessions ADD COLUMN origem TEXT" },
   { table: "activity_sessions", column: "origem_id", ddl: "ALTER TABLE activity_sessions ADD COLUMN origem_id TEXT" },
   { table: "weigh_ins",         column: "origem",    ddl: "ALTER TABLE weigh_ins ADD COLUMN origem TEXT" },
+  // Água tem o mesmo par que a atividade, e pelo mesmo motivo: o
+  // `HydrationRecord` do Health Connect tem `metadata.id`, então o gole que o
+  // relógio mandou é reconhecível na sincronização seguinte. Sem isso, cada
+  // releitura da janela somaria os mesmos 200 ml de novo.
+  { table: "water_log", column: "origem",    ddl: "ALTER TABLE water_log ADD COLUMN origem TEXT" },
+  { table: "water_log", column: "origem_id", ddl: "ALTER TABLE water_log ADD COLUMN origem_id TEXT" },
 ];
 
 /**
@@ -97,6 +103,7 @@ const ADDITIVE_INDEXES: { table: string; ddl: string }[] = [
   { table: "food_entries", ddl: "CREATE INDEX IF NOT EXISTS idx_entries_plan_block ON food_entries (user_id, data, plan_block_id)" },
   // O índice que a deduplicação da sincronização consulta a cada item.
   { table: "activity_sessions", ddl: "CREATE UNIQUE INDEX IF NOT EXISTS idx_asessions_origem ON activity_sessions (user_id, origem, origem_id) WHERE origem IS NOT NULL" },
+  { table: "water_log", ddl: "CREATE UNIQUE INDEX IF NOT EXISTS idx_water_origem ON water_log (user_id, origem, origem_id) WHERE origem IS NOT NULL" },
 ];
 
 /**

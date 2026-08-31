@@ -118,7 +118,7 @@ continua o bloco de cima — é assim que uma refeição ganha vários alimentos
 - 📲 PWA instalável, com service worker que se atualiza sozinho
 - 🔐 O banco vive atrás de `/api/db`: a credencial do Turso não sai do servidor
 - 📱 Aparelhos pareados por um código de cinco minutos, com token próprio que
-      só serve para enviar treino e peso — e que morre quando você desconecta
+      só serve para enviar treino, peso e água — e que morre quando você desconecta
 - 🎨 Tema claro e escuro, seguindo o do sistema quando você não escolheu
 - ♿ Paleta com contraste WCAG AA verificado **em teste**, alvos de toque de 44px
 

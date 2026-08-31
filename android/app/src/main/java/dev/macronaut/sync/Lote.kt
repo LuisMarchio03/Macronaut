@@ -26,11 +26,19 @@ data class Peso(
     val pesoKg: Double,
 )
 
+data class Agua(
+    /** `metadata.id` do `HydrationRecord`. É a chave da deduplicação. */
+    val origemId: String,
+    val data: String,
+    val ml: Double,
+)
+
 data class Lote(
     val atividades: List<Atividade>,
     val pesos: List<Peso>,
+    val aguas: List<Agua>,
 ) {
-    val vazio: Boolean get() = atividades.isEmpty() && pesos.isEmpty()
+    val vazio: Boolean get() = atividades.isEmpty() && pesos.isEmpty() && aguas.isEmpty()
 
     fun paraJson(): JSONObject = JSONObject()
         .put("origem", "health-connect")
@@ -53,6 +61,19 @@ data class Lote(
             "pesos",
             JSONArray().apply {
                 pesos.forEach { put(JSONObject().put("data", it.data).put("peso_kg", it.pesoKg)) }
+            },
+        )
+        .put(
+            "aguas",
+            JSONArray().apply {
+                aguas.forEach {
+                    put(
+                        JSONObject()
+                            .put("origem_id", it.origemId)
+                            .put("data", it.data)
+                            .put("ml", it.ml),
+                    )
+                }
             },
         )
 }

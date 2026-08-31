@@ -7,6 +7,7 @@ import { createTestDb } from "../../test/helpers/test-db";
 import { gravarLote, lerLote } from "./ingest-core";
 import { listActivitySessionsByRange } from "../../src/repositories/activities";
 import { getWeighInsByRange } from "../../src/repositories/weighins";
+import { getWaterTotal } from "../../src/repositories/water";
 
 /**
  * O contrato entre o app Android e este servidor.
@@ -41,7 +42,7 @@ describe("contrato com o app Android", () => {
 
   it("o lote de exemplo grava exatamente o que promete", async () => {
     const r = await gravarLote(db, USER, lerLote(LOTE));
-    expect(r).toEqual({ atividades: 2, pesos: 1 });
+    expect(r).toEqual({ atividades: 2, pesos: 1, aguas: 2 });
 
     const atividades = await listActivitySessionsByRange(db, USER, "2026-08-01", "2026-08-31");
     expect(atividades.map((a) => a.tipo).sort()).toEqual(["Corrida", "Musculação"]);
@@ -52,6 +53,7 @@ describe("contrato com o app Android", () => {
 
     const pesos = await getWeighInsByRange(db, USER, "2026-08-01", "2026-08-31");
     expect(pesos).toEqual([expect.objectContaining({ data: "2026-08-31", peso_kg: 81.6 })]);
+    expect(await getWaterTotal(db, USER, "2026-08-31")).toBe(750);
   });
 
   it("reenviar o mesmo lote não soma nada — é o que o worker faz toda vez", async () => {
@@ -60,16 +62,18 @@ describe("contrato com o app Android", () => {
 
     expect(await listActivitySessionsByRange(db, USER, "2026-08-01", "2026-08-31")).toHaveLength(2);
     expect(await getWeighInsByRange(db, USER, "2026-08-01", "2026-08-31")).toHaveLength(1);
+    expect(await getWaterTotal(db, USER, "2026-08-31")).toBe(750);
   });
 
   it("os campos que o Kotlin preenche são exatamente os que o servidor lê", () => {
     // Um campo a mais no Kotlin que o servidor ignora em silêncio é um bug que
     // só aparece no celular de quem instalou. Este teste falha na hora.
-    const lote = LOTE as { atividades: Record<string, unknown>[]; pesos: Record<string, unknown>[] };
+    const lote = LOTE as Record<string, Record<string, unknown>[]>;
     expect(Object.keys(lote.atividades[0]).sort()).toEqual(
       ["data", "duracao_min", "kcal", "origem_id", "tipo"],
     );
     expect(Object.keys(lote.pesos[0]).sort()).toEqual(["data", "peso_kg"]);
+    expect(Object.keys(lote.aguas[0]).sort()).toEqual(["data", "ml", "origem_id"]);
   });
 
   it("a origem do exemplo é uma das que o servidor conhece", () => {
