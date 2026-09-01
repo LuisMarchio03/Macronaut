@@ -58,6 +58,9 @@ const troca = (p: Partial<TrocaDeItem> & { item_id: number }): TrocaDeItem => ({
 
 function montar(props: Partial<Parameters<typeof SheetTrocas>[0]> = {}) {
   const onTrocar = vi.fn();
+  const onAdicionar = vi.fn();
+  const onRemoverUma = vi.fn();
+  const onDispensar = vi.fn();
   const onDesfazer = vi.fn();
   const onMarcar = vi.fn();
   render(
@@ -68,6 +71,9 @@ function montar(props: Partial<Parameters<typeof SheetTrocas>[0]> = {}) {
       trocas={[]}
       feito={false}
       onTrocar={onTrocar}
+      onAdicionar={onAdicionar}
+      onRemoverUma={onRemoverUma}
+      onDispensar={onDispensar}
       onDesfazer={onDesfazer}
       onMarcar={onMarcar}
       onClose={vi.fn()}
@@ -75,7 +81,7 @@ function montar(props: Partial<Parameters<typeof SheetTrocas>[0]> = {}) {
     />,
     { wrapper: criarWrapper(db) },
   );
-  return { onTrocar, onDesfazer, onMarcar };
+  return { onTrocar, onAdicionar, onRemoverUma, onDispensar, onDesfazer, onMarcar };
 }
 
 describe("SheetTrocas — a refeição", () => {
@@ -102,13 +108,13 @@ describe("SheetTrocas — a refeição", () => {
 
   it("desfaz a troca de um item", async () => {
     const { onDesfazer } = montar({ trocas: [troca({ item_id: 2 })] });
-    await userEvent.click(screen.getByRole("button", { name: /desfazer a troca de 1 fatia/i }));
+    await userEvent.click(screen.getByRole("button", { name: /devolver 1 fatia de pão integral ao plano/i }));
     expect(onDesfazer).toHaveBeenCalledWith(2);
   });
 
-  it("o desfazer só existe onde há troca", () => {
+  it("o devolver ao plano só existe onde a linha foi mexida", () => {
     montar({ trocas: [troca({ item_id: 2 })] });
-    expect(screen.queryByRole("button", { name: /desfazer a troca de 3 ovos/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /devolver 3 ovos mexidos ao plano/i })).toBeNull();
   });
 
   it("marca a refeição como feita sem exigir troca nenhuma", async () => {
@@ -210,7 +216,7 @@ describe("SheetTrocas — trocar um item", () => {
 describe("SheetTrocas — fora da lista do plano", () => {
   it("troca por um alimento do catálogo, com medida caseira e caloria calculada", async () => {
     const user = userEvent.setup();
-    const { onTrocar } = montar();
+    const { onAdicionar } = montar();
     await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
     await user.click(screen.getByRole("tab", { name: "Catálogo" }));
 
@@ -227,14 +233,14 @@ describe("SheetTrocas — fora da lista do plano", () => {
     await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
 
     // 2 colheres × 15 g = 30 g; 240 kcal/100 g → 72 kcal.
-    expect(onTrocar).toHaveBeenCalledWith(2, {
+    expect(onAdicionar).toHaveBeenCalledWith(2, {
       food_id: 1, qty_g: 30, measure_id: 1, medidas: 2, kcal: 72,
     });
   });
 
   it("troca por texto livre com caloria", async () => {
     const user = userEvent.setup();
-    const { onTrocar } = montar();
+    const { onAdicionar } = montar();
     await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
     await user.click(screen.getByRole("tab", { name: "Escrever" }));
 
@@ -242,12 +248,12 @@ describe("SheetTrocas — fora da lista do plano", () => {
     await user.type(screen.getByLabelText(/calorias/i), "180");
     await user.click(screen.getByRole("button", { name: /^trocar$/i }));
 
-    expect(onTrocar).toHaveBeenCalledWith(1, { texto: "Omelete da padaria", kcal: 180 });
+    expect(onAdicionar).toHaveBeenCalledWith(1, { texto: "Omelete da padaria", kcal: 180 });
   });
 
   it("texto livre sem caloria avisa que não entra no balanço", async () => {
     const user = userEvent.setup();
-    const { onTrocar } = montar();
+    const { onAdicionar } = montar();
     await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
     await user.click(screen.getByRole("tab", { name: "Escrever" }));
 
@@ -255,7 +261,7 @@ describe("SheetTrocas — fora da lista do plano", () => {
     await user.type(screen.getByLabelText(/o que você comeu/i), "o que tinha");
     await user.click(screen.getByRole("button", { name: /^trocar$/i }));
 
-    expect(onTrocar).toHaveBeenCalledWith(1, { texto: "o que tinha", kcal: null });
+    expect(onAdicionar).toHaveBeenCalledWith(1, { texto: "o que tinha", kcal: null });
   });
 
   it("não deixa gravar troca escrita sem texto", async () => {
@@ -273,20 +279,22 @@ describe("SheetTrocas — trocar a refeição inteira", () => {
     const { onTrocar } = montar();
     await user.click(screen.getByRole("button", { name: /trocar tudo/i }));
 
-    // Item 1 de 3.
+    // Item 1 de 3. Confirmar NÃO avança: a linha ainda pode receber um
+    // segundo alimento, e quem terminou toca em "Próximo item".
     expect(screen.getByText(/item 1 de 3/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /queijo cottage/i }));
+    expect(screen.getByText(/item 1 de 3/i)).toBeInTheDocument();
 
-    // Confirmar avança sozinho para a linha seguinte.
+    await user.click(screen.getByRole("button", { name: /próximo item/i }));
     expect(screen.getByText(/item 2 de 3/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /tapioca/i }));
 
+    await user.click(screen.getByRole("button", { name: /próximo item/i }));
     expect(screen.getByText(/item 3 de 3/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /banana/i }));
 
-    // Fim da fila: volta para a refeição.
-    expect(screen.getByRole("button", { name: /trocar tudo/i })).toBeInTheDocument();
-    expect(onTrocar).toHaveBeenCalledTimes(3);
+    // A última linha não oferece "próximo": sair é o botão de voltar.
+    expect(screen.queryByRole("button", { name: /próximo item/i })).not.toBeInTheDocument();
     expect(onTrocar.mock.calls.map((c) => c[0])).toEqual([1, 2, 3]);
   });
 
@@ -333,7 +341,8 @@ describe("SheetTrocas — o estado da folha de nível 2", () => {
 
     const qtd = screen.getByLabelText(/quantidade/i);
     await waitFor(() => expect(qtd).toHaveValue("1"));
-    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+    await user.click(screen.getByRole("button", { name: /adicionar tapioca goma|trocar por tapioca goma/i }));
+    await user.click(await screen.findByRole("button", { name: /próximo item/i }));
 
     // Já no item 2: nada do item 1 pode ter sobrado.
     expect(await screen.findByText(/item 2 de 3/i)).toBeInTheDocument();
@@ -357,7 +366,8 @@ describe("SheetTrocas — o estado da folha de nível 2", () => {
 
     const qtd = screen.getByLabelText(/quantidade/i);
     await waitFor(() => expect(qtd).toHaveValue("1"));
-    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+    await user.click(screen.getByRole("button", { name: /adicionar tapioca goma|trocar por tapioca goma/i }));
+    await user.click(await screen.findByRole("button", { name: /próximo item/i }));
 
     expect(await screen.findByText(/item 2 de 3/i)).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Catálogo" })).toHaveAttribute("aria-selected", "true");
@@ -384,8 +394,98 @@ describe("SheetTrocas — o estado da folha de nível 2", () => {
     await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
 
     expect(
-      await screen.findByRole("button", { name: /trocar por tapioca goma/i }),
+      await screen.findByRole("button", { name: /adicionar tapioca goma/i }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/quantidade/i)).toHaveValue("2");
+  });
+});
+
+describe("SheetTrocas — mais de um alimento por linha", () => {
+  it("com uma escolha feita, o botão do catálogo passa a dizer Adicionar", async () => {
+    const user = userEvent.setup();
+    montar({
+      trocas: [troca({ id: 91, item_id: 2, origem: "catalogo", nome: "Tapioca goma", food_id: 1, qty_g: 30, kcal: 72, medidas: 2, measure_id: 1 })],
+    });
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+
+    expect(await screen.findByRole("button", { name: /^adicionar tapioca goma$/i })).toBeInTheDocument();
+  });
+
+  it("escolher no catálogo ACRESCENTA, não substitui", async () => {
+    const user = userEvent.setup();
+    const { onAdicionar } = montar();
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+
+    expect(onAdicionar).toHaveBeenCalledWith(2, {
+      food_id: 1, qty_g: 15, measure_id: 1, medidas: 1, kcal: 36,
+    });
+  });
+
+  it("as escolhas já feitas aparecem na folha da linha, com o × de cada uma", async () => {
+    const user = userEvent.setup();
+    const { onRemoverUma } = montar({
+      trocas: [
+        troca({ id: 91, item_id: 2, nome: "Pão na chapa", kcal: 210 }),
+        troca({ id: 92, item_id: 2, nome: "Suco de laranja", kcal: 90 }),
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+
+    await user.click(await screen.findByRole("button", { name: /remover suco de laranja/i }));
+    expect(onRemoverUma).toHaveBeenCalledWith(92);
+  });
+
+  it("a refeição empilha as N trocas sob o item riscado", () => {
+    montar({
+      trocas: [
+        troca({ id: 91, item_id: 2, nome: "Pão na chapa", kcal: 210 }),
+        troca({ id: 92, item_id: 2, nome: "Suco de laranja", kcal: 90 }),
+      ],
+    });
+    expect(screen.getByText("Pão na chapa · 210 kcal")).toBeInTheDocument();
+    expect(screen.getByText("Suco de laranja · 90 kcal")).toBeInTheDocument();
+  });
+
+  it("dispensar a linha avisa quem monta a tela", async () => {
+    const user = userEvent.setup();
+    const { onDispensar } = montar();
+    await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
+    await user.click(screen.getByRole("button", { name: /não comi esta linha/i }));
+    expect(onDispensar).toHaveBeenCalledWith(1);
+  });
+
+  it("linha dispensada aparece como tal, e dá para voltar ao plano", async () => {
+    const user = userEvent.setup();
+    const { onDesfazer } = montar({
+      trocas: [troca({ id: 93, item_id: 1, dispensado: true, nome: "" })],
+    });
+    expect(screen.getByText(/^dispensado$/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
+    await user.click(await screen.findByRole("button", { name: /voltar ao plano/i }));
+    expect(onDesfazer).toHaveBeenCalledWith(1);
+  });
+
+  it("confirmar não avança sozinho: a linha pode receber outro alimento", async () => {
+    const user = userEvent.setup();
+    montar();
+    await user.click(screen.getByRole("button", { name: /trocar tudo/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+
+    // Continua no item 1, e o caminho para o próximo é explícito.
+    expect(screen.getByText(/item 1 de 3/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /próximo item/i })).toBeInTheDocument();
   });
 });

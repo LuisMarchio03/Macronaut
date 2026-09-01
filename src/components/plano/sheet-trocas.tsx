@@ -9,7 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
 import { useFoods, useFoodsByIds } from "@/hooks/use-foods";
 import { useMeasures } from "@/hooks/use-food-measures";
-import { descreverTroca, itensResolvidos, trocasDoItem, trocasDoBloco, trocasPara } from "@/domain/plano-dia";
+import {
+  descreverTroca,
+  itemDispensado,
+  itensResolvidos,
+  trocasDoItem,
+  trocasDoBloco,
+  trocasPara,
+} from "@/domain/plano-dia";
 import { macrosDoEntry } from "@/domain/nutrition";
 import { sugerirPorcao } from "@/domain/medida-default";
 import { formatarNumero, resolverQtdBase } from "@/domain/medidas";
@@ -57,6 +64,12 @@ function TrocarItem({
   passo,
   abaInicial,
   onAba,
+  escolhidas,
+  dispensado,
+  onRemoverUma,
+  onDispensar,
+  onVoltarAoPlano,
+  onProximo,
 }: {
   item: PlanItem;
   bloco: PlanBlock;
@@ -69,6 +82,13 @@ function TrocarItem({
   /** Onde abrir. A folha lembra a última escolhida ao percorrer a refeição. */
   abaInicial: Aba;
   onAba: (a: Aba) => void;
+  /** O que já foi escolhido para ESTA linha. */
+  escolhidas: TrocaDeItem[];
+  dispensado: boolean;
+  onRemoverUma: (trocaId: number) => void;
+  onDispensar: () => void;
+  onVoltarAoPlano: () => void;
+  onProximo: () => void;
 }) {
   /** A troca de catálogo que já existe nesta linha, se houver. */
   const jaDoCatalogo = trocaAtual?.origem === "catalogo" ? trocaAtual : null;
@@ -140,6 +160,10 @@ function TrocarItem({
     ? trocasPara(swaps, bloco.nome, item.categoria)
     : [...trocasDoBloco(swaps, bloco.nome).values()].flat();
 
+  // "Trocar" pela segunda vez sugeriria substituir a primeira. O verbo tem que
+  // dizer o que o toque faz.
+  const verbo = escolhidas.length > 0 ? "Adicionar" : "Trocar por";
+
   const medida = medidas.find((m) => String(m.id) === medidaId) ?? null;
   const contagem = Number(qtd.replace(",", ".")) || 0;
   const qtyG = medida ? resolverQtdBase(medida.qty_base, contagem) : contagem;
@@ -169,6 +193,29 @@ function TrocarItem({
       </SheetHeader>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        {escolhidas.length > 0 && (
+          /* A lista é o que substitui a rede que o `UNIQUE` dava: sem ele, dois
+             toques rápidos gravam duas linhas iguais — e aqui isso fica
+             visível, e desfazível num toque. */
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+            {escolhidas.map((t) => (
+              <li key={t.id} className="flex items-center gap-1 pr-2">
+                <span className="min-w-0 flex-1 truncate py-2.5 pl-4 text-sm">
+                  {descreverTroca(t)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onRemoverUma(t.id)}
+                  aria-label={`Remover ${t.nome}`}
+                  className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-tint-danger hover:text-destructive"
+                >
+                  <X className="size-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
         <Segmented
           opcoes={ABAS}
           valor={aba}
@@ -288,7 +335,7 @@ function TrocarItem({
                     })
                   }
                 >
-                  Trocar por {alimento.nome}
+                  {verbo} {alimento.nome}
                 </Button>
               </>
             )}
@@ -331,10 +378,33 @@ function TrocarItem({
                 })
               }
             >
-              Trocar
+              {escolhidas.length > 0 ? "Adicionar" : "Trocar"}
             </Button>
           </div>
         )}
+
+        {/* A terceira resposta possível sobre uma linha, e a única que não é
+            "comi outra coisa". */}
+        <div className="space-y-1 border-t border-border pt-3">
+          {dispensado ? (
+            <Button variant="outline" block onClick={onVoltarAoPlano}>
+              Voltar ao plano
+            </Button>
+          ) : (
+            <button
+              type="button"
+              onClick={onDispensar}
+              className="flex min-h-11 w-full items-center justify-center text-[0.8125rem] font-medium text-muted-foreground"
+            >
+              Não comi esta linha
+            </button>
+          )}
+          {passo && passo.i < passo.total && (
+            <Button variant="outline" block onClick={onProximo}>
+              Próximo item
+            </Button>
+          )}
+        </div>
       </div>
     </>
   );
@@ -358,6 +428,9 @@ export function SheetTrocas({
   trocas,
   feito,
   onTrocar,
+  onAdicionar,
+  onRemoverUma,
+  onDispensar,
   onDesfazer,
   onMarcar,
   onClose,
@@ -367,7 +440,13 @@ export function SheetTrocas({
   swaps: PlanSwap[];
   trocas: TrocaDeItem[];
   feito: boolean;
+  /** Substitui tudo na linha — o que a aba "Do plano" faz. */
   onTrocar: (itemId: number, e: Omit<TrocaEntrada, "data" | "block_id" | "item_id">) => void;
+  /** Acrescenta sem tirar os que já estavam — catálogo e texto livre. */
+  onAdicionar: (itemId: number, e: Omit<TrocaEntrada, "data" | "block_id" | "item_id">) => void;
+  onRemoverUma: (trocaId: number) => void;
+  onDispensar: (itemId: number) => void;
+  /** Devolve a linha ao plano: apaga trocas e dispensa. */
   onDesfazer: (itemId: number) => void;
   onMarcar: (feito: boolean) => void;
   onClose: () => void;
@@ -394,12 +473,23 @@ export function SheetTrocas({
   // silêncio pareceria zero.
   const foraDoBalanco = new Set(itensResolvidos(itens, trocas).semAlimento.map((i) => i.id));
 
+  /**
+   * Confirmar NÃO avança mais sozinho.
+   *
+   * Avançar era certo quando a linha comportava uma resposta só; com N
+   * alimentos por linha, ele impediria a segunda escolha. Quem terminou a
+   * linha toca em "Próximo item".
+   *
+   * "Do plano" substitui, catálogo e texto acrescentam: escolher duas
+   * substituições previstas para a mesma linha não é o que aquele toque quer
+   * dizer, e escolher dois alimentos do catálogo é exatamente o que este quer.
+   */
   function escolher(itemId: number, e: Omit<TrocaEntrada, "data" | "block_id" | "item_id">) {
-    onTrocar(itemId, e);
-    avancar();
+    if (e.swap_id != null) onTrocar(itemId, e);
+    else onAdicionar(itemId, e);
   }
 
-  /** No modo "trocar tudo", confirmar uma linha leva à próxima. */
+  /** No modo "trocar tudo", "Próximo item" leva à linha seguinte. */
   function avancar() {
     if (percorrendo === null) { setAbertoId(null); return; }
     const proximo = percorrendo + 1;
@@ -432,6 +522,12 @@ export function SheetTrocas({
             passo={percorrendo !== null ? { i: percorrendo + 1, total: itens.length } : null}
             onEscolher={(e) => escolher(aberto.id, e)}
             onVoltar={() => { setPercorrendo(null); setAbertoId(null); }}
+            escolhidas={trocasDoItem(trocas, aberto.id)}
+            dispensado={itemDispensado(trocas, aberto.id)}
+            onRemoverUma={onRemoverUma}
+            onDispensar={() => onDispensar(aberto.id)}
+            onVoltarAoPlano={() => onDesfazer(aberto.id)}
+            onProximo={avancar}
           />
         ) : (
           <>
@@ -450,7 +546,9 @@ export function SheetTrocas({
               ) : (
                 <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
                   {itens.map((item) => {
-                    const troca = trocasDoItem(trocas, item.id)[0] ?? null;
+                    const doItem = trocasDoItem(trocas, item.id);
+                    const dispensado = itemDispensado(trocas, item.id);
+                    const mexida = doItem.length > 0 || dispensado;
                     return (
                       <li key={item.id}>
                         <div className="flex items-center gap-1 pr-2">
@@ -466,17 +564,23 @@ export function SheetTrocas({
                               )}
                               <span
                                 className={
-                                  troca
+                                  mexida
                                     ? "block text-sm text-muted-foreground line-through"
                                     : "block text-sm"
                                 }
                               >
                                 {item.texto}
                               </span>
-                              {troca && (
-                                <span className="mt-0.5 block text-sm font-medium text-primary">
-                                  {descreverTroca(troca)}
+                              {/* Empilhadas, uma por alimento escolhido: a
+                                  linha do plano vira a lista do que você de
+                                  fato comeu no lugar dela. */}
+                              {doItem.map((t) => (
+                                <span key={t.id} className="mt-0.5 block text-sm font-medium text-primary">
+                                  {descreverTroca(t)}
                                 </span>
+                              ))}
+                              {dispensado && (
+                                <span className="t-caption mt-0.5 block">dispensado</span>
                               )}
                               {foraDoBalanco.has(item.id) && (
                                 <span className="t-caption mt-0.5 block">
@@ -486,11 +590,11 @@ export function SheetTrocas({
                             </span>
                             <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                           </button>
-                          {troca && (
+                          {mexida && (
                             <button
                               type="button"
                               onClick={() => onDesfazer(item.id)}
-                              aria-label={`Desfazer a troca de ${item.texto}`}
+                              aria-label={`Devolver ${item.texto} ao plano`}
                               className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-tint-danger hover:text-destructive"
                             >
                               <X className="size-4" />

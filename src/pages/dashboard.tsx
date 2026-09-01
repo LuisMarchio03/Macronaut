@@ -21,6 +21,9 @@ import { useSessaoAtiva } from "@/hooks/use-sessao";
 import { useAiConfig } from "@/hooks/use-ai-config";
 import {
   useAddAgua,
+  useAdicionarTroca,
+  useDispensarItem,
+  useRemoverUmaTroca,
   useAguaPorBloco,
   useBlocos,
   useChecksDoDia,
@@ -97,6 +100,9 @@ export function Dashboard() {
   const marcar = useMarcarBloco(data);
   const salvarTroca = useSalvarTroca(data);
   const limparTrocas = useLimparTrocasDoItem(data);
+  const adicionarTroca = useAdicionarTroca(data);
+  const removerUmaTroca = useRemoverUmaTroca(data);
+  const dispensarItem = useDispensarItem(data);
   const addAgua = useAddAgua(data);
 
   const [trocando, setTrocando] = useState<PlanBlock | null>(null);
@@ -308,6 +314,11 @@ export function Dashboard() {
           onTrocar={(itemId, e) =>
             salvarTroca.mutate({ data, block_id: trocando.id, item_id: itemId, ...e })
           }
+          onAdicionar={(itemId, e) =>
+            adicionarTroca.mutate({ data, block_id: trocando.id, item_id: itemId, ...e })
+          }
+          onRemoverUma={(trocaId) => removerUmaTroca.mutate(trocaId)}
+          onDispensar={(itemId) => dispensarItem.mutate({ blockId: trocando.id, itemId })}
           onDesfazer={(itemId) => limparTrocas.mutate(itemId)}
           onMarcar={(feito) => marcar.mutate({ planId: plano.id, blockId: trocando.id, feito })}
           onClose={() => setTrocando(null)}
