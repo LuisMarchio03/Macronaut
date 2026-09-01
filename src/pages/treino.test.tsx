@@ -7,7 +7,7 @@ import { createTestDb } from "../../test/helpers/test-db";
 import { criarWrapper } from "../../test/helpers/query-wrapper";
 import { Treino } from "./treino";
 import { criarRotina, salvarDia, adicionarExercicio } from "../repositories/rotina";
-import { iniciarSessao } from "../repositories/sessao";
+import { sessaoEmCurso } from "../../test/helpers/sessao";
 import { diaSemana, hoje } from "../lib/date";
 
 let db: Client;
@@ -167,7 +167,7 @@ describe("treino avulso", () => {
 
   it("continua oferecido com uma sessão já aberta", async () => {
     // Treinar duas vezes no mesmo dia acontece; o card só oferecia "retomar".
-    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
+    await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
     const r = await criarRotina(db, 1, "R");
     await salvarDia(db, 1, r.id, HOJE, "Peito");
     montar();
@@ -178,7 +178,7 @@ describe("treino avulso", () => {
 
   it("uma sessão SEM exercício continua listada para retomar", async () => {
     // O buraco que fazia cada tentativa vazar uma sessão órfã.
-    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Treino avulso", itens: [] });
+    await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Treino avulso", itens: [] });
     await criarRotina(db, 1, "R");
     montar();
 
@@ -205,8 +205,8 @@ describe("treino avulso", () => {
   });
 
   it("duas sessões abertas no mesmo dia aparecem as duas", async () => {
-    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
-    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Noite", itens: [] });
+    await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
+    await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Noite", itens: [] });
     await criarRotina(db, 1, "R");
     montar();
 

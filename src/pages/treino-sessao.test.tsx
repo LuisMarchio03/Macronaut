@@ -6,7 +6,8 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { criarWrapper } from "../../test/helpers/query-wrapper";
 import { TreinoSessao } from "./treino-sessao";
-import { iniciarSessao, getPlano, type ItemPlanejado } from "../repositories/sessao";
+import { getPlano, type ItemPlanejado } from "../repositories/sessao";
+import { sessaoEmCurso } from "../../test/helpers/sessao";
 import { addSet, createSession, listSetsBySession } from "../repositories/workouts";
 import { planejar } from "../domain/prescricao";
 import { hoje } from "../lib/date";
@@ -57,7 +58,7 @@ beforeEach(async () => {
 describe("TreinoSessao", () => {
   it("mostra o primeiro exercício com as séries já calculadas", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -68,7 +69,7 @@ describe("TreinoSessao", () => {
 
   it("tocar na série registra exatamente o planejado", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -87,7 +88,7 @@ describe("TreinoSessao", () => {
 
   it("desfaz uma série registrada", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -105,7 +106,7 @@ describe("TreinoSessao", () => {
 
   it("o sheet de ajuste grava reps e peso diferentes do planejado", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -128,7 +129,7 @@ describe("TreinoSessao", () => {
   it("navega entre os exercícios da sessão", async () => {
     const supino = await exercicio("Supino reto");
     const crucifixo = await exercicio("Crucifixo");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(),
       nome: "Peito",
       itens: [item(supino, 40, "Supino reto"), item(crucifixo, 15, "Crucifixo")],
@@ -142,7 +143,7 @@ describe("TreinoSessao", () => {
 
   it("mostra o progresso da sessão no topo", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -157,7 +158,7 @@ describe("TreinoSessao", () => {
   it("adiciona um exercício fora da rotina no meio da sessão", async () => {
     const supino = await exercicio("Supino reto");
     await exercicio("Rosca direta");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -176,7 +177,7 @@ describe("TreinoSessao", () => {
   });
 
   it("sessão vazia ainda deixa adicionar o primeiro exercício", async () => {
-    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: null, itens: [] });
+    const sid = await sessaoEmCurso(db, 1, { data: hoje(), nome: null, itens: [] });
     montar(sid);
     expect(await screen.findByRole("button", { name: /adicionar exercício/i })).toBeInTheDocument();
   });
@@ -199,7 +200,7 @@ describe("TreinoSessao", () => {
 
   it("a série AMRAP tem contador de repetições e o recorde a bater", async () => {
     const agacho = await exercicio("Agachamento");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(),
       nome: "Perna",
       itens: [{
@@ -215,7 +216,7 @@ describe("TreinoSessao", () => {
 
   it("registrar a AMRAP grava as reps escolhidas, não as prescritas", async () => {
     const agacho = await exercicio("Agachamento");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(),
       nome: "Perna",
       itens: [{
@@ -240,7 +241,7 @@ describe("TreinoSessao", () => {
 
   it("o aquecimento do 5/3/1 fica num bloco recolhido, separado do trabalho", async () => {
     const agacho = await exercicio("Agachamento");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(),
       nome: "Perna",
       itens: [{
@@ -261,7 +262,7 @@ describe("TreinoSessao", () => {
 
   it("finalizar encerra a sessão de verdade", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -316,7 +317,7 @@ describe("TreinoSessao — cardio", () => {
   it("mostra duração e a kcal estimada pelo MET e pelo peso do perfil", async () => {
     await comPeso(80);
     const b = await exercicioDeCardio("Bicicleta", 7.5);
-    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    const sid = await sessaoEmCurso(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
     montar(sid);
 
     expect(await screen.findByText("30 min")).toBeInTheDocument();
@@ -327,7 +328,7 @@ describe("TreinoSessao — cardio", () => {
   it("registrar grava em activity_sessions, e nada em workout_sets", async () => {
     await comPeso(80);
     const b = await exercicioDeCardio("Bicicleta", 7.5);
-    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    const sid = await sessaoEmCurso(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
     montar(sid);
 
     await userEvent.click(await screen.findByRole("button", { name: /registrar bicicleta/i }));
@@ -345,7 +346,7 @@ describe("TreinoSessao — cardio", () => {
   it("desfazer apaga a atividade registrada", async () => {
     await comPeso(80);
     const b = await exercicioDeCardio("Bicicleta", 7.5);
-    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    const sid = await sessaoEmCurso(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
     montar(sid);
 
     await userEvent.click(await screen.findByRole("button", { name: /registrar bicicleta/i }));
@@ -360,7 +361,7 @@ describe("TreinoSessao — cardio", () => {
   // Sem peso não há estimativa honesta — o app pede o peso em vez de inventar.
   it("sem perfil, pede o peso em vez de inventar um número", async () => {
     const b = await exercicioDeCardio("Bicicleta", 7.5);
-    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    const sid = await sessaoEmCurso(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
     montar(sid);
 
     expect(await screen.findByText(/defina seu peso nas metas/i)).toBeInTheDocument();
@@ -374,7 +375,7 @@ describe("TreinoSessao — cardio", () => {
   it("ajustar cardio grava a duração e a kcal que de fato aconteceram", async () => {
     await comPeso(80);
     const b = await exercicioDeCardio("Bicicleta", 7.5);
-    const sid = await iniciarSessao(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
+    const sid = await sessaoEmCurso(db, 1, { data: hoje(), nome: "Cardio", itens: [bike(b)] });
     montar(sid);
 
     await userEvent.click(await screen.findByRole("button", { name: /ajustar bicicleta/i }));
@@ -408,7 +409,7 @@ describe("TreinoSessao — cardio", () => {
     }
 
     const rosca = await exercicio("Rosca direta");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(rosca, 10, "Rosca direta")],
     });
     montar(sid);
@@ -431,10 +432,10 @@ describe("TreinoSessao — cardio", () => {
    */
   it("abrir uma sessão pela URL mostra o nome dela, não o da sessão de hoje", async () => {
     const supino = await exercicio("Supino reto");
-    const antiga = await iniciarSessao(db, 1, {
+    const antiga = await sessaoEmCurso(db, 1, {
       data: "2020-01-01", nome: "Costas", itens: [item(supino, 40, "Supino reto")],
     });
-    await iniciarSessao(db, 1, {
+    await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito de hoje", itens: [item(supino, 40, "Supino reto")],
     });
     montar(antiga);
@@ -456,7 +457,7 @@ describe("TreinoSessao — a ficha do exercício", () => {
       args: [new Date().toISOString()],
     });
     const supino = Number(rs.lastInsertRowid);
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -485,7 +486,7 @@ describe("TreinoSessao — editar", () => {
   async function comDoisExercicios() {
     const supino = await exercicio("Supino reto");
     const rosca = await exercicio("Rosca direta");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(),
       nome: "Peito",
       itens: [item(supino, 40, "Supino reto"), item(rosca, 12, "Rosca direta")],
@@ -583,7 +584,7 @@ describe("TreinoSessao — editar", () => {
   // que depende de ter vizinho.
   it("não oferece mover quando o exercício é o único da sessão", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -601,7 +602,7 @@ describe("TreinoSessao — editar", () => {
 describe("cronômetro de descanso na sessão", () => {
   it("está na tela ANTES da primeira série, para dar para cronometrar aquecimento", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -612,7 +613,7 @@ describe("cronômetro de descanso na sessão", () => {
 
   it("registrar a série põe o cronômetro a correr", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -628,7 +629,7 @@ describe("cronômetro de descanso na sessão", () => {
 
   it("o cabeçalho mostra há quanto tempo o treino começou", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, 1, {
+    const sid = await sessaoEmCurso(db, 1, {
       data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);

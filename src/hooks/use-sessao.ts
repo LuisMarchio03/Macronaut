@@ -86,12 +86,31 @@ function useEscritaNaSessao<TVars, TDados>(fn: (v: TVars) => Promise<TDados>) {
   });
 }
 
-export function useIniciarSessao() {
+/** Cria o rascunho — a rotina com o plano do dia, o avulso vazio. */
+export function useCriarSessao() {
   const api = useApi();
   return useEscritaNaSessao(
     (v: { data: string; nome: string | null; itens: ItemPlanejado[] }) =>
-      api["sessao"].iniciarSessao(v),
+      api["sessao"].criarSessao(v),
   );
+}
+
+/** Rascunho → em andamento. É o "Iniciar treino" da tela da academia. */
+export function useIniciarTreino() {
+  const api = useApi();
+  return useEscritaNaSessao((sessionId: number) => api["sessao"].iniciarSessao(sessionId));
+}
+
+/**
+ * Descartar um rascunho, ou um treino aberto que não vai ser terminado.
+ *
+ * `workouts.deleteSession` já leva plano, séries e o cardio de
+ * `activity_sessions` junto — não havia função nova a escrever, só uma tela
+ * que ainda não a chamava.
+ */
+export function useDescartarSessao() {
+  const api = useApi();
+  return useEscritaNaSessao((sessionId: number) => api["workouts"].deleteSession(sessionId));
 }
 
 export function useRegistrarSerie() {

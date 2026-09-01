@@ -8,7 +8,7 @@ import { DbProvider } from "../lib/db-context";
 import { criarApiLocal } from "@/../test/helpers/api-local";
 import { DataProvider } from "../lib/data-context";
 import { Dashboard } from "./dashboard";
-import { iniciarSessao } from "../repositories/sessao";
+import { sessaoEmCurso } from "../../test/helpers/sessao";
 import { hoje } from "../lib/date";
 import { upsertProfile } from "../repositories/profile";
 
@@ -80,7 +80,7 @@ async function comPerfil() {
 
 it("com sessão em andamento, o card de treino mostra o progresso e leva para ela", async () => {
   await comPerfil();
-  const sessionId = await iniciarSessao(db, 1, {
+  const sessionId = await sessaoEmCurso(db, 1, {
     data: hoje(),
     nome: "Peito e tríceps",
     itens: [

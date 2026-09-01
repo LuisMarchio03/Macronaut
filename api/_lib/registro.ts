@@ -57,6 +57,7 @@ export const REGISTRO: Registro = {
   /* ── sessao ── */
   "sessao.adicionarAoPlano": { escopo: "usuario", fn: sessao.adicionarAoPlano },
   "sessao.adicionarSerie": { escopo: "usuario", fn: sessao.adicionarSerie },
+  "sessao.criarSessao": { escopo: "usuario", fn: sessao.criarSessao },
   "sessao.desfazerSerie": { escopo: "usuario", fn: sessao.desfazerSerie },
   "sessao.finalizarSessao": { escopo: "usuario", fn: sessao.finalizarSessao },
   "sessao.getPlano": { escopo: "usuario", fn: sessao.getPlano },

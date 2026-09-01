@@ -8,13 +8,13 @@ import { criarWrapper } from "../../test/helpers/query-wrapper";
 import { TreinoSessaoDetalhe } from "./treino-sessao-detalhe";
 import {
   getPlano,
-  iniciarSessao,
   registrarCardio,
   registrarSerie,
   type ItemPlanejado,
 } from "../repositories/sessao";
 import { addSet, createSession, getSession, listSetsBySession } from "../repositories/workouts";
 import { planejar } from "../domain/prescricao";
+import { sessaoEmCurso } from "../../test/helpers/sessao";
 
 /**
  * "O que eu fiz naquele dia" — a tela que usa o que a rodada da rotina tornou
@@ -70,7 +70,7 @@ beforeEach(async () => {
 describe("Detalhe da sessão — prescrito ao lado do realizado", () => {
   it("marca a série em que o realizado divergiu do prescrito", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-10", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     const plano = await getPlano(db, USER, sid);
@@ -86,7 +86,7 @@ describe("Detalhe da sessão — prescrito ao lado do realizado", () => {
 
   it("a série que não foi feita aparece como não feita, com o que era para ser", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-10", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
 
@@ -98,7 +98,7 @@ describe("Detalhe da sessão — prescrito ao lado do realizado", () => {
 
   it("um item de cardio mostra duração e calorias, não reps e carga", async () => {
     const bike = await exercicio("Bicicleta");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-10",
       nome: "Cardio",
       itens: [
@@ -125,7 +125,7 @@ describe("Detalhe da sessão — prescrito ao lado do realizado", () => {
 describe("Detalhe da sessão — corrigir o passado", () => {
   it("corrigir a carga de uma série já registrada atualiza o que ficou gravado", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-10", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     const plano = await getPlano(db, USER, sid);
@@ -152,7 +152,7 @@ describe("Detalhe da sessão — corrigir o passado", () => {
 
   it("registrar pelo detalhe a série que ficou faltando naquele dia", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-10", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
 
@@ -172,7 +172,7 @@ describe("Detalhe da sessão — corrigir o passado", () => {
 
   it("excluir a sessão apaga e volta para o progresso", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-10", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
 
@@ -230,7 +230,7 @@ describe("Detalhe da sessão — sessões anteriores a esta arquitetura", () => 
 
   it("dá para adicionar exercício numa sessão que já tem plano", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-07-01", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     await exercicio("Rosca direta");
@@ -255,7 +255,7 @@ describe("Detalhe da sessão — sessões anteriores a esta arquitetura", () => 
    */
   it("excluir a sessão pede confirmação antes de apagar", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-07-20", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -280,7 +280,7 @@ describe("Detalhe da sessão — sessões anteriores a esta arquitetura", () => 
 
   it("cancelar a confirmação deixa a sessão intacta", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-07-20", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -307,7 +307,7 @@ describe("Detalhe da sessão — editar", () => {
   it("remove um exercício da sessão", async () => {
     const supino = await exercicio("Supino reto");
     const rosca = await exercicio("Rosca direta");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17",
       nome: "Peito",
       itens: [item(supino, 40, "Supino reto"), item(rosca, 12, "Rosca direta")],
@@ -329,7 +329,7 @@ describe("Detalhe da sessão — editar", () => {
   it("troca o exercício de um bloco", async () => {
     const supino = await exercicio("Supino reto");
     await exercicio("Supino inclinado");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -351,7 +351,7 @@ describe("Detalhe da sessão — editar", () => {
   // que nenhuma tela sabia corrigir.
   it("corrige a data da sessão", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);
@@ -369,7 +369,7 @@ describe("Detalhe da sessão — editar", () => {
 
   it("renomeia a sessão", async () => {
     const supino = await exercicio("Supino reto");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino, 40, "Supino reto")],
     });
     montar(sid);

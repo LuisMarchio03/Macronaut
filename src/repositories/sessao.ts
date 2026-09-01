@@ -131,7 +131,15 @@ function linhasDoItem(
   }));
 }
 
-export async function iniciarSessao(
+/**
+ * Cria a sessão e escreve o plano dela. Nasce RASCUNHO.
+ *
+ * Chamava-se `iniciarSessao`, e criar era o mesmo evento que começar. Separar
+ * os dois é o que torna possível montar um treino avulso com calma antes de o
+ * relógio correr — e o que impede um treino recém-criado de aparecer no
+ * histórico como se já tivesse acontecido.
+ */
+export async function criarSessao(
   db: Client,
   userId: number,
   entrada: { data: string; nome: string | null; itens: ItemPlanejado[] },
@@ -148,6 +156,26 @@ export async function iniciarSessao(
 
   return sessao.id;
 }
+
+/**
+ * Rascunho → em andamento. Aqui o relógio começa a correr.
+ *
+ * Idempotente pela mesma razão que finalizar é: reiniciar não pode empurrar o
+ * começo para frente e encolher a duração que já passou. O `user_id` no
+ * `WHERE` é o que impede iniciar a sessão de outra pessoa.
+ */
+export async function iniciarSessao(
+  db: Client,
+  userId: number,
+  sessionId: number,
+): Promise<void> {
+  await db.execute({
+    sql: `UPDATE workout_sessions SET iniciado_em = ?
+          WHERE id = ? AND user_id = ? AND iniciado_em IS NULL`,
+    args: [new Date().toISOString(), sessionId, userId],
+  });
+}
+
 
 export async function adicionarAoPlano(
   db: Client,
@@ -221,6 +249,13 @@ export async function registrarSerie(
     sql: "UPDATE session_plan_sets SET set_id = ? WHERE id = ? AND user_id = ?",
     args: [Number(ins.lastInsertRowid), planId, userId],
   });
+
+  // Registrar é começar. Se uma série foi marcada como feita, o treino está
+  // acontecendo — exigir "Iniciar" antes transformaria um passo de
+  // conveniência numa armadilha: o treino correria sem aparecer na faixa e sem
+  // duração nenhuma. Fica aqui, e não na tela, para valer venha o registro de
+  // onde vier. `iniciarSessao` é idempotente, então não custa nada repetido.
+  await iniciarSessao(db, userId, linha.session_id as number);
 }
 
 /**
@@ -247,6 +282,9 @@ export async function registrarCardio(
   });
   if (!rs.rows.length) return;
   const linha = rs.rows[0];
+
+  // Registrar um cardio também começa o treino — ver `registrarSerie`.
+  await iniciarSessao(db, userId, linha.session_id as number);
 
   // Já registrada: corrige a atividade existente em vez de criar uma segunda.
   // Sem isto, ajustar "30 min" para "22 min" somava 30 + 22 no balanço
@@ -371,16 +409,25 @@ export async function desfazerSerie(db: Client, userId: number, planId: number):
   await db.batch(comandos, "write");
 }
 
-/** Marca a sessão como encerrada. Idempotente: reencerrar não muda a hora. */
+/**
+ * Marca a sessão como encerrada. Idempotente: reencerrar não muda a hora.
+ *
+ * Preenche `iniciado_em` junto quando ele está nulo. O botão "Finalizar" só
+ * aparece em sessão já iniciada, mas o repositório não deve ser CAPAZ de
+ * produzir um "concluído sem começo" — e a lista de treinos abertos finaliza
+ * direto, sem passar pela tela da academia.
+ */
 export async function finalizarSessao(
   db: Client,
   userId: number,
   sessionId: number,
 ): Promise<void> {
+  const agora = new Date().toISOString();
   await db.execute({
-    sql: `UPDATE workout_sessions SET concluida_em = ?
-          WHERE id = ? AND user_id = ? AND concluida_em IS NULL`,
-    args: [new Date().toISOString(), sessionId, userId],
+    sql: `UPDATE workout_sessions
+             SET concluida_em = ?, iniciado_em = COALESCE(iniciado_em, ?)
+           WHERE id = ? AND user_id = ? AND concluida_em IS NULL`,
+    args: [agora, agora, sessionId, userId],
   });
 }
 

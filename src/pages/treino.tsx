@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SheetTreinoAvulso } from "@/components/treino/sheet-treino-avulso";
 import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
 import { useDiasDaRotina, useRotinaAtiva } from "@/hooks/use-rotina";
-import { useIniciarSessao, usePlanoDoDia, useSessoesEmAndamento } from "@/hooks/use-sessao";
+import { useCriarSessao, usePlanoDoDia, useSessoesEmAndamento } from "@/hooks/use-sessao";
 import { useListSessions } from "@/hooks/use-workouts";
 import { proximoTreino, treinoDoDia } from "@/domain/prescricao";
 import type { ItemPlanejado } from "@/repositories/sessao";
@@ -66,11 +66,11 @@ export function Treino() {
   const { data: plano = [] } = usePlanoDoDia(dia?.id, data);
   const { data: abertas = [] } = useSessoesEmAndamento(data);
   const { data: recentes = [] } = useListSessions();
-  const iniciar = useIniciarSessao();
+  const criar = useCriarSessao();
   const [pedindoNome, setPedindoNome] = useState(false);
 
   function comecar(itens: ItemPlanejado[], nome: string) {
-    iniciar.mutate(
+    criar.mutate(
       { data, nome, itens },
       { onSuccess: (id) => navigate(`/treino/sessao?s=${id}`) },
     );
@@ -87,7 +87,7 @@ export function Treino() {
     <button
       type="button"
       onClick={() => setPedindoNome(true)}
-      disabled={iniciar.isPending}
+      disabled={criar.isPending}
       className="flex min-h-11 items-center gap-1.5 text-[0.8125rem] font-medium text-primary"
     >
       <Plus className="size-4" />
@@ -164,7 +164,7 @@ export function Treino() {
             block
             className="mt-4"
             onClick={() => comecar(plano, dia.nome)}
-            disabled={iniciar.isPending}
+            disabled={criar.isPending}
           >
             <Play className="size-4" />
             Começar treino
@@ -189,7 +189,7 @@ export function Treino() {
       <SheetTreinoAvulso
         aberto={pedindoNome}
         onFechar={() => setPedindoNome(false)}
-        pendente={iniciar.isPending}
+        pendente={criar.isPending}
         onComecar={(nome) => { setPedindoNome(false); comecar([], nome); }}
       />
 
