@@ -24,7 +24,7 @@ import {
   useRemoverSerie,
   useReordenarExerciciosDaSessao,
   useSessao,
-  useSessaoEmAndamento,
+  useSessaoAtiva,
   useTrocarExercicioDaSessao,
 } from "@/hooks/use-sessao";
 import { useHistoricoExercicio } from "@/hooks/use-workouts";
@@ -379,7 +379,7 @@ export function TreinoSessao() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const idDaUrl = params.get("s");
-  const { data: emAndamento, isPending: carregandoSessao } = useSessaoEmAndamento(hoje());
+  const { data: emAndamento, isPending: carregandoSessao } = useSessaoAtiva();
   const sessionId = idDaUrl ? Number(idDaUrl) : (emAndamento?.session_id ?? undefined);
 
   const { data: sessao } = useSessao(sessionId);

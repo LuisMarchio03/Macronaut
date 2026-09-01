@@ -17,8 +17,8 @@ import {
   removerExercicioDaSessao,
   removerSerie,
   reordenarExerciciosDaSessao,
-  sessaoEmAndamento,
-  sessoesEmAndamento,
+  sessaoAtiva,
+  sessoesAbertas,
   trocarExercicioDaSessao,
   type ItemPlanejado,
 } from "./sessao";
@@ -232,9 +232,9 @@ describe("adicionarAoPlano", () => {
   });
 });
 
-describe("sessaoEmAndamento", () => {
-  it("não há sessão num dia sem sessão", async () => {
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).toBeNull();
+describe("sessaoAtiva", () => {
+  it("não há treino acontecendo quando nada está aberto", async () => {
+    expect(await sessaoAtiva(db, USER)).toBeNull();
   });
 
   it("conta quantas séries do plano já foram feitas", async () => {
@@ -247,8 +247,9 @@ describe("sessaoEmAndamento", () => {
       reps: 12, peso_kg: 40, tipo: "valida", rir: null, nota: null,
     });
 
-    const em = await sessaoEmAndamento(db, USER, "2026-08-17");
-    expect(em).toEqual({ session_id: sid, nome: "Peito", total: 3, feitas: 1 });
+    expect(await sessaoAtiva(db, USER)).toMatchObject({
+      session_id: sid, nome: "Peito", data: "2026-08-17", total: 3, feitas: 1,
+    });
   });
 
   it("uma sessão SEM exercício nenhum continua existindo", async () => {
@@ -259,14 +260,28 @@ describe("sessaoEmAndamento", () => {
       data: "2026-08-17", nome: "Treino avulso", itens: [],
     });
 
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).toEqual({
+    expect(await sessaoAtiva(db, USER)).toMatchObject({
       session_id: sid, nome: "Treino avulso", total: 0, feitas: 0,
     });
   });
+
+  it("ignora rascunho: um treino que não começou não está acontecendo", async () => {
+    await criarSessao(db, USER, { data: "2026-08-17", nome: "Rascunho", itens: [] });
+    expect(await sessaoAtiva(db, USER)).toBeNull();
+  });
+
+  it("devolve a mais recente em andamento", async () => {
+    const antiga = await sessaoEmCurso(db, USER, { data: "2026-08-16", nome: "Costas", itens: [] });
+    await new Promise((r) => setTimeout(r, 5));
+    const nova = await sessaoEmCurso(db, USER, { data: "2026-08-17", nome: "Peito", itens: [] });
+
+    expect((await sessaoAtiva(db, USER))!.session_id).toBe(nova);
+    expect(antiga).not.toBe(nova);
+  });
 });
 
-describe("sessoesEmAndamento", () => {
-  it("devolve TODAS as sessões abertas do dia, da mais recente para a mais antiga", async () => {
+describe("sessoesAbertas", () => {
+  it("devolve TODAS as sessões abertas, da mais recente para a mais antiga", async () => {
     // Treinar duas vezes no mesmo dia é uma coisa que acontece; o hub só
     // sabia oferecer a última.
     const supino = await exercicio("Supino");
@@ -277,10 +292,29 @@ describe("sessoesEmAndamento", () => {
       data: "2026-08-17", nome: "Noite", itens: [],
     });
 
-    const abertas = await sessoesEmAndamento(db, USER, "2026-08-17");
+    const abertas = await sessoesAbertas(db, USER);
     expect(abertas.map((s) => s.session_id)).toEqual([segunda, primeira]);
     expect(abertas[0]).toMatchObject({ nome: "Noite", total: 0, feitas: 0 });
     expect(abertas[1]).toMatchObject({ nome: "Manhã", total: 3 });
+  });
+
+  it("o treino aberto ONTEM continua aberto hoje", async () => {
+    // O filtro por data fazia o treino das 22h desaparecer na virada da
+    // meia-noite: irretomável, infinalizável, e fantasma no histórico.
+    const sid = await sessaoEmCurso(db, USER, { data: "2026-08-16", nome: "Costas", itens: [] });
+
+    const abertas = await sessoesAbertas(db, USER);
+
+    expect(abertas.map((s) => s.session_id)).toContain(sid);
+    expect(abertas[0].data).toBe("2026-08-16");
+  });
+
+  it("inclui o rascunho, com iniciado_em nulo", async () => {
+    const sid = await criarSessao(db, USER, { data: "2026-08-17", nome: "Avulso", itens: [] });
+    const abertas = await sessoesAbertas(db, USER);
+    expect(abertas).toHaveLength(1);
+    expect(abertas[0].session_id).toBe(sid);
+    expect(abertas[0].iniciado_em).toBeNull();
   });
 
   it("a encerrada sai da lista, as outras ficam", async () => {
@@ -289,12 +323,12 @@ describe("sessoesEmAndamento", () => {
 
     await finalizarSessao(db, USER, b);
 
-    expect((await sessoesEmAndamento(db, USER, "2026-08-17")).map((s) => s.session_id)).toEqual([a]);
+    expect((await sessoesAbertas(db, USER)).map((s) => s.session_id)).toEqual([a]);
   });
 
   it("não enxerga sessão de outro usuário", async () => {
     await sessaoEmCurso(db, OUTRO, { data: "2026-08-17", nome: "Alheia", itens: [] });
-    expect(await sessoesEmAndamento(db, USER, "2026-08-17")).toEqual([]);
+    expect(await sessoesAbertas(db, USER)).toEqual([]);
   });
 });
 
@@ -306,18 +340,18 @@ describe("finalizarSessao", () => {
     const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).not.toBeNull();
+    expect(await sessaoAtiva(db, USER)).not.toBeNull();
 
     await finalizarSessao(db, USER, sid);
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).toBeNull();
+    expect(await sessaoAtiva(db, USER)).toBeNull();
   });
 
   it("um usuário não encerra a sessão do outro", async () => {
     const supino = await exercicio("Supino");
     await sessaoEmCurso(db, USER, { data: "2026-08-17", nome: "Peito", itens: [item(supino)] });
-    const alvo = (await sessaoEmAndamento(db, USER, "2026-08-17"))!.session_id;
+    const alvo = (await sessaoAtiva(db, USER))!.session_id;
     await finalizarSessao(db, OUTRO, alvo);
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).not.toBeNull();
+    expect(await sessaoAtiva(db, USER)).not.toBeNull();
   });
 
   it("encerrar duas vezes não muda a hora do encerramento", async () => {
@@ -476,11 +510,11 @@ describe("cardio dentro da sessão", () => {
   it("cardio conta no progresso da sessão em andamento", async () => {
     const { sid } = await comCardio();
     const [linha] = await getPlano(db, USER, sid);
-    expect((await sessaoEmAndamento(db, USER, "2026-08-17"))).toEqual({
+    expect((await sessaoAtiva(db, USER))).toMatchObject({
       session_id: sid, nome: "Cardio", total: 1, feitas: 0,
     });
     await registrarCardio(db, USER, linha.id, { duracao_min: 30, kcal: 308 });
-    expect((await sessaoEmAndamento(db, USER, "2026-08-17"))!.feitas).toBe(1);
+    expect((await sessaoAtiva(db, USER))!.feitas).toBe(1);
   });
 
   it("um usuário não registra cardio no plano do outro", async () => {
@@ -801,3 +835,4 @@ describe("o ciclo de vida da sessão", () => {
     expect((await getSession(db, USER, sid))!.iniciado_em).toBe(inicio);
   });
 });
+

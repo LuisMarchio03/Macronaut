@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SheetTreinoAvulso } from "@/components/treino/sheet-treino-avulso";
 import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
 import { useDiasDaRotina, useRotinaAtiva } from "@/hooks/use-rotina";
-import { useCriarSessao, usePlanoDoDia, useSessoesEmAndamento } from "@/hooks/use-sessao";
+import { useCriarSessao, usePlanoDoDia, useSessoesAbertas } from "@/hooks/use-sessao";
 import { useListSessions } from "@/hooks/use-workouts";
 import { proximoTreino, treinoDoDia } from "@/domain/prescricao";
 import type { ItemPlanejado } from "@/repositories/sessao";
@@ -64,7 +64,7 @@ export function Treino() {
   const proximo = proximoTreino(dias, hojeSemana);
 
   const { data: plano = [] } = usePlanoDoDia(dia?.id, data);
-  const { data: abertas = [] } = useSessoesEmAndamento(data);
+  const { data: abertas = [] } = useSessoesAbertas();
   const { data: recentes = [] } = useListSessions();
   const criar = useCriarSessao();
   const [pedindoNome, setPedindoNome] = useState(false);

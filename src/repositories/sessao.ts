@@ -432,13 +432,9 @@ export async function finalizarSessao(
 }
 
 /**
- * As sessões do dia que ainda não foram encerradas.
+ * As sessões que ainda não foram encerradas — rascunhos e em andamento.
  *
- * O filtro por `concluida_em` é o que impede o hub de oferecer "retomar" um
- * treino que já acabou — antes ele oferecia para sempre, inclusive com todas
- * as séries feitas.
- *
- * Duas decisões que este `SELECT` já errou:
+ * Três decisões que este `SELECT` já errou:
  *
  * **`LEFT JOIN`, não `JOIN`.** Uma sessão sem nenhuma linha de plano
  * simplesmente não aparecia — e é exatamente assim que um treino avulso
@@ -449,6 +445,11 @@ export async function finalizarSessao(
  * **Todas, não `LIMIT 1`.** Treinar duas vezes no mesmo dia é uma coisa que
  * acontece, e com uma sessão aberta o hub só sabia oferecer aquela.
  *
+ * **Sem filtro de data.** Era `s.data = ?`, com o hub sempre passando hoje: um
+ * treino começado às 22h e não finalizado deixava de existir para o app na
+ * virada da meia-noite — irretomável, infinalizável, e fantasma no histórico
+ * para sempre. Um treino aberto é aberto no dia em que você voltar.
+ *
  * A `id` desempata a ordenação: duas sessões criadas no mesmo milissegundo têm
  * o mesmo `created_at`, e sem o desempate a ordem entre elas era a que o SQLite
  * resolvesse dar. A id é monotônica, então decide quem é a mais recente quando
@@ -457,41 +458,45 @@ export async function finalizarSessao(
 export interface SessaoAberta {
   session_id: number;
   nome: string | null;
+  data: string;
+  iniciado_em: string | null;
   total: number;
   feitas: number;
 }
 
-export async function sessoesEmAndamento(
-  db: Client,
-  userId: number,
-  data: string,
-): Promise<SessaoAberta[]> {
+export async function sessoesAbertas(db: Client, userId: number): Promise<SessaoAberta[]> {
   const rs = await db.execute({
-    sql: `SELECT s.id AS session_id, s.nome AS nome,
+    sql: `SELECT s.id AS session_id, s.nome AS nome, s.data AS data,
+                 s.iniciado_em AS iniciado_em,
                  COUNT(p.id) AS total,
                  SUM(CASE WHEN p.set_id IS NOT NULL OR p.activity_id IS NOT NULL THEN 1 ELSE 0 END) AS feitas
           FROM workout_sessions s
           LEFT JOIN session_plan_sets p ON p.session_id = s.id
-          WHERE s.user_id = ? AND s.data = ? AND s.concluida_em IS NULL
+          WHERE s.user_id = ? AND s.concluida_em IS NULL
           GROUP BY s.id
           ORDER BY s.created_at DESC, s.id DESC`,
-    args: [userId, data],
+    args: [userId],
   });
   return rs.rows.map((r) => ({
     session_id: r.session_id as number,
     nome: (r.nome as string | null) ?? null,
+    data: r.data as string,
+    iniciado_em: (r.iniciado_em as string | null) ?? null,
     total: Number(r.total),
     feitas: Number(r.feitas ?? 0),
   }));
 }
 
-/** A mais recente das abertas — o atalho de quem só precisa de uma. */
-export async function sessaoEmAndamento(
-  db: Client,
-  userId: number,
-  data: string,
-): Promise<SessaoAberta | null> {
-  return (await sessoesEmAndamento(db, userId, data))[0] ?? null;
+/**
+ * O treino que está ACONTECENDO — o mais recente em andamento.
+ *
+ * A faixa e o dashboard perguntam isto, e a diferença para `sessoesAbertas` é
+ * o rascunho: um treino montado e não iniciado existe, mas não está
+ * acontecendo, e anunciá-lo como ativo faria os dois mentirem.
+ */
+export async function sessaoAtiva(db: Client, userId: number): Promise<SessaoAberta | null> {
+  const abertas = await sessoesAbertas(db, userId);
+  return abertas.find((s) => s.iniciado_em !== null) ?? null;
 }
 
 /**

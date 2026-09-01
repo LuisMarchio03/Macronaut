@@ -70,8 +70,8 @@ export const REGISTRO: Registro = {
   "sessao.removerExercicioDaSessao": { escopo: "usuario", fn: sessao.removerExercicioDaSessao },
   "sessao.removerSerie": { escopo: "usuario", fn: sessao.removerSerie },
   "sessao.reordenarExerciciosDaSessao": { escopo: "usuario", fn: sessao.reordenarExerciciosDaSessao },
-  "sessao.sessaoEmAndamento": { escopo: "usuario", fn: sessao.sessaoEmAndamento },
-  "sessao.sessoesEmAndamento": { escopo: "usuario", fn: sessao.sessoesEmAndamento },
+  "sessao.sessaoAtiva": { escopo: "usuario", fn: sessao.sessaoAtiva },
+  "sessao.sessoesAbertas": { escopo: "usuario", fn: sessao.sessoesAbertas },
   "sessao.trocarExercicioDaSessao": { escopo: "usuario", fn: sessao.trocarExercicioDaSessao },
 
   /* ── workouts ── */

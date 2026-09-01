@@ -17,7 +17,7 @@ import { useMeals } from "@/hooks/use-meals";
 import { useTodayEntries, useFoodsForEntries } from "@/hooks/use-today-entries";
 import { useWaterToday } from "@/hooks/use-water-today";
 import { useSessionByDate } from "@/hooks/use-workouts";
-import { useSessaoEmAndamento } from "@/hooks/use-sessao";
+import { useSessaoAtiva } from "@/hooks/use-sessao";
 import { useAiConfig } from "@/hooks/use-ai-config";
 import {
   useAddAgua,
@@ -77,7 +77,7 @@ export function Dashboard() {
   const { data: foods } = useFoodsForEntries(entries);
   const { data: totalAgua = 0 } = useWaterToday(data);
   const { data: treinoHoje } = useSessionByDate(data);
-  const { data: sessaoAberta } = useSessaoEmAndamento(data);
+  const { data: sessaoAberta } = useSessaoAtiva();
   const { data: meals = [] } = useMeals();
   const { data: aiConfig } = useAiConfig();
 

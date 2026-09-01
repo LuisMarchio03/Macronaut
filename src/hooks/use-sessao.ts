@@ -13,26 +13,28 @@ export function useSessao(sessionId: number | undefined) {
   });
 }
 
-export function useSessaoEmAndamento(data: string) {
+/**
+ * Todos os treinos não concluídos, de qualquer dia.
+ *
+ * Sem chave de data, de propósito: a lista muda quando uma sessão abre ou
+ * fecha, não quando o relógio vira — e uma chave por dia deixava o treino de
+ * ontem num cache que ninguém mais consultava, que é a versão em memória do
+ * mesmo bug que `sessoesAbertas` corrigiu no SQL.
+ */
+export function useSessoesAbertas() {
   const api = useApi();
   return useQuery({
-    queryKey: ["sessao", "andamento", data],
-    queryFn: () => api["sessao"].sessaoEmAndamento(data),
+    queryKey: ["sessao", "abertas"],
+    queryFn: () => api["sessao"].sessoesAbertas(),
   });
 }
 
-/**
- * Todas as sessões abertas do dia.
- *
- * O hub lista uma linha por sessão: com duas abertas — o treino da rotina e um
- * avulso da noite — oferecer só a mais recente escondia a outra sem dizer que
- * ela existia.
- */
-export function useSessoesEmAndamento(data: string) {
+/** O treino acontecendo agora — rascunho não conta. */
+export function useSessaoAtiva() {
   const api = useApi();
   return useQuery({
-    queryKey: ["sessao", "abertas", data],
-    queryFn: () => api["sessao"].sessoesEmAndamento(data),
+    queryKey: ["sessao", "ativa"],
+    queryFn: () => api["sessao"].sessaoAtiva(),
   });
 }
 
