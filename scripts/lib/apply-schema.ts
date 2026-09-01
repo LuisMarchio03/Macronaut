@@ -109,6 +109,65 @@ const ADDITIVE_INDEXES: { table: string; ddl: string }[] = [
   // O índice que a deduplicação da sincronização consulta a cada item.
   { table: "activity_sessions", ddl: "CREATE UNIQUE INDEX IF NOT EXISTS idx_asessions_origem ON activity_sessions (user_id, origem, origem_id) WHERE origem IS NOT NULL" },
   { table: "water_log", ddl: "CREATE UNIQUE INDEX IF NOT EXISTS idx_water_origem ON water_log (user_id, origem, origem_id) WHERE origem IS NOT NULL" },
+  // No máximo uma dispensa por linha por dia. A exclusão mútua entre dispensa
+  // e troca é do repositório: um CHECK não enxerga outras linhas.
+  { table: "plan_item_swaps", ddl: "CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_item_swaps_dispensa ON plan_item_swaps (user_id, data, item_id) WHERE dispensado = 1" },
+];
+
+/**
+ * Mudanças de tabela que `ALTER TABLE` não faz.
+ *
+ * SQLite não remove `UNIQUE` nem altera `CHECK`: a tabela tem que ser recriada
+ * e os dados copiados. É o passo mais perigoso de uma migração — ele APAGA uma
+ * tabela —, então cada entrada diz como RECONHECER o formato antigo lendo o
+ * DDL que o próprio SQLite guardou em `sqlite_master`. Reconhecido,
+ * reconstrói; não reconhecido, não faz nada. É isso que torna o passo
+ * idempotente e seguro de rodar a cada `db:setup`.
+ */
+const REBUILDS: { table: string; obsoleto: RegExp; passos: string[] }[] = [
+  {
+    // `plan_item_swaps` nasceu com uma troca por linha do plano por dia, e
+    // trocar de novo corrigia a anterior. Uma linha passa a caber vários
+    // alimentos, e a dispensa ("não comi esta linha") entra como terceira
+    // resposta possível.
+    table: "plan_item_swaps",
+    obsoleto: /UNIQUE\s*\(\s*user_id\s*,\s*data\s*,\s*item_id\s*\)/i,
+    passos: [
+      `CREATE TABLE plan_item_swaps_nova (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         user_id INTEGER NOT NULL, data TEXT NOT NULL,
+         block_id INTEGER NOT NULL, item_id INTEGER NOT NULL,
+         swap_id INTEGER, food_id INTEGER, texto TEXT,
+         qty_g REAL, measure_id INTEGER, medidas REAL, kcal REAL,
+         dispensado INTEGER NOT NULL DEFAULT 0,
+         created_at TEXT NOT NULL,
+         CHECK (
+           (dispensado = 1 AND swap_id IS NULL AND food_id IS NULL AND texto IS NULL)
+           OR
+           (dispensado = 0
+            AND (swap_id IS NOT NULL) + (food_id IS NOT NULL) + (texto IS NOT NULL) = 1)
+         ),
+         FOREIGN KEY (block_id)   REFERENCES plan_blocks (id)   ON DELETE CASCADE,
+         FOREIGN KEY (item_id)    REFERENCES plan_items (id)    ON DELETE CASCADE,
+         FOREIGN KEY (swap_id)    REFERENCES plan_swaps (id)    ON DELETE SET NULL,
+         FOREIGN KEY (food_id)    REFERENCES foods (id)         ON DELETE SET NULL,
+         FOREIGN KEY (measure_id) REFERENCES food_measures (id) ON DELETE SET NULL
+       )`,
+      // Toda troca já gravada continua sendo uma troca: dispensado = 0.
+      `INSERT INTO plan_item_swaps_nova
+         (id, user_id, data, block_id, item_id, swap_id, food_id, texto,
+          qty_g, measure_id, medidas, kcal, dispensado, created_at)
+       SELECT id, user_id, data, block_id, item_id, swap_id, food_id, texto,
+              qty_g, measure_id, medidas, kcal, 0, created_at
+         FROM plan_item_swaps`,
+      `DROP TABLE plan_item_swaps`,
+      `ALTER TABLE plan_item_swaps_nova RENAME TO plan_item_swaps`,
+      `CREATE INDEX IF NOT EXISTS idx_plan_item_swaps_dia
+         ON plan_item_swaps (user_id, data)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_item_swaps_dispensa
+         ON plan_item_swaps (user_id, data, item_id) WHERE dispensado = 1`,
+    ],
+  },
 ];
 
 /**
@@ -147,12 +206,35 @@ async function tableExists(db: Client, table: string): Promise<boolean> {
   return rs.rows.length > 0;
 }
 
+/** O DDL com que a tabela foi criada, como o SQLite o guardou. */
+async function ddlDaTabela(db: Client, table: string): Promise<string | null> {
+  const rs = await db.execute({
+    sql: "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+    args: [table],
+  });
+  return rs.rows.length ? ((rs.rows[0].sql as string | null) ?? null) : null;
+}
+
+async function aplicarReconstrucoes(db: Client): Promise<void> {
+  for (const r of REBUILDS) {
+    const ddl = await ddlDaTabela(db, r.table);
+    if (ddl === null || !r.obsoleto.test(ddl)) continue;
+    // `migrate`, e não `batch`: é o modo do libSQL para DDL transacional — ele
+    // suspende a checagem de chave estrangeira durante a troca. Com as FKs
+    // ativas, o DROP no meio do lote falha ou deixa a tabela pela metade.
+    await db.migrate(r.passos);
+  }
+}
+
 async function columnExists(db: Client, table: string, column: string): Promise<boolean> {
   const rs = await db.execute(`PRAGMA table_info(${table})`); // table é literal interno, sem input externo
   return rs.rows.some((r) => (r.name as string) === column);
 }
 
 export async function applyAdditiveColumns(db: Client): Promise<void> {
+  // Antes das colunas: uma tabela reconstruída já nasce no formato final, e as
+  // colunas aditivas seguintes precisam vê-la assim.
+  await aplicarReconstrucoes(db);
   for (const m of ADDITIVE_COLUMNS) {
     if (!(await tableExists(db, m.table))) continue;
     if (!(await columnExists(db, m.table, m.column))) await db.execute(m.ddl);

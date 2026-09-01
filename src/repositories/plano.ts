@@ -434,39 +434,40 @@ export interface TrocaEntrada {
 }
 
 /**
- * Grava a troca de um item, ou corrige a que já existia.
+ * Grava a troca de um item, substituindo a que já existia.
  *
- * `UNIQUE (user_id, data, item_id)` é o que faz "trocar de novo" ser uma
- * correção. O upsert zera as colunas da origem que não vieram nesta chamada —
- * senão trocar do catálogo para o plano deixaria as duas preenchidas e a linha
- * pararia de passar no CHECK na próxima escrita.
+ * Era um `ON CONFLICT (user_id, data, item_id)`, e a `UNIQUE` que o
+ * sustentava saiu quando a linha passou a caber vários alimentos. O
+ * "substituir" virou explícito: apaga o que havia na linha e insere. Mesmo
+ * comportamento de antes, agora dito em dois comandos em vez de por uma
+ * constraint.
+ *
+ * O `DELETE` também limpa a dispensa: escolher um alimento é dizer que você
+ * comeu algo ali, e as duas afirmações não coexistem.
  */
 export async function salvarTroca(
   db: Client,
   userId: number,
   e: TrocaEntrada,
 ): Promise<void> {
-  await db.execute({
-    sql: `INSERT INTO plan_item_swaps
-            (user_id, data, block_id, item_id, swap_id, food_id, texto,
-             qty_g, measure_id, medidas, kcal, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT (user_id, data, item_id) DO UPDATE SET
-            block_id   = excluded.block_id,
-            swap_id    = excluded.swap_id,
-            food_id    = excluded.food_id,
-            texto      = excluded.texto,
-            qty_g      = excluded.qty_g,
-            measure_id = excluded.measure_id,
-            medidas    = excluded.medidas,
-            kcal       = excluded.kcal`,
-    args: [
-      userId, e.data, e.block_id, e.item_id,
-      e.swap_id ?? null, e.food_id ?? null, e.texto ?? null,
-      e.qty_g ?? null, e.measure_id ?? null, e.medidas ?? null, e.kcal ?? null,
-      new Date().toISOString(),
-    ],
-  });
+  await db.batch([
+    {
+      sql: "DELETE FROM plan_item_swaps WHERE user_id=? AND data=? AND item_id=?",
+      args: [userId, e.data, e.item_id] as (number | string | null)[],
+    },
+    {
+      sql: `INSERT INTO plan_item_swaps
+              (user_id, data, block_id, item_id, swap_id, food_id, texto,
+               qty_g, measure_id, medidas, kcal, dispensado, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+      args: [
+        userId, e.data, e.block_id, e.item_id,
+        e.swap_id ?? null, e.food_id ?? null, e.texto ?? null,
+        e.qty_g ?? null, e.measure_id ?? null, e.medidas ?? null, e.kcal ?? null,
+        new Date().toISOString(),
+      ] as (number | string | null)[],
+    },
+  ], "write");
 }
 
 /**
