@@ -2,7 +2,7 @@ import { Check, Clock, Droplets, Pill, UtensilsCrossed, Repeat, AlertCircle } fr
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { janelaHoraria } from "@/lib/date";
-import { descreverTroca, trocaDoItem } from "@/domain/plano-dia";
+import { descreverTroca, trocasDoItem } from "@/domain/plano-dia";
 import type { BlocoDoDia } from "@/domain/plano-dia";
 import type { PlanItem, TipoBloco, TrocaDeItem } from "@/domain/plano-types";
 
@@ -146,7 +146,7 @@ export function BlocoCard({
           {aberto && !ehAgua && itens.length > 0 && (
             <ul className="mt-3 space-y-1.5">
               {itens.map((i) => {
-                const troca = trocaDoItem(trocas, i.id);
+                const troca = trocasDoItem(trocas, i.id)[0] ?? null;
                 return (
                   <li key={i.id} className="flex gap-2 text-sm">
                     <span

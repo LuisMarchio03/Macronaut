@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
 import { useFoods, useFoodsByIds } from "@/hooks/use-foods";
 import { useMeasures } from "@/hooks/use-food-measures";
-import { descreverTroca, itensResolvidos, trocaDoItem, trocasDoBloco, trocasPara } from "@/domain/plano-dia";
+import { descreverTroca, itensResolvidos, trocasDoItem, trocasDoBloco, trocasPara } from "@/domain/plano-dia";
 import { macrosDoEntry } from "@/domain/nutrition";
 import { sugerirPorcao } from "@/domain/medida-default";
 import { formatarNumero, resolverQtdBase } from "@/domain/medidas";
@@ -424,10 +424,10 @@ export function SheetTrocas({
             item={aberto}
             bloco={bloco}
             swaps={swaps}
-            trocaAtual={trocaDoItem(trocas, aberto.id)}
+            trocaAtual={trocasDoItem(trocas, aberto.id)[0] ?? null}
             /* A troca que já existe manda: reabrir uma linha leva de volta a
                onde ela foi feita, não à última aba usada noutra linha. */
-            abaInicial={trocaDoItem(trocas, aberto.id)?.origem ?? abaPreferida}
+            abaInicial={trocasDoItem(trocas, aberto.id)[0]?.origem ?? abaPreferida}
             onAba={setAbaPreferida}
             passo={percorrendo !== null ? { i: percorrendo + 1, total: itens.length } : null}
             onEscolher={(e) => escolher(aberto.id, e)}
@@ -450,7 +450,7 @@ export function SheetTrocas({
               ) : (
                 <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
                   {itens.map((item) => {
-                    const troca = trocaDoItem(trocas, item.id);
+                    const troca = trocasDoItem(trocas, item.id)[0] ?? null;
                     return (
                       <li key={item.id}>
                         <div className="flex items-center gap-1 pr-2">

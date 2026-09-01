@@ -89,6 +89,14 @@ export interface TrocaDeItem {
   porcao: string | null;
   /** `null` = desconhecida. A tela diz isso; não conta como zero. */
   kcal: number | null;
+  /**
+   * Você não comeu esta linha, e não comeu outra coisa no lugar.
+   *
+   * Mora na mesma tabela das trocas por ser uma resposta sobre a mesma linha
+   * no mesmo dia, mas não é uma troca — é a ausência de uma. `trocasDoItem` a
+   * filtra fora; quem quer saber usa `itemDispensado`.
+   */
+  dispensado: boolean;
 
   /* ── o que permite lançar no diário ──
      `null` quando a troca não casa com nenhum alimento do catálogo: texto

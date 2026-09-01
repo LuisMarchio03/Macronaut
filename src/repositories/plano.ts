@@ -368,6 +368,8 @@ function mapTroca(r: Row): TrocaDeItem {
   const foodProprio = (r.food_id as number | null) ?? null;
   const texto = (r.texto as string | null) ?? null;
 
+  // Uma dispensa não tem origem: "texto" é o valor inerte que o tipo exige, e
+  // as telas testam `dispensado` antes de olhar para `origem`.
   const origem: TrocaDeItem["origem"] =
     swapId !== null ? "plano" : foodProprio !== null ? "catalogo" : "texto";
 
@@ -379,6 +381,7 @@ function mapTroca(r: Row): TrocaDeItem {
     block_id: r.block_id as number,
     item_id: r.item_id as number,
     origem,
+    dispensado: Number(r.dispensado ?? 0) === 1,
     swap_id: swapId,
     nome:
       (r.swap_alimento as string | null) ??

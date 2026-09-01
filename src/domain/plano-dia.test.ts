@@ -3,10 +3,12 @@ import {
   aderenciaDoDia,
   blocoEmFoco,
   descreverTroca,
+  itemDispensado,
   itensResolvidos,
+  kcalDaRefeicao,
   metaDeAgua,
   montarDia,
-  trocaDoItem,
+  trocasDoItem,
   trocasDoBloco,
   trocasPara,
 } from "./plano-dia";
@@ -263,18 +265,29 @@ const troca = (p: Partial<TrocaDeItem> & { item_id: number }): TrocaDeItem => ({
   qty_g: null,
   measure_id: null,
   medidas: null,
+  dispensado: false,
   ...p,
 });
 
-describe("trocaDoItem", () => {
-  const trocas = [troca({ item_id: 7, nome: "Tapioca" }), troca({ item_id: 9, nome: "Banana" })];
-
-  it("acha a troca do item", () => {
-    expect(trocaDoItem(trocas, 9)?.nome).toBe("Banana");
+describe("trocasDoItem e itemDispensado", () => {
+  it("devolve todas as trocas da linha, na ordem em que vieram", () => {
+    const t = [
+      troca({ id: 1, item_id: 5, nome: "Pão" }),
+      troca({ id: 2, item_id: 5, nome: "Suco" }),
+      troca({ id: 3, item_id: 6, nome: "Café" }),
+    ];
+    expect(trocasDoItem(t, 5).map((x) => x.nome)).toEqual(["Pão", "Suco"]);
   });
 
-  it("item sem troca devolve null", () => {
-    expect(trocaDoItem(trocas, 1)).toBeNull();
+  it("linha intacta tem lista vazia", () => {
+    expect(trocasDoItem([], 5)).toEqual([]);
+  });
+
+  it("a dispensa não conta como troca", () => {
+    const t = [troca({ id: 1, item_id: 5, dispensado: true, nome: "" })];
+    expect(trocasDoItem(t, 5)).toEqual([]);
+    expect(itemDispensado(t, 5)).toBe(true);
+    expect(itemDispensado(t, 6)).toBe(false);
   });
 });
 
@@ -366,5 +379,82 @@ describe("itensResolvidos", () => {
       item({ id: 2, food_id: 3, qty_g: 10 }),
     ];
     expect(itensResolvidos(itens, []).lancaveis.map((l) => l.item_id)).toEqual([3, 1, 2]);
+  });
+});
+
+describe("itensResolvidos com N trocas e dispensa", () => {
+  it("uma linha com duas trocas rende dois lançamentos", () => {
+    const itens = [item({ id: 5 })];
+    const t = [
+      troca({ id: 1, item_id: 5, food_id: 42, qty_g: 100, nome: "Pão" }),
+      troca({ id: 2, item_id: 5, food_id: 77, qty_g: 200, nome: "Suco" }),
+    ];
+    const { lancaveis } = itensResolvidos(itens, t);
+    expect(lancaveis.map((l) => l.food_id)).toEqual([42, 77]);
+    expect(lancaveis.map((l) => l.label)).toEqual(["Pão", "Suco"]);
+  });
+
+  it("linha dispensada sai das duas listas e entra em dispensados", () => {
+    const itens = [item({ id: 5, food_id: 42, qty_g: 100 })];
+    const t = [troca({ id: 1, item_id: 5, dispensado: true, nome: "" })];
+    const r = itensResolvidos(itens, t);
+    expect(r.lancaveis).toHaveLength(0);
+    expect(r.semAlimento).toHaveLength(0);
+    expect(r.dispensados.map((i) => i.id)).toEqual([5]);
+  });
+
+  it("item trocado nunca cai de volta no alimento original", () => {
+    const itens = [item({ id: 5, food_id: 42, qty_g: 100 })];
+    const t = [troca({ id: 1, item_id: 5, food_id: null, qty_g: null, nome: "Pão da padaria" })];
+    const r = itensResolvidos(itens, t);
+    expect(r.lancaveis).toHaveLength(0);
+    expect(r.semAlimento.map((i) => i.id)).toEqual([5]);
+  });
+
+  it("com duas trocas e só uma lançável, a linha não é 'sem alimento'", () => {
+    // O aviso mentiria sobre a que casou com o catálogo.
+    const itens = [item({ id: 5 })];
+    const t = [
+      troca({ id: 1, item_id: 5, food_id: 42, qty_g: 100, nome: "Pão" }),
+      troca({ id: 2, item_id: 5, nome: "Suco da padaria" }),
+    ];
+    const r = itensResolvidos(itens, t);
+    expect(r.lancaveis).toHaveLength(1);
+    expect(r.semAlimento).toHaveLength(0);
+  });
+});
+
+describe("kcalDaRefeicao", () => {
+  it("soma as trocas e o que ficou do plano", () => {
+    const itens = [item({ id: 5 }), item({ id: 6 })];
+    const t = [
+      troca({ id: 1, item_id: 5, kcal: 210 }),
+      troca({ id: 2, item_id: 5, kcal: 90 }),
+    ];
+    expect(kcalDaRefeicao(itens, t, new Map([[6, 120]]))).toEqual({ total: 420, incompleto: false });
+  });
+
+  it("linha dispensada não soma nada", () => {
+    const itens = [item({ id: 5 })];
+    const t = [troca({ id: 1, item_id: 5, dispensado: true, nome: "" })];
+    expect(kcalDaRefeicao(itens, t, new Map())).toEqual({ total: 0, incompleto: false });
+  });
+
+  it("troca sem caloria marca a soma como incompleta", () => {
+    const itens = [item({ id: 5 })];
+    const t = [troca({ id: 1, item_id: 5, kcal: null, nome: "Pão da padaria" })];
+    expect(kcalDaRefeicao(itens, t, new Map())).toEqual({ total: 0, incompleto: true });
+  });
+
+  it("linha intacta fora do mapa também deixa a soma incompleta", () => {
+    const itens = [item({ id: 5 }), item({ id: 6 })];
+    const t = [troca({ id: 1, item_id: 5, kcal: 200 })];
+    expect(kcalDaRefeicao(itens, t, new Map())).toEqual({ total: 200, incompleto: true });
+  });
+
+  it("arredonda o total", () => {
+    const itens = [item({ id: 5 })];
+    const t = [troca({ id: 1, item_id: 5, kcal: 110.4 }), troca({ id: 2, item_id: 5, kcal: 90.3 })];
+    expect(kcalDaRefeicao(itens, t, new Map()).total).toBe(201);
   });
 });

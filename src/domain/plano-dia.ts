@@ -159,8 +159,23 @@ export function trocasDoBloco(swaps: PlanSwap[], blockNome: string): Map<string,
    ══════════════════════════════════════════════════════════════════ */
 
 /** A troca vigente de um item, ou `null` se ele está como o plano manda. */
-export function trocaDoItem(trocas: TrocaDeItem[], itemId: number): TrocaDeItem | null {
-  return trocas.find((t) => t.item_id === itemId) ?? null;
+/**
+ * As trocas de uma linha, na ordem em que foram escolhidas.
+ *
+ * Era `trocaDoItem`, no singular, porque a tabela tinha `UNIQUE (user_id,
+ * data, item_id)`. Uma linha passou a caber N alimentos quando trocar a
+ * refeição inteira por duas coisas deixou de exigir inventar uma troca para
+ * cada uma das outras linhas.
+ *
+ * A dispensa fica de fora: mora na mesma tabela, mas não é uma troca.
+ */
+export function trocasDoItem(trocas: TrocaDeItem[], itemId: number): TrocaDeItem[] {
+  return trocas.filter((t) => t.item_id === itemId && !t.dispensado);
+}
+
+/** A linha que você marcou como não comida. */
+export function itemDispensado(trocas: TrocaDeItem[], itemId: number): boolean {
+  return trocas.some((t) => t.item_id === itemId && t.dispensado);
 }
 
 /**
@@ -191,31 +206,88 @@ export function descreverTroca(t: TrocaDeItem): string {
 export function itensResolvidos(
   itens: PlanItem[],
   trocas: TrocaDeItem[],
-): { lancaveis: LancamentoDoPlano[]; semAlimento: PlanItem[] } {
+): { lancaveis: LancamentoDoPlano[]; semAlimento: PlanItem[]; dispensados: PlanItem[] } {
   const lancaveis: LancamentoDoPlano[] = [];
   const semAlimento: PlanItem[] = [];
+  const dispensados: PlanItem[] = [];
 
   for (const item of itens) {
-    const troca = trocaDoItem(trocas, item.id);
-    const fonte = troca
-      ? { food_id: troca.food_id, qty_g: troca.qty_g, measure_id: troca.measure_id, medidas: troca.medidas, label: troca.nome }
-      : { food_id: item.food_id, qty_g: item.qty_g, measure_id: null, medidas: null, label: item.texto };
-
-    if (fonte.food_id === null || fonte.qty_g === null || fonte.qty_g <= 0) {
-      semAlimento.push(item);
+    // Dispensada não é nem lançável nem "sem alimento": dizer "não entra no
+    // balanço" sobre algo que você deliberadamente não comeu é ruído, não
+    // aviso.
+    if (itemDispensado(trocas, item.id)) {
+      dispensados.push(item);
       continue;
     }
-    lancaveis.push({
-      item_id: item.id,
-      food_id: fonte.food_id,
-      qty_g: fonte.qty_g,
-      measure_id: fonte.measure_id,
-      medidas: fonte.medidas,
-      label: fonte.label,
-    });
+
+    const doItem = trocasDoItem(trocas, item.id);
+    const fontes = doItem.length > 0
+      ? doItem.map((t) => ({
+          food_id: t.food_id, qty_g: t.qty_g,
+          measure_id: t.measure_id, medidas: t.medidas, label: t.nome,
+        }))
+      : [{
+          food_id: item.food_id, qty_g: item.qty_g,
+          measure_id: null, medidas: null, label: item.texto,
+        }];
+
+    let algumaEntrou = false;
+    for (const f of fontes) {
+      const { food_id, qty_g } = f;
+      if (food_id === null || qty_g === null || qty_g <= 0) continue;
+      lancaveis.push({
+        item_id: item.id, food_id, qty_g,
+        measure_id: f.measure_id, medidas: f.medidas, label: f.label,
+      });
+      algumaEntrou = true;
+    }
+    // A linha só é "sem alimento" quando NADA dela pôde ser lançado — com duas
+    // trocas e só uma casando com o catálogo, o aviso mentiria sobre a que
+    // casou.
+    if (!algumaEntrou) semAlimento.push(item);
   }
 
-  return { lancaveis, semAlimento };
+  return { lancaveis, semAlimento, dispensados };
+}
+
+/**
+ * A caloria que a refeição de HOJE vai ter, contra a que o plano previa.
+ *
+ * `incompleto` é o que vira o "+" de "380+ / ~400": uma troca de texto sem
+ * caloria, ou uma linha intacta cujo alimento o app não conhece, não podem ser
+ * somadas — e calar isso contaria zero, que é uma afirmação diferente de "não
+ * sei".
+ *
+ * `kcalPorItem` traz a caloria das linhas INTACTAS: `PlanItem` guarda
+ * `food_id` e `qty_g`, não kcal, e o domínio não consulta banco. Quem monta o
+ * mapa é a tela, com os alimentos que ela já carregou.
+ */
+export function kcalDaRefeicao(
+  itens: PlanItem[],
+  trocas: TrocaDeItem[],
+  kcalPorItem: Map<number, number>,
+): { total: number; incompleto: boolean } {
+  let total = 0;
+  let incompleto = false;
+
+  for (const item of itens) {
+    if (itemDispensado(trocas, item.id)) continue;
+
+    const doItem = trocasDoItem(trocas, item.id);
+    if (doItem.length > 0) {
+      for (const t of doItem) {
+        if (t.kcal === null) incompleto = true;
+        else total += t.kcal;
+      }
+      continue;
+    }
+
+    const doPlano = kcalPorItem.get(item.id);
+    if (doPlano === undefined) incompleto = true;
+    else total += doPlano;
+  }
+
+  return { total: Math.round(total), incompleto };
 }
 
 function normalizar(s: string): string {

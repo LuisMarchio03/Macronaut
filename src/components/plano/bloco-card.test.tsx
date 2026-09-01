@@ -136,6 +136,7 @@ describe("trocar", () => {
   const troca = (item_id: number, nome: string, kcal: number | null = null): TrocaDeItem => ({
     id: item_id, data: "2026-08-31", block_id: 1, item_id, origem: "plano", swap_id: 1,
     nome, porcao: null, kcal, food_id: null, qty_g: null, measure_id: null, medidas: null,
+    dispensado: false,
   });
 
   it("oferece a troca no bloco da vez", async () => {

@@ -53,7 +53,7 @@ const SWAPS = [
 const troca = (p: Partial<TrocaDeItem> & { item_id: number }): TrocaDeItem => ({
   id: p.item_id, data: "2026-08-31", block_id: 10, origem: "plano", swap_id: null,
   nome: "Tapioca", porcao: null, kcal: null,
-  food_id: null, qty_g: null, measure_id: null, medidas: null, ...p,
+  food_id: null, qty_g: null, measure_id: null, medidas: null, dispensado: false, ...p,
 });
 
 function montar(props: Partial<Parameters<typeof SheetTrocas>[0]> = {}) {
