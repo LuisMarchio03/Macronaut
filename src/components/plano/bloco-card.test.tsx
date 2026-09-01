@@ -38,6 +38,7 @@ function montar(
     aguaNoBloco?: number;
     emFoco?: boolean;
     trocas?: TrocaDeItem[];
+    kcalPorItem?: Map<number, number>;
     onMarcar?: (feito: boolean) => void;
     onTrocar?: () => void;
     onAgua?: (ml: number) => void;
@@ -51,6 +52,7 @@ function montar(
       aguaNoBloco={overrides.aguaNoBloco}
       emFoco={overrides.emFoco}
       trocas={overrides.trocas}
+      kcalPorItem={overrides.kcalPorItem}
       onMarcar={overrides.onMarcar ?? (() => {})}
       onTrocar={overrides.onTrocar}
       onAgua={overrides.onAgua}
@@ -237,5 +239,50 @@ describe("bloco ancorado a evento", () => {
       },
     });
     expect(screen.getByText("Após almoço")).toBeInTheDocument();
+  });
+});
+
+describe("BlocoCard — a caloria depois da troca", () => {
+  const t = (item_id: number, nome: string, kcal: number | null): TrocaDeItem => ({
+    id: item_id, data: "2026-08-31", block_id: 1, item_id, origem: "catalogo", swap_id: null,
+    nome, porcao: null, kcal, food_id: 9, qty_g: 100, measure_id: null, medidas: null,
+    dispensado: false,
+  });
+
+  it("sem troca, mostra só a meta do plano", () => {
+    montar("agora", { trocas: [] });
+    expect(screen.getByText("~500 kcal")).toBeInTheDocument();
+  });
+
+  it("com troca, mostra o realizado contra a meta", () => {
+    montar("agora", {
+      trocas: [t(1, "Pão", 380)],
+      kcalPorItem: new Map([[2, 100]]),
+    });
+    expect(screen.getByText("480 / ~500 kcal")).toBeInTheDocument();
+  });
+
+  it("estourando a meta, avisa", () => {
+    montar("agora", {
+      trocas: [t(1, "Lanche", 510)],
+      kcalPorItem: new Map([[2, 100]]),
+    });
+    const alvo = screen.getByText("610 / ~500 kcal");
+    expect(alvo.className).toContain("text-warning");
+  });
+
+  it("com parcela desconhecida, o número ganha o +", () => {
+    montar("agora", {
+      trocas: [t(1, "Pão", 380), t(2, "Pão da padaria", null)],
+    });
+    expect(screen.getByText("380+ / ~500 kcal")).toBeInTheDocument();
+  });
+
+  it("a linha dispensada aparece como tal", () => {
+    montar("agora", {
+      trocas: [{ ...t(1, "", null), dispensado: true }],
+      kcalPorItem: new Map([[2, 100]]),
+    });
+    expect(screen.getByText(/dispensado/i)).toBeInTheDocument();
   });
 });

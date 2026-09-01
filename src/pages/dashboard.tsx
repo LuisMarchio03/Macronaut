@@ -15,6 +15,7 @@ import { SheetTrocas } from "@/components/plano/sheet-trocas";
 import { useProfile } from "@/hooks/use-profile";
 import { useMeals } from "@/hooks/use-meals";
 import { useTodayEntries, useFoodsForEntries } from "@/hooks/use-today-entries";
+import { useFoodsByIds } from "@/hooks/use-foods";
 import { useWaterToday } from "@/hooks/use-water-today";
 import { useSessionByDate } from "@/hooks/use-workouts";
 import { useSessaoAtiva } from "@/hooks/use-sessao";
@@ -35,7 +36,7 @@ import {
   useSubstituicoes,
   useTrocasDoDia,
 } from "@/hooks/use-plano";
-import { totaisDoDia, totaisPorRefeicao } from "@/domain/nutrition";
+import { macrosDoEntry, totaisDoDia, totaisPorRefeicao } from "@/domain/nutrition";
 import { aderenciaDoDia, blocoEmFoco, metaDeAgua, montarDia } from "@/domain/plano-dia";
 import { useDataAtiva } from "@/lib/data-context";
 import { minutosAgora } from "@/lib/date";
@@ -93,6 +94,35 @@ export function Dashboard() {
   const { data: plano, isLoading: carregandoPlano } = usePlanoAtivo();
   const { data: blocos = [] } = useBlocos(plano?.id);
   const { data: itensPorBloco } = useItensDoPlano(plano?.id);
+
+  /**
+   * A caloria conhecida de cada linha INTACTA do plano.
+   *
+   * `PlanItem` guarda `food_id` e `qty_g`, não kcal, e `kcalDaRefeicao` é puro
+   * — não consulta banco. Então quem monta o mapa é aqui, com os alimentos que
+   * a tela carrega. Linha fora do mapa conta como desconhecida, e é o que faz
+   * o card dizer "380+" em vez de fechar um total que ele não sabe.
+   */
+  const idsDoPlano = useMemo(
+    () =>
+      [...(itensPorBloco?.values() ?? [])]
+        .flat()
+        .map((i) => i.food_id)
+        .filter((id): id is number => id !== null),
+    [itensPorBloco],
+  );
+  const { data: foodsDoPlano } = useFoodsByIds(idsDoPlano);
+  const kcalPorItem = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const itens of itensPorBloco?.values() ?? []) {
+      for (const i of itens) {
+        if (i.food_id === null || i.qty_g === null) continue;
+        const f = foodsDoPlano?.get(i.food_id);
+        if (f) m.set(i.id, macrosDoEntry(f, i.qty_g).kcal);
+      }
+    }
+    return m;
+  }, [itensPorBloco, foodsDoPlano]);
   const { data: swaps = [] } = useSubstituicoes(plano?.id);
   const { data: trocas = [] } = useTrocasDoDia(data);
   const { data: checks = [] } = useChecksDoDia(data);
@@ -227,6 +257,7 @@ export function Dashboard() {
                 aguaNoBloco={aguaPorBloco?.get(item.bloco.id) ?? 0}
                 emFoco={item.bloco.id === foco?.bloco.id}
                 trocas={trocas.filter((t) => t.block_id === item.bloco.id)}
+                kcalPorItem={kcalPorItem}
                 onMarcar={(feito) =>
                   marcar.mutate({ planId: plano.id, blockId: item.bloco.id, feito })
                 }
