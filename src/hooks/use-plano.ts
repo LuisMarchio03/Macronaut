@@ -158,20 +158,57 @@ export function useMarcarBloco(data: string) {
  * lança depende da troca vigente, e um bloco já marcado tem que refletir a
  * troca nova.
  */
-export function useSalvarTroca(data: string) {
-  const api = useApi();
+/**
+ * Toda escrita de troca mexe nas mesmas três chaves: a troca em si, o check do
+ * bloco (marcar "Comi" relança o diário a partir das trocas) e as entries do
+ * dia.
+ *
+ * Eram todas um hook só, que decidia entre gravar e apagar por um `if` na
+ * forma do argumento. Com quatro escritas diferentes aquilo viraria um `if`
+ * de quatro braços; a parte comum é a invalidação, e é só ela que fica junta.
+ */
+function useEscritaDeTroca<T>(data: string, fn: (v: T) => Promise<unknown>) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { entrada: TrocaEntrada } | { itemId: number }) =>
-      "entrada" in v
-        ? api["plano"].salvarTroca(v.entrada)
-        : api["plano"].removerTroca(data, v.itemId),
+    mutationFn: fn,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CHAVE.trocas(data) });
       qc.invalidateQueries({ queryKey: CHAVE.checks(data) });
       qc.invalidateQueries({ queryKey: ["entries", data] });
     },
   });
+}
+
+/** Acrescenta um alimento à linha, sem tirar os que já estavam. */
+export function useAdicionarTroca(data: string) {
+  const api = useApi();
+  return useEscritaDeTroca(data, (e: TrocaEntrada) => api["plano"].adicionarTroca(e));
+}
+
+/** Substitui tudo que havia na linha — é o que a aba "Do plano" faz. */
+export function useSalvarTroca(data: string) {
+  const api = useApi();
+  return useEscritaDeTroca(data, (e: TrocaEntrada) => api["plano"].salvarTroca(e));
+}
+
+/** Tira um alimento só, deixando os outros da linha. */
+export function useRemoverUmaTroca(data: string) {
+  const api = useApi();
+  return useEscritaDeTroca(data, (trocaId: number) => api["plano"].removerUmaTroca(trocaId));
+}
+
+/** "Não comi esta linha." */
+export function useDispensarItem(data: string) {
+  const api = useApi();
+  return useEscritaDeTroca(data, (v: { blockId: number; itemId: number }) =>
+    api["plano"].dispensarItem(data, v.blockId, v.itemId),
+  );
+}
+
+/** Devolve a linha ao plano: apaga trocas e dispensa. */
+export function useLimparTrocasDoItem(data: string) {
+  const api = useApi();
+  return useEscritaDeTroca(data, (itemId: number) => api["plano"].removerTroca(data, itemId));
 }
 
 export function useAddAgua(data: string) {

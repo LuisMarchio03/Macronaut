@@ -24,6 +24,9 @@ import {
   marcarBloco,
   migrarTrocasDeBloco,
   removerTroca,
+  adicionarTroca,
+  dispensarItem,
+  removerUmaTroca,
   salvarTroca,
 } from "./plano";
 import { createEntry, listEntriesByDate } from "./entries";
@@ -576,5 +579,104 @@ describe("o plano é do dono, mesmo com o id na mão", () => {
     expect((await listItensPorBloco(db, USER, plano.id)).size).toBeGreaterThan(0);
     expect((await listMacros(db, USER, plano.id)).length).toBeGreaterThan(0);
     expect((await listSubstituicoes(db, USER, plano.id)).length).toBeGreaterThan(0);
+  });
+});
+
+describe("trocas: N por linha e a dispensa", () => {
+  it("duas chamadas no mesmo item deixam duas linhas", async () => {
+    const { cafe, itens } = await cenario(db);
+    const alvo = itens[0];
+
+    await adicionarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: alvo.id, texto: "Pão na chapa", kcal: 210,
+    });
+    await adicionarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: alvo.id, texto: "Suco de laranja", kcal: 90,
+    });
+
+    const t = await listTrocasDoDia(db, USER, DIA_T);
+    expect(t.filter((x) => x.item_id === alvo.id).map((x) => x.nome))
+      .toEqual(["Pão na chapa", "Suco de laranja"]);
+  });
+
+  it("dispensar apaga as trocas da linha", async () => {
+    const { cafe, itens } = await cenario(db);
+    const alvo = itens[0];
+    await adicionarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: alvo.id, texto: "Pão na chapa", kcal: 210,
+    });
+
+    await dispensarItem(db, USER, DIA_T, cafe.id, alvo.id);
+
+    const t = await listTrocasDoDia(db, USER, DIA_T);
+    expect(t).toHaveLength(1);
+    expect(t[0].dispensado).toBe(true);
+  });
+
+  it("trocar apaga a dispensa: as duas afirmações não coexistem", async () => {
+    const { cafe, itens } = await cenario(db);
+    const alvo = itens[0];
+    await dispensarItem(db, USER, DIA_T, cafe.id, alvo.id);
+
+    await adicionarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: alvo.id, texto: "Pão na chapa", kcal: 210,
+    });
+
+    const t = await listTrocasDoDia(db, USER, DIA_T);
+    expect(t).toHaveLength(1);
+    expect(t[0].dispensado).toBe(false);
+  });
+
+  it("dispensar duas vezes não acumula", async () => {
+    const { cafe, itens } = await cenario(db);
+    await dispensarItem(db, USER, DIA_T, cafe.id, itens[0].id);
+    await dispensarItem(db, USER, DIA_T, cafe.id, itens[0].id);
+
+    expect(await listTrocasDoDia(db, USER, DIA_T)).toHaveLength(1);
+  });
+
+  it("removerUmaTroca tira uma e deixa as outras", async () => {
+    const { cafe, itens } = await cenario(db);
+    const alvo = itens[0];
+    await adicionarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: alvo.id, texto: "Pão", kcal: 210 });
+    await adicionarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: alvo.id, texto: "Suco", kcal: 90 });
+    const antes = await listTrocasDoDia(db, USER, DIA_T);
+
+    await removerUmaTroca(db, USER, antes[0].id);
+
+    expect((await listTrocasDoDia(db, USER, DIA_T)).map((x) => x.nome)).toEqual(["Suco"]);
+  });
+
+  it("um usuário não apaga a troca do outro", async () => {
+    const { cafe, itens } = await cenario(db);
+    await adicionarTroca(db, USER, { data: DIA_T, block_id: cafe.id, item_id: itens[0].id, texto: "Pão", kcal: 210 });
+    const [t] = await listTrocasDoDia(db, USER, DIA_T);
+
+    await removerUmaTroca(db, 2, t.id);
+
+    expect(await listTrocasDoDia(db, USER, DIA_T)).toHaveLength(1);
+  });
+
+  it("marcarBloco lança uma entry por alimento escolhido", async () => {
+    const { plano, cafe, itens } = await cenario(db);
+    const alvo = itens[0];
+    const f1 = await criarAlimento(db, "Pão na chapa", 260);
+    const f2 = await criarAlimento(db, "Suco de laranja", 45);
+    await adicionarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: alvo.id, food_id: f1, qty_g: 80, kcal: 210,
+    });
+    await adicionarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: alvo.id, food_id: f2, qty_g: 200, kcal: 90,
+    });
+
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+
+    const rs = await db.execute({
+      sql: "SELECT food_id, qty_g, label FROM food_entries WHERE user_id=? AND data=? AND plan_block_id=? ORDER BY id",
+      args: [USER, DIA_T, cafe.id],
+    });
+    const lancadas = rs.rows.map((r) => r.label as string);
+    expect(lancadas).toContain("Pão na chapa");
+    expect(lancadas).toContain("Suco de laranja");
   });
 });

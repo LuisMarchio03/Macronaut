@@ -98,9 +98,11 @@ export const REGISTRO: Registro = {
 
   /* ── plano ── */
   "plano.addAguaNoBloco": { escopo: "usuario", fn: plano.addAguaNoBloco },
+  "plano.adicionarTroca": { escopo: "usuario", fn: plano.adicionarTroca },
   "plano.aguaPorBloco": { escopo: "usuario", fn: plano.aguaPorBloco },
   "plano.ativarPlano": { escopo: "usuario", fn: plano.ativarPlano },
   "plano.deletarPlano": { escopo: "usuario", fn: plano.deletarPlano },
+  "plano.dispensarItem": { escopo: "usuario", fn: plano.dispensarItem },
   "plano.getPlanoAtivo": { escopo: "usuario", fn: plano.getPlanoAtivo },
   "plano.importarPlano": { escopo: "usuario", fn: plano.importarPlano },
   "plano.listBlocos": { escopo: "usuario", fn: plano.listBlocos },
@@ -112,6 +114,7 @@ export const REGISTRO: Registro = {
   "plano.listTrocasDoDia": { escopo: "usuario", fn: plano.listTrocasDoDia },
   "plano.marcarBloco": { escopo: "usuario", fn: plano.marcarBloco },
   "plano.removerTroca": { escopo: "usuario", fn: plano.removerTroca },
+  "plano.removerUmaTroca": { escopo: "usuario", fn: plano.removerUmaTroca },
   "plano.salvarTroca": { escopo: "usuario", fn: plano.salvarTroca },
 
   /* ── entries ── */

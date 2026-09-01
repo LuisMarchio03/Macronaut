@@ -27,6 +27,7 @@ import {
   useItensDoPlano,
   useMarcarBloco,
   usePlanoAtivo,
+  useLimparTrocasDoItem,
   useSalvarTroca,
   useSubstituicoes,
   useTrocasDoDia,
@@ -95,6 +96,7 @@ export function Dashboard() {
   const { data: aguaPorBloco } = useAguaPorBloco(data);
   const marcar = useMarcarBloco(data);
   const salvarTroca = useSalvarTroca(data);
+  const limparTrocas = useLimparTrocasDoItem(data);
   const addAgua = useAddAgua(data);
 
   const [trocando, setTrocando] = useState<PlanBlock | null>(null);
@@ -304,11 +306,9 @@ export function Dashboard() {
           trocas={trocas.filter((t) => t.block_id === trocando.id)}
           feito={dia.find((b) => b.bloco.id === trocando.id)?.estado === "feito"}
           onTrocar={(itemId, e) =>
-            salvarTroca.mutate({
-              entrada: { data, block_id: trocando.id, item_id: itemId, ...e },
-            })
+            salvarTroca.mutate({ data, block_id: trocando.id, item_id: itemId, ...e })
           }
-          onDesfazer={(itemId) => salvarTroca.mutate({ itemId })}
+          onDesfazer={(itemId) => limparTrocas.mutate(itemId)}
           onMarcar={(feito) => marcar.mutate({ planId: plano.id, blockId: trocando.id, feito })}
           onClose={() => setTrocando(null)}
         />

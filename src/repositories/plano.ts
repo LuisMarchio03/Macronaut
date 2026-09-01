@@ -411,7 +411,7 @@ const SELECT_TROCAS = `
   LEFT JOIN plan_swaps s ON s.id = t.swap_id
   LEFT JOIN foods f      ON f.id = t.food_id
   WHERE t.user_id = ? AND t.data = ?
-  ORDER BY t.item_id`;
+  ORDER BY t.item_id, t.id`;
 
 export async function listTrocasDoDia(
   db: Client,
@@ -437,16 +437,48 @@ export interface TrocaEntrada {
 }
 
 /**
- * Grava a troca de um item, substituindo a que já existia.
+ * Acrescenta um alimento à linha. NÃO substitui o que já estava lá.
  *
- * Era um `ON CONFLICT (user_id, data, item_id)`, e a `UNIQUE` que o
- * sustentava saiu quando a linha passou a caber vários alimentos. O
- * "substituir" virou explícito: apaga o que havia na linha e insere. Mesmo
- * comportamento de antes, agora dito em dois comandos em vez de por uma
- * constraint.
+ * Era um upsert sobre `UNIQUE (user_id, data, item_id)`, e por isso trocar de
+ * novo corrigia a troca anterior — o que impedia dizer "comi pão E suco no
+ * lugar dos ovos". Corrigir passou a ser remover e escolher de novo, que é o
+ * que a lista de escolhidos da folha oferece.
  *
- * O `DELETE` também limpa a dispensa: escolher um alimento é dizer que você
- * comeu algo ali, e as duas afirmações não coexistem.
+ * Apaga a dispensa da linha: escolher um alimento é dizer que você comeu algo
+ * ali, e as duas afirmações não coexistem.
+ */
+export async function adicionarTroca(
+  db: Client,
+  userId: number,
+  e: TrocaEntrada,
+): Promise<void> {
+  await db.batch([
+    {
+      sql: `DELETE FROM plan_item_swaps
+            WHERE user_id=? AND data=? AND item_id=? AND dispensado=1`,
+      args: [userId, e.data, e.item_id] as (number | string | null)[],
+    },
+    {
+      sql: `INSERT INTO plan_item_swaps
+              (user_id, data, block_id, item_id, swap_id, food_id, texto,
+               qty_g, measure_id, medidas, kcal, dispensado, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+      args: [
+        userId, e.data, e.block_id, e.item_id,
+        e.swap_id ?? null, e.food_id ?? null, e.texto ?? null,
+        e.qty_g ?? null, e.measure_id ?? null, e.medidas ?? null, e.kcal ?? null,
+        new Date().toISOString(),
+      ] as (number | string | null)[],
+    },
+  ], "write");
+}
+
+/**
+ * Grava a troca de um item, substituindo tudo que havia na linha.
+ *
+ * Continua existindo ao lado de `adicionarTroca` porque a folha "Do plano"
+ * escolhe UMA opção prevista — ali trocar de novo é corrigir, e acumular duas
+ * substituições do plano para a mesma linha não é o que o toque quer dizer.
  */
 export async function salvarTroca(
   db: Client,
@@ -469,6 +501,47 @@ export async function salvarTroca(
         e.qty_g ?? null, e.measure_id ?? null, e.medidas ?? null, e.kcal ?? null,
         new Date().toISOString(),
       ] as (number | string | null)[],
+    },
+  ], "write");
+}
+
+/** Tira UM alimento da linha, deixando os outros. */
+export async function removerUmaTroca(
+  db: Client,
+  userId: number,
+  trocaId: number,
+): Promise<void> {
+  await db.execute({
+    sql: "DELETE FROM plan_item_swaps WHERE id=? AND user_id=?",
+    args: [trocaId, userId],
+  });
+}
+
+/**
+ * "Não comi esta linha."
+ *
+ * Apaga as trocas antes de gravar: dispensa e troca são afirmações opostas
+ * sobre a mesma linha no mesmo dia. O índice único parcial só garante que não
+ * existam DUAS dispensas — a exclusão mútua com as trocas é daqui, porque um
+ * CHECK não enxerga outras linhas.
+ */
+export async function dispensarItem(
+  db: Client,
+  userId: number,
+  data: string,
+  blockId: number,
+  itemId: number,
+): Promise<void> {
+  await db.batch([
+    {
+      sql: "DELETE FROM plan_item_swaps WHERE user_id=? AND data=? AND item_id=?",
+      args: [userId, data, itemId] as (number | string | null)[],
+    },
+    {
+      sql: `INSERT INTO plan_item_swaps
+              (user_id, data, block_id, item_id, dispensado, created_at)
+            VALUES (?, ?, ?, ?, 1, ?)`,
+      args: [userId, data, blockId, itemId, new Date().toISOString()] as (number | string | null)[],
     },
   ], "write");
 }
