@@ -9,6 +9,8 @@ function mapSession(r: Row): WorkoutSession {
     data: r.data as string,
     nome: (r.nome as string | null) ?? null,
     nota: (r.nota as string | null) ?? null,
+    iniciado_em: (r.iniciado_em as string | null) ?? null,
+    concluida_em: (r.concluida_em as string | null) ?? null,
     created_at: r.created_at as string,
   };
 }
@@ -38,7 +40,17 @@ export async function createSession(
     sql: "INSERT INTO workout_sessions (user_id, data, nome, created_at) VALUES (?, ?, ?, ?)",
     args: [userId, s.data, s.nome, created_at],
   });
-  return { id: Number(rs.lastInsertRowid), data: s.data, nome: s.nome, nota: null, created_at };
+  // Nasce rascunho: existe, tem nome e data, e ainda não começou. Quem faz o
+  // relógio correr é `sessao.iniciarSessao`.
+  return {
+    id: Number(rs.lastInsertRowid),
+    data: s.data,
+    nome: s.nome,
+    nota: null,
+    iniciado_em: null,
+    concluida_em: null,
+    created_at,
+  };
 }
 
 /**

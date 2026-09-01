@@ -121,6 +121,11 @@ CREATE TABLE IF NOT EXISTS workout_sessions (
   data        TEXT NOT NULL,
   nome        TEXT,
   nota        TEXT,
+  -- O ciclo de vida da sessão. NULL/NULL = rascunho (criada, ainda não
+  -- começou); com iniciado_em = em andamento; com os dois = concluída. As duas
+  -- também vivem em ADDITIVE_COLUMNS, para os bancos que nasceram sem elas.
+  iniciado_em  TEXT,
+  concluida_em TEXT,
   created_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_wsessions_user_data ON workout_sessions (user_id, data);

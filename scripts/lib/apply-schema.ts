@@ -43,6 +43,11 @@ const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
   // e não derivado: uma sessão pode terminar com séries por fazer, e derivar
   // "acabou" de "não sobrou nada pendente" nunca deixaria essa sessão fechar.
   { table: "workout_sessions", column: "concluida_em", ddl: "ALTER TABLE workout_sessions ADD COLUMN concluida_em TEXT" },
+  // Quando o treino COMEÇOU, que não é quando a linha foi criada: entre as
+  // duas coisas mora o rascunho — a sessão que existe, tem nome e plano, e
+  // ainda não está acontecendo. NULL = rascunho. Ver BACKFILLS abaixo: sem o
+  // acompanhamento, esta coluna transformaria todo o histórico em rascunho.
+  { table: "workout_sessions", column: "iniciado_em", ddl: "ALTER TABLE workout_sessions ADD COLUMN iniciado_em TEXT" },
   // Cardio virou exercício do catálogo, para a sessão continuar sendo UMA lista
   // ordenada. O MET mora aqui porque é do exercício, não da rotina.
   { table: "exercises", column: "met", ddl: "ALTER TABLE exercises ADD COLUMN met REAL" },
@@ -107,6 +112,26 @@ const ADDITIVE_INDEXES: { table: string; ddl: string }[] = [
 ];
 
 /**
+ * O que uma coluna aditiva precisa que seja verdade nas linhas que já existem.
+ *
+ * `ALTER TABLE ADD COLUMN` deixa NULL em toda linha antiga, e para algumas
+ * colunas NULL é uma afirmação errada, não a ausência de uma. `iniciado_em` é
+ * o caso: no modelo anterior criar uma sessão ERA iniciá-la, então deixá-la
+ * nula diria que nenhum treino já feito jamais começou — e como
+ * `estadoDaSessao` lê isso como "rascunho", o histórico inteiro sumiria da aba
+ * Progresso, da consistência e da análise no primeiro deploy.
+ *
+ * Todo comando aqui é idempotente pelo próprio `WHERE`, porque
+ * `applyAdditiveColumns` roda a cada `db:setup`.
+ */
+const BACKFILLS: { table: string; sql: string }[] = [
+  {
+    table: "workout_sessions",
+    sql: "UPDATE workout_sessions SET iniciado_em = created_at WHERE iniciado_em IS NULL",
+  },
+];
+
+/**
  * A tabela existe?
  *
  * `applyAdditiveColumns` roda depois do schema, quando toda tabela já foi
@@ -135,6 +160,10 @@ export async function applyAdditiveColumns(db: Client): Promise<void> {
   for (const idx of ADDITIVE_INDEXES) {
     if (!(await tableExists(db, idx.table))) continue;
     await db.execute(idx.ddl);
+  }
+  for (const b of BACKFILLS) {
+    if (!(await tableExists(db, b.table))) continue;
+    await db.execute(b.sql);
   }
 }
 

@@ -136,6 +136,10 @@ export interface WorkoutSession {
   data: string; // YYYY-MM-DD
   nome: string | null;
   nota: string | null;
+  /** Quando o treino começou. NULL = rascunho. Ver `domain/sessao-estado`. */
+  iniciado_em: string | null;
+  /** Quando o usuário disse que acabou. NULL = ainda aberto. */
+  concluida_em: string | null;
   created_at: string;
 }
 
