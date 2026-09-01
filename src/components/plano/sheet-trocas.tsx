@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
-import { useFoods } from "@/hooks/use-foods";
+import { useFoods, useFoodsByIds } from "@/hooks/use-foods";
 import { useMeasures } from "@/hooks/use-food-measures";
 import { descreverTroca, itensResolvidos, trocaDoItem, trocasDoBloco, trocasPara } from "@/domain/plano-dia";
 import { macrosDoEntry } from "@/domain/nutrition";
@@ -55,6 +55,8 @@ function TrocarItem({
   onEscolher,
   onVoltar,
   passo,
+  abaInicial,
+  onAba,
 }: {
   item: PlanItem;
   bloco: PlanBlock;
@@ -64,18 +66,55 @@ function TrocarItem({
   onVoltar: () => void;
   /** "2 de 5" quando se está percorrendo a refeição inteira. */
   passo: { i: number; total: number } | null;
+  /** Onde abrir. A folha lembra a última escolhida ao percorrer a refeição. */
+  abaInicial: Aba;
+  onAba: (a: Aba) => void;
 }) {
-  const [aba, setAba] = useState<Aba>(trocaAtual?.origem ?? "plano");
-  const [termo, setTermo] = useState("");
+  /** A troca de catálogo que já existe nesta linha, se houver. */
+  const jaDoCatalogo = trocaAtual?.origem === "catalogo" ? trocaAtual : null;
+
+  const [aba, setAba] = useState<Aba>(abaInicial);
+  const [termo, setTermo] = useState(jaDoCatalogo?.nome ?? "");
   const [alimento, setAlimento] = useState<Food | null>(null);
-  const [qtd, setQtd] = useState("");
-  const [medidaId, setMedidaId] = useState<string>(BASE);
+  const [qtd, setQtd] = useState(
+    jaDoCatalogo ? formatarNumero(jaDoCatalogo.medidas ?? jaDoCatalogo.qty_g ?? 0) : "",
+  );
+  const [medidaId, setMedidaId] = useState<string>(
+    jaDoCatalogo?.measure_id != null ? String(jaDoCatalogo.measure_id) : BASE,
+  );
   const [texto, setTexto] = useState(trocaAtual?.origem === "texto" ? trocaAtual.nome : "");
   const [kcalTexto, setKcalTexto] = useState(
     trocaAtual?.origem === "texto" && trocaAtual.kcal !== null ? String(trocaAtual.kcal) : "",
   );
 
   const { data: resultados = [] } = useFoods(termo);
+
+  /**
+   * Reabrir uma troca de catálogo tem que trazer o alimento de volta.
+   *
+   * A aba já abria em "Catálogo" — ela lê `trocaAtual.origem` —, mas `alimento`
+   * nascia `null`, e sem alimento não há quantidade, não há medida e não há
+   * botão de confirmar: a pessoa via a aba certa, um campo vazio e nenhuma
+   * ação. Era o "o botão de trocar não funciona". `texto` e `kcalTexto` já
+   * eram reidratados; só o catálogo ficou de fora.
+   *
+   * Vem por id, e não da busca por nome: o nome guardado é o rótulo da troca,
+   * e procurar por ele traria o alimento errado (ou nenhum) quando o catálogo
+   * tem homônimos.
+   */
+  const { data: doBanco } = useFoodsByIds(
+    jaDoCatalogo?.food_id != null ? [jaDoCatalogo.food_id] : [],
+  );
+  useEffect(() => {
+    if (!jaDoCatalogo || jaDoCatalogo.food_id === null || alimento !== null) return;
+    const f = doBanco?.get(jaDoCatalogo.food_id);
+    if (f) {
+      setAlimento(f);
+      // A quantidade já veio da troca gravada: a sugestão não pode reescrevê-la.
+      tocouNaQtd.current = true;
+    }
+  }, [doBanco, jaDoCatalogo, alimento]);
+
   const { data: medidas = [], isSuccess: medidasProntas } = useMeasures(alimento?.id ?? null);
 
   /** O usuário já mexeu na quantidade? Então a sugestão não manda mais. */
@@ -130,7 +169,12 @@ function TrocarItem({
       </SheetHeader>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <Segmented opcoes={ABAS} valor={aba} onChange={setAba} rotulo="De onde vem a troca" />
+        <Segmented
+          opcoes={ABAS}
+          valor={aba}
+          onChange={(v) => { setAba(v); onAba(v); }}
+          rotulo="De onde vem a troca"
+        />
 
         {aba === "plano" &&
           (doPlano.length > 0 ? (
@@ -332,6 +376,16 @@ export function SheetTrocas({
   const [abertoId, setAbertoId] = useState<number | null>(null);
   /** Percorrendo a refeição inteira: o índice do item da vez. */
   const [percorrendo, setPercorrendo] = useState<number | null>(null);
+  /**
+   * De onde a última troca veio.
+   *
+   * O `key` de `TrocarItem` remonta o componente a cada item — que é o que
+   * impede o alimento de uma linha de vazar para a seguinte —, e isso levaria
+   * a aba junto. Quem troca a refeição inteira pelo catálogo teria que
+   * escolher "Catálogo" em cada linha. O CAMINHO é uma preferência da pessoa;
+   * o alimento é dado do item.
+   */
+  const [abaPreferida, setAbaPreferida] = useState<Aba>("plano");
 
   const aberto = itens.find((i) => i.id === abertoId) ?? null;
 
@@ -361,10 +415,20 @@ export function SheetTrocas({
       <SheetContent side="bottom" className="max-h-[85dvh] rounded-t-2xl">
         {aberto ? (
           <TrocarItem
+            /* A `key` é o conserto de um bug, não um detalhe do React: sem
+               ela o componente é REUSADO ao avançar de item, e o alimento
+               escolhido para a linha anterior continua carregado — com o
+               botão "Trocar por X" pronto. Quem percorria a refeição tocava
+               nele e acabava com o mesmo alimento em todas as linhas. */
+            key={aberto.id}
             item={aberto}
             bloco={bloco}
             swaps={swaps}
             trocaAtual={trocaDoItem(trocas, aberto.id)}
+            /* A troca que já existe manda: reabrir uma linha leva de volta a
+               onde ela foi feita, não à última aba usada noutra linha. */
+            abaInicial={trocaDoItem(trocas, aberto.id)?.origem ?? abaPreferida}
+            onAba={setAbaPreferida}
             passo={percorrendo !== null ? { i: percorrendo + 1, total: itens.length } : null}
             onEscolher={(e) => escolher(aberto.id, e)}
             onVoltar={() => { setPercorrendo(null); setAbertoId(null); }}

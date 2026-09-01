@@ -314,3 +314,78 @@ describe("SheetTrocas — mais de uma troca na mesma refeição", () => {
     expect(within(lista).getByText("Banana · 90 kcal")).toBeInTheDocument();
   });
 });
+
+describe("SheetTrocas — o estado da folha de nível 2", () => {
+  /**
+   * O bug: `TrocarItem` não remontava entre um item e o seguinte, então o
+   * alimento escolhido para a linha 1 continuava carregado na linha 2 — com o
+   * botão "Trocar por X" já pronto. Quem percorria a refeição tocava nele e
+   * acabava com o MESMO alimento em todas as linhas.
+   */
+  it("percorrendo a refeição, o item seguinte não herda o alimento do anterior", async () => {
+    const user = userEvent.setup();
+    montar();
+
+    await user.click(screen.getByRole("button", { name: /trocar tudo/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+
+    // Já no item 2: nada do item 1 pode ter sobrado.
+    expect(await screen.findByText(/item 2 de 3/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /trocar por tapioca goma/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/alimento/i)).toHaveValue("");
+  });
+
+  /**
+   * Zerar o alimento entre um item e o seguinte é o conserto; zerar a ABA
+   * seria um atrito novo. Quem está trocando a refeição inteira pelo catálogo
+   * teria que escolher "Catálogo" em cada uma das cinco linhas.
+   */
+  it("percorrendo, a aba escolhida acompanha o item seguinte", async () => {
+    const user = userEvent.setup();
+    montar();
+
+    await user.click(screen.getByRole("button", { name: /trocar tudo/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+
+    expect(await screen.findByText(/item 2 de 3/i)).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Catálogo" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText(/alimento/i)).toBeInTheDocument();
+  });
+
+  /**
+   * O bug: reabrir uma linha já trocada pelo catálogo abria a aba "Catálogo"
+   * — porque a aba lê `trocaAtual.origem` — mas o alimento, a quantidade e a
+   * medida não eram reidratados. A pessoa via a aba certa, um campo vazio e
+   * NENHUM botão de confirmar. É o "o botão de trocar não funciona".
+   */
+  it("reabrir uma troca de catálogo traz o alimento de volta, com botão", async () => {
+    const user = userEvent.setup();
+    montar({
+      trocas: [
+        troca({
+          item_id: 2, origem: "catalogo", nome: "Tapioca goma", porcao: "30 g",
+          kcal: 72, food_id: 1, qty_g: 30, measure_id: 1, medidas: 2,
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+
+    expect(
+      await screen.findByRole("button", { name: /trocar por tapioca goma/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/quantidade/i)).toHaveValue("2");
+  });
+});
