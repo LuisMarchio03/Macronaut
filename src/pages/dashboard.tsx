@@ -35,7 +35,8 @@ import { totaisDoDia, totaisPorRefeicao } from "@/domain/nutrition";
 import { aderenciaDoDia, blocoEmFoco, metaDeAgua, montarDia } from "@/domain/plano-dia";
 import { useDataAtiva } from "@/lib/data-context";
 import { minutosAgora } from "@/lib/date";
-import type { Macros } from "@/domain/types";
+import { estadoDaSessao } from "@/domain/sessao-estado";
+import type { Macros, WorkoutSession } from "@/domain/types";
 import type { PlanBlock } from "@/domain/plano-types";
 import type { SessaoAberta } from "@/repositories/sessao";
 
@@ -51,7 +52,7 @@ const ZERO: Macros = { kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0 };
  */
 function cardDeTreino(
   emAndamento: SessaoAberta | null | undefined,
-  registrado: { nome: string | null } | null | undefined,
+  registrado: WorkoutSession | null | undefined,
 ): { to: string; titulo: string; legenda: string } {
   if (emAndamento) {
     return {
@@ -60,7 +61,11 @@ function cardDeTreino(
       legenda: `Em andamento · ${emAndamento.feitas} de ${emAndamento.total} séries`,
     };
   }
-  if (registrado) {
+  // Concluído, não "existe": `getSessionByDate` devolve a primeira sessão do
+  // dia seja qual for o estado dela, e um rascunho criado e nunca iniciado
+  // anunciava aqui um treino que não aconteceu. Rascunho tem lugar próprio —
+  // a lista de treinos abertos do hub.
+  if (registrado && estadoDaSessao(registrado) === "concluida") {
     return {
       to: "/treino",
       titulo: registrado.nome || "Treino registrado",
