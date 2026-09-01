@@ -375,17 +375,22 @@ describe("SheetTrocas — o estado da folha de nível 2", () => {
   });
 
   /**
-   * O bug: reabrir uma linha já trocada pelo catálogo abria a aba "Catálogo"
-   * — porque a aba lê `trocaAtual.origem` — mas o alimento, a quantidade e a
-   * medida não eram reidratados. A pessoa via a aba certa, um campo vazio e
-   * NENHUM botão de confirmar. É o "o botão de trocar não funciona".
+   * O bug original: reabrir uma linha já trocada pelo catálogo abria a aba
+   * "Catálogo" — ela lê a origem da troca — e mostrava um campo vazio, sem
+   * nenhum sinal do que havia sido escolhido e sem botão de confirmar. Era o
+   * "o botão de trocar não funciona".
+   *
+   * A resposta deixou de ser reidratar o formulário (o que impediria escolher
+   * um SEGUNDO alimento, porque a lista de resultados some quando há um
+   * selecionado) e passou a ser a lista do topo: o que foi escolhido fica
+   * visível, com o × de cada um, e o campo fica livre para o próximo.
    */
-  it("reabrir uma troca de catálogo traz o alimento de volta, com botão", async () => {
+  it("reabrir uma linha trocada mostra a escolha e deixa o campo livre", async () => {
     const user = userEvent.setup();
     montar({
       trocas: [
         troca({
-          item_id: 2, origem: "catalogo", nome: "Tapioca goma", porcao: "30 g",
+          id: 91, item_id: 2, origem: "catalogo", nome: "Tapioca goma", porcao: "30 g",
           kcal: 72, food_id: 1, qty_g: 30, measure_id: 1, medidas: 2,
         }),
       ],
@@ -393,10 +398,12 @@ describe("SheetTrocas — o estado da folha de nível 2", () => {
 
     await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
 
-    expect(
-      await screen.findByRole("button", { name: /adicionar tapioca goma/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText(/quantidade/i)).toHaveValue("2");
+    // O que já foi escolhido, com o caminho para tirá-lo…
+    expect(await screen.findByText("Tapioca goma · 30 g · 72 kcal")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /remover tapioca goma/i })).toBeInTheDocument();
+    // …e o campo pronto para o próximo.
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    expect(screen.getByLabelText(/alimento/i)).toHaveValue("");
   });
 });
 
@@ -404,10 +411,12 @@ describe("SheetTrocas — mais de um alimento por linha", () => {
   it("com uma escolha feita, o botão do catálogo passa a dizer Adicionar", async () => {
     const user = userEvent.setup();
     montar({
-      trocas: [troca({ id: 91, item_id: 2, origem: "catalogo", nome: "Tapioca goma", food_id: 1, qty_g: 30, kcal: 72, medidas: 2, measure_id: 1 })],
+      trocas: [troca({ id: 91, item_id: 2, nome: "Pão na chapa", kcal: 210 })],
     });
     await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
     await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
 
     expect(await screen.findByRole("button", { name: /^adicionar tapioca goma$/i })).toBeInTheDocument();
   });
@@ -426,6 +435,34 @@ describe("SheetTrocas — mais de um alimento por linha", () => {
     expect(onAdicionar).toHaveBeenCalledWith(2, {
       food_id: 1, qty_g: 15, measure_id: 1, medidas: 1, kcal: 36,
     });
+  });
+
+  it("depois de adicionar, o formulário limpa para você buscar o próximo", async () => {
+    // Sem isto, "adicionar outro" exigia apagar o campo na mão: a lista de
+    // resultados só aparece quando não há alimento escolhido.
+    const user = userEvent.setup();
+    montar();
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+
+    await waitFor(() => expect(screen.getByLabelText(/alimento/i)).toHaveValue(""));
+    expect(screen.queryByLabelText(/quantidade/i)).not.toBeInTheDocument();
+  });
+
+  it("depois de escrever à mão, os campos também limpam", async () => {
+    const user = userEvent.setup();
+    montar();
+    await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
+    await user.click(screen.getByRole("tab", { name: "Escrever" }));
+    await user.type(screen.getByLabelText(/o que você comeu/i), "Pão da padaria");
+    await user.click(screen.getByRole("button", { name: /^trocar$/i }));
+
+    await waitFor(() => expect(screen.getByLabelText(/o que você comeu/i)).toHaveValue(""));
   });
 
   it("as escolhas já feitas aparecem na folha da linha, com o × de cada uma", async () => {

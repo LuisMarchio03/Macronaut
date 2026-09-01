@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Segmented } from "@/components/ui/segmented";
-import { useFoods, useFoodsByIds } from "@/hooks/use-foods";
+import { useFoods } from "@/hooks/use-foods";
 import { useMeasures } from "@/hooks/use-food-measures";
 import {
   descreverTroca,
@@ -90,51 +90,27 @@ function TrocarItem({
   onVoltarAoPlano: () => void;
   onProximo: () => void;
 }) {
-  /** A troca de catálogo que já existe nesta linha, se houver. */
-  const jaDoCatalogo = trocaAtual?.origem === "catalogo" ? trocaAtual : null;
-
+  /**
+   * O formulário nasce VAZIO, mesmo numa linha que já tem escolhas.
+   *
+   * Enquanto uma linha comportava uma troca só, reabri-la reidratava o
+   * alimento gravado para você corrigir a quantidade — e não fazer isso era o
+   * bug do "botão de trocar não funciona": aba certa, campo vazio, nenhuma
+   * ação visível. Com N alimentos por linha, quem mostra o que já foi
+   * escolhido é a lista do topo, com o × de cada um, e corrigir passou a ser
+   * remover e escolher de novo. Reidratar aqui teria o efeito oposto: a lista
+   * de resultados só aparece quando NÃO há alimento selecionado, então o campo
+   * preenchido tornaria o segundo alimento inalcançável.
+   */
   const [aba, setAba] = useState<Aba>(abaInicial);
-  const [termo, setTermo] = useState(jaDoCatalogo?.nome ?? "");
+  const [termo, setTermo] = useState("");
   const [alimento, setAlimento] = useState<Food | null>(null);
-  const [qtd, setQtd] = useState(
-    jaDoCatalogo ? formatarNumero(jaDoCatalogo.medidas ?? jaDoCatalogo.qty_g ?? 0) : "",
-  );
-  const [medidaId, setMedidaId] = useState<string>(
-    jaDoCatalogo?.measure_id != null ? String(jaDoCatalogo.measure_id) : BASE,
-  );
-  const [texto, setTexto] = useState(trocaAtual?.origem === "texto" ? trocaAtual.nome : "");
-  const [kcalTexto, setKcalTexto] = useState(
-    trocaAtual?.origem === "texto" && trocaAtual.kcal !== null ? String(trocaAtual.kcal) : "",
-  );
+  const [qtd, setQtd] = useState("");
+  const [medidaId, setMedidaId] = useState<string>(BASE);
+  const [texto, setTexto] = useState("");
+  const [kcalTexto, setKcalTexto] = useState("");
 
   const { data: resultados = [] } = useFoods(termo);
-
-  /**
-   * Reabrir uma troca de catálogo tem que trazer o alimento de volta.
-   *
-   * A aba já abria em "Catálogo" — ela lê `trocaAtual.origem` —, mas `alimento`
-   * nascia `null`, e sem alimento não há quantidade, não há medida e não há
-   * botão de confirmar: a pessoa via a aba certa, um campo vazio e nenhuma
-   * ação. Era o "o botão de trocar não funciona". `texto` e `kcalTexto` já
-   * eram reidratados; só o catálogo ficou de fora.
-   *
-   * Vem por id, e não da busca por nome: o nome guardado é o rótulo da troca,
-   * e procurar por ele traria o alimento errado (ou nenhum) quando o catálogo
-   * tem homônimos.
-   */
-  const { data: doBanco } = useFoodsByIds(
-    jaDoCatalogo?.food_id != null ? [jaDoCatalogo.food_id] : [],
-  );
-  useEffect(() => {
-    if (!jaDoCatalogo || jaDoCatalogo.food_id === null || alimento !== null) return;
-    const f = doBanco?.get(jaDoCatalogo.food_id);
-    if (f) {
-      setAlimento(f);
-      // A quantidade já veio da troca gravada: a sugestão não pode reescrevê-la.
-      tocouNaQtd.current = true;
-    }
-  }, [doBanco, jaDoCatalogo, alimento]);
-
   const { data: medidas = [], isSuccess: medidasProntas } = useMeasures(alimento?.id ?? null);
 
   /** O usuário já mexeu na quantidade? Então a sugestão não manda mais. */
@@ -163,6 +139,24 @@ function TrocarItem({
   // "Trocar" pela segunda vez sugeriria substituir a primeira. O verbo tem que
   // dizer o que o toque faz.
   const verbo = escolhidas.length > 0 ? "Adicionar" : "Trocar por";
+
+  /**
+   * Confirma e deixa o formulário pronto para o PRÓXIMO alimento.
+   *
+   * A lista de resultados só aparece quando não há alimento escolhido, então
+   * sem esta limpeza "adicionar outro" exigia apagar o campo na mão — o
+   * segundo alimento ficava inalcançável logo depois de o primeiro entrar.
+   */
+  function confirmar(e: Omit<TrocaEntrada, "data" | "block_id" | "item_id">) {
+    onEscolher(e);
+    setTermo("");
+    setAlimento(null);
+    setQtd("");
+    setMedidaId(BASE);
+    setTexto("");
+    setKcalTexto("");
+    tocouNaQtd.current = false;
+  }
 
   const medida = medidas.find((m) => String(m.id) === medidaId) ?? null;
   const contagem = Number(qtd.replace(",", ".")) || 0;
@@ -230,7 +224,7 @@ function TrocarItem({
                 <li key={s.id}>
                   <button
                     type="button"
-                    onClick={() => onEscolher({ swap_id: s.id })}
+                    onClick={() => confirmar({ swap_id: s.id })}
                     aria-pressed={trocaAtual?.swap_id === s.id}
                     className="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted active:bg-muted aria-pressed:bg-tint-primary"
                   >
@@ -326,7 +320,7 @@ function TrocarItem({
                   block
                   disabled={qtyG <= 0}
                   onClick={() =>
-                    onEscolher({
+                    confirmar({
                       food_id: alimento.id,
                       qty_g: qtyG,
                       measure_id: medida ? medida.id : null,
@@ -372,7 +366,7 @@ function TrocarItem({
               block
               disabled={texto.trim() === ""}
               onClick={() =>
-                onEscolher({
+                confirmar({
                   texto: texto.trim(),
                   kcal: kcalTexto.trim() === "" ? null : Number(kcalTexto.replace(",", ".")),
                 })
