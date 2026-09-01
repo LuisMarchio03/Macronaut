@@ -14,10 +14,11 @@ describe("formatarDecorrido", () => {
     expect(formatarDecorrido(32 * 60_000)).toBe("32 min");
   });
 
+  // A forma que o cabeçalho da academia já usava, antes de este hook existir.
   it("de uma hora em diante, horas e minutos", () => {
-    expect(formatarDecorrido(60 * 60_000)).toBe("1 h");
-    expect(formatarDecorrido(72 * 60_000)).toBe("1 h 12");
-    expect(formatarDecorrido(14 * 60 * 60_000)).toBe("14 h");
+    expect(formatarDecorrido(60 * 60_000)).toBe("1h00");
+    expect(formatarDecorrido(72 * 60_000)).toBe("1h12");
+    expect(formatarDecorrido(14 * 60 * 60_000)).toBe("14h00");
   });
 
   it("relógio para trás não vira tempo negativo", () => {

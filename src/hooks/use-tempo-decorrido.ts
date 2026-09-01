@@ -15,9 +15,7 @@ export function formatarDecorrido(ms: number): string {
   const min = Math.floor(Math.max(ms, 0) / 60_000);
   if (min < 1) return "agora";
   if (min < 60) return `${min} min`;
-  const h = Math.floor(min / 60);
-  const resto = min % 60;
-  return resto === 0 ? `${h} h` : `${h} h ${resto}`;
+  return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}`;
 }
 
 /**

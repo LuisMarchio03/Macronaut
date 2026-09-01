@@ -6,7 +6,7 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { criarWrapper } from "../../test/helpers/query-wrapper";
 import { TreinoSessao } from "./treino-sessao";
-import { getPlano, type ItemPlanejado } from "../repositories/sessao";
+import { criarSessao, iniciarSessao, finalizarSessao, getPlano, type ItemPlanejado } from "../repositories/sessao";
 import { sessaoEmCurso } from "../../test/helpers/sessao";
 import { addSet, createSession, listSetsBySession } from "../repositories/workouts";
 import { planejar } from "../domain/prescricao";
@@ -634,6 +634,75 @@ describe("cronômetro de descanso na sessão", () => {
     });
     montar(sid);
 
-    expect(await screen.findByText(/0 min · 0\/3/)).toBeInTheDocument();
+    expect(await screen.findByText(/agora · 0\/3/)).toBeInTheDocument();
+  });
+});
+
+describe("TreinoSessao — o rodapé segue o estado da sessão", () => {
+  it("rascunho oferece iniciar, não finalizar", async () => {
+    const sid = await criarSessao(db, 1, { data: hoje(), nome: "Avulso", itens: [] });
+    montar(sid);
+
+    expect(await screen.findByRole("button", { name: /iniciar treino/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /finalizar/i })).not.toBeInTheDocument();
+  });
+
+  it("iniciar marca o começo e passa a oferecer finalizar", async () => {
+    const sid = await criarSessao(db, 1, { data: hoje(), nome: "Avulso", itens: [] });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /iniciar treino/i }));
+
+    expect(await screen.findByRole("button", { name: /finalizar/i })).toBeInTheDocument();
+    const rs = await db.execute({
+      sql: "SELECT iniciado_em FROM workout_sessions WHERE id = ?", args: [sid],
+    });
+    expect(rs.rows[0].iniciado_em).not.toBeNull();
+  });
+
+  it("descartar apaga a sessão", async () => {
+    const sid = await criarSessao(db, 1, { data: hoje(), nome: "Avulso", itens: [] });
+    montar(sid);
+
+    await userEvent.click(await screen.findByRole("button", { name: /descartar/i }));
+    // O sheet de confirmação: o segundo "Descartar" é o que age.
+    const botoes = await screen.findAllByRole("button", { name: /^descartar$/i });
+    await userEvent.click(botoes[botoes.length - 1]);
+
+    await waitFor(async () => {
+      const rs = await db.execute({
+        sql: "SELECT id FROM workout_sessions WHERE id = ?", args: [sid],
+      });
+      expect(rs.rows).toHaveLength(0);
+    });
+  });
+
+  it("sessão concluída não oferece finalizar de novo", async () => {
+    const sid = await criarSessao(db, 1, { data: hoje(), nome: "Peito", itens: [] });
+    await iniciarSessao(db, 1, sid);
+    await finalizarSessao(db, 1, sid);
+    montar(sid);
+
+    expect(await screen.findByText(/treino concluído/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /finalizar/i })).not.toBeInTheDocument();
+  });
+
+  it("registrar uma série num rascunho começa o treino sozinho", async () => {
+    const supino = await exercicio("Supino reto");
+    const sid = await criarSessao(db, 1, {
+      data: hoje(), nome: "Peito", itens: [item(supino, 40, "Supino reto")],
+    });
+    montar(sid);
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /registrar série 1 de supino reto/i }),
+    );
+
+    await waitFor(async () => {
+      const rs = await db.execute({
+        sql: "SELECT iniciado_em FROM workout_sessions WHERE id = ?", args: [sid],
+      });
+      expect(rs.rows[0].iniciado_em).not.toBeNull();
+    });
   });
 });
