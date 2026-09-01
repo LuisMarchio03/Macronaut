@@ -84,13 +84,23 @@ export async function getSessionByDate(
   return rs.rows.length ? mapSession(rs.rows[0]) : null;
 }
 
+/**
+ * O histórico: só o que terminou.
+ *
+ * Sem `concluida_em IS NOT NULL`, um treino entrava aqui no instante em que
+ * era criado — tocar em "Começar" e sair da tela punha o treino em curso no
+ * meio dos treinos passados, e não havia como distingui-los. O que está
+ * acontecendo agora tem lugar próprio: `sessao.sessoesAbertas`.
+ */
 export async function listSessions(
   db: Client,
   userId: number,
   limite = 30,
 ): Promise<WorkoutSession[]> {
   const rs = await db.execute({
-    sql: "SELECT * FROM workout_sessions WHERE user_id=? ORDER BY data DESC, created_at DESC LIMIT ?",
+    sql: `SELECT * FROM workout_sessions
+          WHERE user_id = ? AND concluida_em IS NOT NULL
+          ORDER BY data DESC, created_at DESC LIMIT ?`,
     args: [userId, limite],
   });
   return rs.rows.map(mapSession);
@@ -190,6 +200,10 @@ export async function setsForExercise(
   }));
 }
 
+/**
+ * As sessões de um intervalo, para a análise. Só concluídas, como o histórico:
+ * `nSessoes` conta treinos feitos, e um rascunho de dez segundos não é um.
+ */
 export async function listSessionsByRange(
   db: Client,
   userId: number,
@@ -197,7 +211,9 @@ export async function listSessionsByRange(
   fim: string,
 ): Promise<WorkoutSession[]> {
   const rs = await db.execute({
-    sql: "SELECT * FROM workout_sessions WHERE user_id=? AND data BETWEEN ? AND ? ORDER BY data, created_at",
+    sql: `SELECT * FROM workout_sessions
+          WHERE user_id = ? AND data BETWEEN ? AND ? AND concluida_em IS NOT NULL
+          ORDER BY data, created_at`,
     args: [userId, inicio, fim],
   });
   return rs.rows.map(mapSession);

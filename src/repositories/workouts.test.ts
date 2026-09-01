@@ -6,6 +6,8 @@ import {
   addSet, listSetsBySession, deleteSet, setsForExercise, updateSet,
   listSessionsByRange, setsForAnalise, ultimaVezExercicio, updateSession, historicoExercicio,
 } from "./workouts";
+import { criarSessao, iniciarSessao, finalizarSessao } from "./sessao";
+import { sessaoConcluida } from "../../test/helpers/sessao";
 import { createExercise } from "./exercises";
 import { seedMuscleGroups } from "./muscle-groups";
 
@@ -22,8 +24,8 @@ const set = (over = {}) => ({
 
 describe("workouts repo", () => {
   it("isola sessões por usuário", async () => {
-    await createSession(db, 1, { data: "2026-07-07", nome: "A" });
-    await createSession(db, 2, { data: "2026-07-07", nome: "B" });
+    await sessaoConcluida(db, 1, { data: "2026-07-07", nome: "A" });
+    await sessaoConcluida(db, 2, { data: "2026-07-07", nome: "B" });
     expect(await listSessions(db, 1)).toHaveLength(1);
     expect((await getSessionByDate(db, 1, "2026-07-07"))?.nome).toBe("A");
     expect((await getSessionByDate(db, 2, "2026-07-07"))?.nome).toBe("B");
@@ -41,7 +43,8 @@ describe("workouts repo", () => {
   });
 
   it("deleteSession/deleteSet não afetam outro usuário", async () => {
-    const s1 = await createSession(db, 1, { data: "2026-07-07", nome: null });
+    // Concluída: o teste mede o isolamento pelo que `listSessions` devolve.
+    const s1 = await sessaoConcluida(db, 1, { data: "2026-07-07", nome: null });
     const st = await addSet(db, 1, set({ session_id: s1.id }));
     await deleteSet(db, 2, st.id);
     expect(await listSetsBySession(db, 1, s1.id)).toHaveLength(1);
@@ -77,10 +80,10 @@ describe("workouts repo", () => {
   });
 
   it("listSessionsByRange filtra por range e usuário", async () => {
-    await createSession(db, 1, { data: "2026-07-05", nome: null });
-    await createSession(db, 1, { data: "2026-07-06", nome: "A" });
-    await createSession(db, 1, { data: "2026-07-12", nome: "B" });
-    await createSession(db, 2, { data: "2026-07-07", nome: "X" });
+    await sessaoConcluida(db, 1, { data: "2026-07-05", nome: null });
+    await sessaoConcluida(db, 1, { data: "2026-07-06", nome: "A" });
+    await sessaoConcluida(db, 1, { data: "2026-07-12", nome: "B" });
+    await sessaoConcluida(db, 2, { data: "2026-07-07", nome: "X" });
     const r = await listSessionsByRange(db, 1, "2026-07-06", "2026-07-12");
     expect(r.map((x) => x.data)).toEqual(["2026-07-06", "2026-07-12"]);
   });
@@ -287,5 +290,29 @@ describe("historicoExercicio", () => {
     const s = await createSession(db, 2, { data: "2026-08-01", nome: null });
     await addSet(db, 2, set({ session_id: s.id, reps: 10, peso_kg: 30 }));
     expect(await historicoExercicio(db, 1, 1, "2026-08-15")).toEqual([]);
+  });
+});
+
+describe("o histórico só mostra treino terminado", () => {
+  it("listSessions ignora rascunho e treino em andamento", async () => {
+    const rascunho = await criarSessao(db, 1, { data: "2026-09-01", nome: "Rascunho", itens: [] });
+    const emCurso = await criarSessao(db, 1, { data: "2026-09-01", nome: "Em curso", itens: [] });
+    await iniciarSessao(db, 1, emCurso);
+    const feito = await criarSessao(db, 1, { data: "2026-09-01", nome: "Feito", itens: [] });
+    await iniciarSessao(db, 1, feito);
+    await finalizarSessao(db, 1, feito);
+
+    const historico = await listSessions(db, 1);
+
+    expect(historico.map((s) => s.id)).toEqual([feito]);
+    expect(historico.map((s) => s.id)).not.toContain(rascunho);
+    expect(historico.map((s) => s.id)).not.toContain(emCurso);
+  });
+
+  it("listSessionsByRange também", async () => {
+    const emCurso = await criarSessao(db, 1, { data: "2026-09-01", nome: "Em curso", itens: [] });
+    await iniciarSessao(db, 1, emCurso);
+
+    expect(await listSessionsByRange(db, 1, "2026-09-01", "2026-09-01")).toHaveLength(0);
   });
 });

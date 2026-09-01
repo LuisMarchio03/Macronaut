@@ -6,7 +6,8 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { criarWrapper } from "../../test/helpers/query-wrapper";
 import { TreinoProgresso } from "./treino-progresso";
-import { addSet, createSession } from "../repositories/workouts";
+import { addSet } from "../repositories/workouts";
+import { sessaoConcluida } from "../../test/helpers/sessao";
 import { seedMuscleGroups } from "../repositories/muscle-groups";
 import { criarRotina, salvarDia } from "../repositories/rotina";
 import { diaSemana, hoje } from "../lib/date";
@@ -68,7 +69,7 @@ beforeEach(async () => {
 describe("Progresso — visão Sessões", () => {
   it("resume cada sessão com séries e volume, e leva ao detalhe", async () => {
     const supino = await exercicio("Supino reto");
-    const s = await createSession(db, USER, { data: "2026-08-10", nome: "Peito e tríceps" });
+    const s = await sessaoConcluida(db, USER, { data: "2026-08-10", nome: "Peito e tríceps" });
     await addSet(db, USER, serie({ session_id: s.id, exercise_id: supino, reps: 10, peso_kg: 40 }));
     await addSet(db, USER, serie({ session_id: s.id, exercise_id: supino, ordem: 2, reps: 10, peso_kg: 40 }));
 
@@ -82,7 +83,7 @@ describe("Progresso — visão Sessões", () => {
   // B3: a sessão em que só houve aquecimento aparecia como nome e data e nada mais.
   it("uma sessão só de aquecimento diz 'só aquecimento'", async () => {
     const supino = await exercicio("Supino reto");
-    const s = await createSession(db, USER, { data: "2026-08-10", nome: "Aquecimento só" });
+    const s = await sessaoConcluida(db, USER, { data: "2026-08-10", nome: "Aquecimento só" });
     await addSet(db, USER, serie({ session_id: s.id, exercise_id: supino, tipo: "aquecimento" }));
 
     montar();
@@ -91,7 +92,7 @@ describe("Progresso — visão Sessões", () => {
   });
 
   it("uma sessão sem série nenhuma diz 'nenhuma série registrada'", async () => {
-    await createSession(db, USER, { data: "2026-08-10", nome: "Abandonada" });
+    await sessaoConcluida(db, USER, { data: "2026-08-10", nome: "Abandonada" });
 
     montar();
 
@@ -107,7 +108,7 @@ describe("Progresso — visão Sessões", () => {
 describe("Progresso — visão Exercícios", () => {
   it("lista os exercícios com histórico e a melhor marca, sem select", async () => {
     const supino = await exercicio("Supino reto");
-    const s = await createSession(db, USER, { data: "2026-08-10", nome: "Peito" });
+    const s = await sessaoConcluida(db, USER, { data: "2026-08-10", nome: "Peito" });
     await addSet(db, USER, serie({ session_id: s.id, exercise_id: supino, reps: 5, peso_kg: 60 }));
 
     montar();
@@ -121,7 +122,7 @@ describe("Progresso — visão Exercícios", () => {
 
   it("tocar no exercício abre o gráfico com as três métricas", async () => {
     const supino = await exercicio("Supino reto");
-    const s = await createSession(db, USER, { data: "2026-08-10", nome: "Peito" });
+    const s = await sessaoConcluida(db, USER, { data: "2026-08-10", nome: "Peito" });
     await addSet(db, USER, serie({ session_id: s.id, exercise_id: supino, reps: 5, peso_kg: 60 }));
 
     montar();
@@ -161,7 +162,7 @@ describe("Progresso — visão Resumo", () => {
   it("mostra séries por grupo muscular na semana", async () => {
     const supino = await exercicio("Supino reto", "Peito");
     // O nome da sessão não pode ser "Peito": o teste procura o GRUPO na tela.
-    const s = await createSession(db, USER, { data: hoje(), nome: "Treino A" });
+    const s = await sessaoConcluida(db, USER, { data: hoje(), nome: "Treino A" });
     await addSet(db, USER, serie({ session_id: s.id, exercise_id: supino }));
     await addSet(db, USER, serie({ session_id: s.id, exercise_id: supino, ordem: 2 }));
 
