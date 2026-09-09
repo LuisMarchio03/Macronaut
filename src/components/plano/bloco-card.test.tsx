@@ -286,3 +286,43 @@ describe("BlocoCard — a caloria depois da troca", () => {
     expect(screen.getByText(/dispensado/i)).toBeInTheDocument();
   });
 });
+
+describe("BlocoCard — a refeição substituída", () => {
+  /** Uma troca da REFEIÇÃO inteira — o `item_id` nulo é o que diz isso. */
+  const trocaRef = (id: number, nome: string, kcal: number | null, porcao: string | null = null): Troca => ({
+    id, data: "2026-09-09", block_id: 1, item_id: null, origem: "catalogo", swap_id: null,
+    nome, porcao, kcal, food_id: null, qty_g: null, measure_id: null, medidas: null,
+    dispensado: false,
+  });
+
+  it("desenha a lista nova sobre as linhas riscadas", () => {
+    montar("agora", {
+      trocas: [
+        trocaRef(1, "Pizza", 480, "3 fatias"),
+        trocaRef(2, "Refrigerante", 140),
+      ],
+    });
+
+    expect(screen.getByText("o plano previa")).toBeInTheDocument();
+    expect(screen.getByText("120g de frango")).toHaveClass("line-through");
+    expect(screen.getByText("arroz integral")).toHaveClass("line-through");
+    expect(screen.getByText(/pizza · 3 fatias · 480 kcal/i)).toBeInTheDocument();
+    expect(screen.getByText(/refrigerante · 140 kcal/i)).toBeInTheDocument();
+  });
+
+  it("a caloria do card é a da lista nova, não a do plano", () => {
+    // Somar as linhas junto contaria o almoço duas vezes.
+    montar("agora", {
+      trocas: [trocaRef(1, "Pizza", 480), trocaRef(2, "Refrigerante", 140)],
+      kcalPorItem: new Map([[1, 300], [2, 200]]),
+    });
+    expect(screen.getByText("620 / ~500 kcal")).toBeInTheDocument();
+  });
+
+  it("um alimento sem caloria marca o total com '+'", () => {
+    montar("agora", {
+      trocas: [trocaRef(1, "Pizza", 480), trocaRef(2, "Sorvete da esquina", null)],
+    });
+    expect(screen.getByText("480+ / ~500 kcal")).toBeInTheDocument();
+  });
+});

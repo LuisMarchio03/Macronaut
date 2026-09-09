@@ -2,7 +2,13 @@ import { Check, Clock, Droplets, Pill, UtensilsCrossed, Repeat, AlertCircle } fr
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { janelaHoraria } from "@/lib/date";
-import { descreverTroca, itemDispensado, kcalDaRefeicao, trocasDoItem } from "@/domain/plano-dia";
+import {
+  descreverTroca,
+  itemDispensado,
+  kcalDaRefeicao,
+  trocasDaRefeicao,
+  trocasDoItem,
+} from "@/domain/plano-dia";
 import type { BlocoDoDia } from "@/domain/plano-dia";
 import type { PlanItem, TipoBloco, Troca } from "@/domain/plano-types";
 
@@ -77,6 +83,8 @@ export function BlocoCard({
    * conseguiu casar com o catálogo.
    */
   const mexida = trocas.some((t) => t.block_id === bloco.id);
+  const daRefeicao = trocasDaRefeicao(trocas, bloco.id);
+  const substituida = daRefeicao.length > 0;
   const realizado = mexida ? kcalDaRefeicao(itens, trocas, kcalPorItem ?? new Map(), bloco.id) : null;
   const estourou =
     realizado !== null && bloco.kcal_alvo != null && realizado.total > bloco.kcal_alvo;
@@ -165,7 +173,34 @@ export function BlocoCard({
             <p className="t-caption mt-2 italic">{bloco.observacao}</p>
           )}
 
-          {aberto && !ehAgua && itens.length > 0 && (
+          {aberto && !ehAgua && itens.length > 0 && substituida && (
+            /* A refeição inteira saiu, e é assim que o card diz isso: o plano
+               riscado em bloco, e embaixo o que de fato foi comido. Desenhar
+               a lista pendurada nas linhas fingiria uma correspondência que
+               não existe. */
+            <div className="mt-3 space-y-2">
+              <div>
+                <p className="t-caption">o plano previa</p>
+                <ul className="mt-1 space-y-0.5">
+                  {itens.map((i) => (
+                    <li key={i.id} className="text-sm text-muted-foreground line-through">
+                      {i.texto}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <ul className="space-y-1">
+                {daRefeicao.map((t) => (
+                  <li key={t.id} className="flex gap-2 text-sm">
+                    <span aria-hidden className="mt-1.5 size-1 shrink-0 rounded-full bg-primary" />
+                    <span className="min-w-0 font-medium text-primary">{descreverTroca(t)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {aberto && !ehAgua && itens.length > 0 && !substituida && (
             <ul className="mt-3 space-y-1.5">
               {itens.map((i) => {
                 const doItem = trocasDoItem(trocas, i.id);
