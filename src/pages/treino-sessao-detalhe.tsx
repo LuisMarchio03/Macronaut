@@ -21,12 +21,12 @@ import {
   useRemoverExercicioDaSessao,
   useRemoverSerie,
   useReordenarExerciciosDaSessao,
+  useSessao,
   useTrocarExercicioDaSessao,
 } from "@/hooks/use-sessao";
 import { useDeleteSession, useSessionSets, useUpdateSet } from "@/hooks/use-workouts";
 import { useExercises } from "@/hooks/use-exercises";
-import { useSessoesComResumo } from "@/hooks/use-progresso";
-import { seriesEfetivas, resumirSets } from "@/domain/treino";
+import { seriesEfetivas, resumirSets, volumeSet } from "@/domain/treino";
 import { dataPorExtenso, hoje } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { PlanoSerie } from "@/repositories/sessao";
@@ -117,7 +117,6 @@ export function TreinoSessaoDetalhe() {
   const { data: plano = [], isPending: carregandoPlano } = usePlano(sessionId);
   const { data: sets = [] } = useSessionSets(sessionId);
   const { data: exercicios = [] } = useExercises();
-  const { data: sessoes = [] } = useSessoesComResumo(200);
   const registrar = useRegistrarSerie();
   const atualizarSet = useUpdateSet(sessionId);
   const excluir = useDeleteSession();
@@ -134,7 +133,16 @@ export function TreinoSessaoDetalhe() {
   const [editandoBloco, setEditandoBloco] = useState<number | null>(null);
   const [editandoSessao, setEditandoSessao] = useState(false);
   const [adicionando, setAdicionando] = useState(false);
-  const sessao = sessoes.find((s) => s.id === sessionId);
+  // Por id, e não por `find` num recorte do histórico: aquela lista passou a
+  // trazer só sessões concluídas, então uma sessão ainda aberta, aberta pelo
+  // endereço direto, ficaria sem cabeçalho nenhum. De quebra sai uma consulta
+  // de 200 linhas de uma tela que precisava de uma.
+  const { data: sessao } = useSessao(sessionId);
+
+  // Séries e volume vinham prontos de `SessaoResumida`. Saem dos `sets` que a
+  // tela já consulta — a mesma conta, sem uma segunda viagem ao banco.
+  const efetivas = seriesEfetivas(sets);
+  const volumeTotal = efetivas.reduce((acc, s) => acc + volumeSet(s.peso_kg, s.reps), 0);
 
   if (carregandoPlano) return <SkeletonList rows={4} />;
 
@@ -170,8 +178,8 @@ export function TreinoSessaoDetalhe() {
         {sessao && (
           <p className="t-caption tabular-nums">
             {dataPorExtenso(sessao.data)}
-            {sessao.series > 0 &&
-              ` · ${sessao.series} ${sessao.series === 1 ? "série" : "séries"} · ${Math.round(sessao.volume_kg).toLocaleString("pt-BR")} kg`}
+            {efetivas.length > 0 &&
+              ` · ${efetivas.length} ${efetivas.length === 1 ? "série" : "séries"} · ${Math.round(volumeTotal).toLocaleString("pt-BR")} kg`}
           </p>
         )}
       </div>

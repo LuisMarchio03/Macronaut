@@ -3,6 +3,8 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../test/helpers/test-db";
 import { exerciciosComHistorico, seriesPorGrupo, sessoesComResumo } from "./progresso";
 import { addSet, createSession } from "./workouts";
+import { criarSessao, iniciarSessao } from "./sessao";
+import { sessaoConcluida } from "../../test/helpers/sessao";
 import { seedMuscleGroups } from "./muscle-groups";
 import { e1RM } from "../domain/treino";
 
@@ -36,10 +38,10 @@ beforeEach(async () => {
 describe("sessoesComResumo", () => {
   it("resume séries efetivas e volume, da mais recente para a mais antiga", async () => {
     const supino = await exercicio("Supino");
-    const s1 = await createSession(db, USER, { data: "2026-08-01", nome: "A" });
+    const s1 = await sessaoConcluida(db, USER, { data: "2026-08-01", nome: "A" });
     await addSet(db, USER, serie({ session_id: s1.id, exercise_id: supino, reps: 10, peso_kg: 40 }));
     await addSet(db, USER, serie({ session_id: s1.id, exercise_id: supino, ordem: 2, reps: 8, peso_kg: 40 }));
-    const s2 = await createSession(db, USER, { data: "2026-08-08", nome: "B" });
+    const s2 = await sessaoConcluida(db, USER, { data: "2026-08-08", nome: "B" });
     await addSet(db, USER, serie({ session_id: s2.id, exercise_id: supino, reps: 5, peso_kg: 60 }));
 
     const r = await sessoesComResumo(db, USER);
@@ -54,9 +56,9 @@ describe("sessoesComResumo", () => {
   // nada. A tela precisa do número para poder dizer "só aquecimento".
   it("distingue sessão só com aquecimento de sessão vazia", async () => {
     const supino = await exercicio("Supino");
-    const so = await createSession(db, USER, { data: "2026-08-02", nome: "Só aquecimento" });
+    const so = await sessaoConcluida(db, USER, { data: "2026-08-02", nome: "Só aquecimento" });
     await addSet(db, USER, serie({ session_id: so.id, exercise_id: supino, tipo: "aquecimento" }));
-    await createSession(db, USER, { data: "2026-08-01", nome: "Vazia" });
+    await sessaoConcluida(db, USER, { data: "2026-08-01", nome: "Vazia" });
 
     const r = await sessoesComResumo(db, USER);
     const soAquec = r.find((x) => x.nome === "Só aquecimento")!;
@@ -67,18 +69,8 @@ describe("sessoesComResumo", () => {
     expect(vazia.aquecimento).toBe(0);
   });
 
-  it("marca a sessão encerrada", async () => {
-    const s = await createSession(db, USER, { data: "2026-08-01", nome: "A" });
-    expect((await sessoesComResumo(db, USER))[0].concluida).toBe(false);
-    await db.execute({
-      sql: "UPDATE workout_sessions SET concluida_em = ? WHERE id = ?",
-      args: [new Date().toISOString(), s.id],
-    });
-    expect((await sessoesComResumo(db, USER))[0].concluida).toBe(true);
-  });
-
   it("não enxerga sessão de outro usuário", async () => {
-    await createSession(db, OUTRO, { data: "2026-08-01", nome: "Do outro" });
+    await sessaoConcluida(db, OUTRO, { data: "2026-08-01", nome: "Do outro" });
     expect(await sessoesComResumo(db, USER)).toEqual([]);
   });
 });
@@ -157,5 +149,14 @@ describe("seriesPorGrupo", () => {
     const s = await createSession(db, USER, { data: "2026-07-01", nome: null });
     await addSet(db, USER, serie({ session_id: s.id, exercise_id: supino }));
     expect(await seriesPorGrupo(db, USER, "2026-08-01", "2026-08-31")).toEqual([]);
+  });
+});
+
+describe("sessoesComResumo — só o que terminou", () => {
+  it("ignora o treino que ainda não terminou", async () => {
+    const emCurso = await criarSessao(db, USER, { data: "2026-09-01", nome: "Em curso", itens: [] });
+    await iniciarSessao(db, USER, emCurso);
+
+    expect((await sessoesComResumo(db, USER)).map((s) => s.id)).not.toContain(emCurso);
   });
 });

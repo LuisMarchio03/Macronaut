@@ -5,7 +5,7 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../../test/helpers/test-db";
 import { criarWrapper } from "../../../test/helpers/query-wrapper";
 import { SheetTrocas } from "./sheet-trocas";
-import type { PlanBlock, PlanItem, PlanSwap, TrocaDeItem } from "@/domain/plano-types";
+import type { PlanBlock, PlanItem, PlanSwap, Troca } from "@/domain/plano-types";
 
 let db: Client;
 
@@ -50,15 +50,27 @@ const SWAPS = [
   swap({ id: 6, block_nome: "Janta", categoria: "proteina", alimento: "Peixe branco", kcal: 110 }),
 ];
 
-const troca = (p: Partial<TrocaDeItem> & { item_id: number }): TrocaDeItem => ({
+const troca = (p: Partial<Troca> & { item_id: number }): Troca => ({
   id: p.item_id, data: "2026-08-31", block_id: 10, origem: "plano", swap_id: null,
   nome: "Tapioca", porcao: null, kcal: null,
-  food_id: null, qty_g: null, measure_id: null, medidas: null, ...p,
+  food_id: null, qty_g: null, measure_id: null, medidas: null, dispensado: false, ...p,
+});
+
+/** Uma troca da REFEIÇÃO inteira — o `item_id` nulo é o que diz isso. */
+const trocaRef = (p: Partial<Troca> & { id: number }): Troca => ({
+  data: "2026-08-31", block_id: 10, item_id: null, origem: "catalogo", swap_id: null,
+  nome: "Pizza", porcao: null, kcal: null,
+  food_id: null, qty_g: null, measure_id: null, medidas: null, dispensado: false, ...p,
 });
 
 function montar(props: Partial<Parameters<typeof SheetTrocas>[0]> = {}) {
   const onTrocar = vi.fn();
+  const onAdicionar = vi.fn();
+  const onRemoverUma = vi.fn();
+  const onDispensar = vi.fn();
   const onDesfazer = vi.fn();
+  const onTrocarRefeicao = vi.fn();
+  const onDesfazerRefeicao = vi.fn();
   const onMarcar = vi.fn();
   render(
     <SheetTrocas
@@ -68,14 +80,22 @@ function montar(props: Partial<Parameters<typeof SheetTrocas>[0]> = {}) {
       trocas={[]}
       feito={false}
       onTrocar={onTrocar}
+      onAdicionar={onAdicionar}
+      onRemoverUma={onRemoverUma}
+      onDispensar={onDispensar}
       onDesfazer={onDesfazer}
+      onTrocarRefeicao={onTrocarRefeicao}
+      onDesfazerRefeicao={onDesfazerRefeicao}
       onMarcar={onMarcar}
       onClose={vi.fn()}
       {...props}
     />,
     { wrapper: criarWrapper(db) },
   );
-  return { onTrocar, onDesfazer, onMarcar };
+  return {
+    onTrocar, onAdicionar, onRemoverUma, onDispensar, onDesfazer,
+    onTrocarRefeicao, onDesfazerRefeicao, onMarcar,
+  };
 }
 
 describe("SheetTrocas — a refeição", () => {
@@ -102,13 +122,13 @@ describe("SheetTrocas — a refeição", () => {
 
   it("desfaz a troca de um item", async () => {
     const { onDesfazer } = montar({ trocas: [troca({ item_id: 2 })] });
-    await userEvent.click(screen.getByRole("button", { name: /desfazer a troca de 1 fatia/i }));
+    await userEvent.click(screen.getByRole("button", { name: /devolver 1 fatia de pão integral ao plano/i }));
     expect(onDesfazer).toHaveBeenCalledWith(2);
   });
 
-  it("o desfazer só existe onde há troca", () => {
+  it("o devolver ao plano só existe onde a linha foi mexida", () => {
     montar({ trocas: [troca({ item_id: 2 })] });
-    expect(screen.queryByRole("button", { name: /desfazer a troca de 3 ovos/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /devolver 3 ovos mexidos ao plano/i })).toBeNull();
   });
 
   it("marca a refeição como feita sem exigir troca nenhuma", async () => {
@@ -148,7 +168,7 @@ describe("SheetTrocas — a refeição", () => {
   it("explica o vazio quando o bloco não tem itens", () => {
     montar({ itens: [] });
     expect(screen.getByText(/não tem itens no seu plano/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /trocar tudo/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /linha a linha/i })).toBeNull();
   });
 });
 
@@ -210,7 +230,7 @@ describe("SheetTrocas — trocar um item", () => {
 describe("SheetTrocas — fora da lista do plano", () => {
   it("troca por um alimento do catálogo, com medida caseira e caloria calculada", async () => {
     const user = userEvent.setup();
-    const { onTrocar } = montar();
+    const { onAdicionar } = montar();
     await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
     await user.click(screen.getByRole("tab", { name: "Catálogo" }));
 
@@ -227,14 +247,14 @@ describe("SheetTrocas — fora da lista do plano", () => {
     await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
 
     // 2 colheres × 15 g = 30 g; 240 kcal/100 g → 72 kcal.
-    expect(onTrocar).toHaveBeenCalledWith(2, {
+    expect(onAdicionar).toHaveBeenCalledWith(2, {
       food_id: 1, qty_g: 30, measure_id: 1, medidas: 2, kcal: 72,
     });
   });
 
   it("troca por texto livre com caloria", async () => {
     const user = userEvent.setup();
-    const { onTrocar } = montar();
+    const { onAdicionar } = montar();
     await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
     await user.click(screen.getByRole("tab", { name: "Escrever" }));
 
@@ -242,12 +262,12 @@ describe("SheetTrocas — fora da lista do plano", () => {
     await user.type(screen.getByLabelText(/calorias/i), "180");
     await user.click(screen.getByRole("button", { name: /^trocar$/i }));
 
-    expect(onTrocar).toHaveBeenCalledWith(1, { texto: "Omelete da padaria", kcal: 180 });
+    expect(onAdicionar).toHaveBeenCalledWith(1, { texto: "Omelete da padaria", kcal: 180 });
   });
 
   it("texto livre sem caloria avisa que não entra no balanço", async () => {
     const user = userEvent.setup();
-    const { onTrocar } = montar();
+    const { onAdicionar } = montar();
     await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
     await user.click(screen.getByRole("tab", { name: "Escrever" }));
 
@@ -255,7 +275,7 @@ describe("SheetTrocas — fora da lista do plano", () => {
     await user.type(screen.getByLabelText(/o que você comeu/i), "o que tinha");
     await user.click(screen.getByRole("button", { name: /^trocar$/i }));
 
-    expect(onTrocar).toHaveBeenCalledWith(1, { texto: "o que tinha", kcal: null });
+    expect(onAdicionar).toHaveBeenCalledWith(1, { texto: "o que tinha", kcal: null });
   });
 
   it("não deixa gravar troca escrita sem texto", async () => {
@@ -271,31 +291,33 @@ describe("SheetTrocas — trocar a refeição inteira", () => {
   it("percorre os itens em sequência, contando o passo", async () => {
     const user = userEvent.setup();
     const { onTrocar } = montar();
-    await user.click(screen.getByRole("button", { name: /trocar tudo/i }));
+    await user.click(screen.getByRole("button", { name: /linha a linha/i }));
 
-    // Item 1 de 3.
+    // Item 1 de 3. Confirmar NÃO avança: a linha ainda pode receber um
+    // segundo alimento, e quem terminou toca em "Próximo item".
     expect(screen.getByText(/item 1 de 3/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /queijo cottage/i }));
+    expect(screen.getByText(/item 1 de 3/i)).toBeInTheDocument();
 
-    // Confirmar avança sozinho para a linha seguinte.
+    await user.click(screen.getByRole("button", { name: /próximo item/i }));
     expect(screen.getByText(/item 2 de 3/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /tapioca/i }));
 
+    await user.click(screen.getByRole("button", { name: /próximo item/i }));
     expect(screen.getByText(/item 3 de 3/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /banana/i }));
 
-    // Fim da fila: volta para a refeição.
-    expect(screen.getByRole("button", { name: /trocar tudo/i })).toBeInTheDocument();
-    expect(onTrocar).toHaveBeenCalledTimes(3);
+    // A última linha não oferece "próximo": sair é o botão de voltar.
+    expect(screen.queryByRole("button", { name: /próximo item/i })).not.toBeInTheDocument();
     expect(onTrocar.mock.calls.map((c) => c[0])).toEqual([1, 2, 3]);
   });
 
   it("dá para sair do meio do percurso", async () => {
     const user = userEvent.setup();
     montar();
-    await user.click(screen.getByRole("button", { name: /trocar tudo/i }));
+    await user.click(screen.getByRole("button", { name: /linha a linha/i }));
     await user.click(screen.getByRole("button", { name: /voltar para a refeição/i }));
-    expect(screen.getByRole("button", { name: /trocar tudo/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /linha a linha/i })).toBeInTheDocument();
   });
 });
 
@@ -312,5 +334,325 @@ describe("SheetTrocas — mais de uma troca na mesma refeição", () => {
     const lista = screen.getByRole("list");
     expect(within(lista).getByText("Tapioca · 90 kcal")).toBeInTheDocument();
     expect(within(lista).getByText("Banana · 90 kcal")).toBeInTheDocument();
+  });
+});
+
+describe("SheetTrocas — o estado da folha de nível 2", () => {
+  /**
+   * O bug: `TrocarItem` não remontava entre um item e o seguinte, então o
+   * alimento escolhido para a linha 1 continuava carregado na linha 2 — com o
+   * botão "Trocar por X" já pronto. Quem percorria a refeição tocava nele e
+   * acabava com o MESMO alimento em todas as linhas.
+   */
+  it("percorrendo a refeição, o item seguinte não herda o alimento do anterior", async () => {
+    const user = userEvent.setup();
+    montar();
+
+    await user.click(screen.getByRole("button", { name: /linha a linha/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /adicionar tapioca goma|trocar por tapioca goma/i }));
+    await user.click(await screen.findByRole("button", { name: /próximo item/i }));
+
+    // Já no item 2: nada do item 1 pode ter sobrado.
+    expect(await screen.findByText(/item 2 de 3/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /trocar por tapioca goma/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/alimento/i)).toHaveValue("");
+  });
+
+  /**
+   * Zerar o alimento entre um item e o seguinte é o conserto; zerar a ABA
+   * seria um atrito novo. Quem está trocando a refeição inteira pelo catálogo
+   * teria que escolher "Catálogo" em cada uma das cinco linhas.
+   */
+  it("percorrendo, a aba escolhida acompanha o item seguinte", async () => {
+    const user = userEvent.setup();
+    montar();
+
+    await user.click(screen.getByRole("button", { name: /linha a linha/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /adicionar tapioca goma|trocar por tapioca goma/i }));
+    await user.click(await screen.findByRole("button", { name: /próximo item/i }));
+
+    expect(await screen.findByText(/item 2 de 3/i)).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Catálogo" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText(/alimento/i)).toBeInTheDocument();
+  });
+
+  /**
+   * O bug original: reabrir uma linha já trocada pelo catálogo abria a aba
+   * "Catálogo" — ela lê a origem da troca — e mostrava um campo vazio, sem
+   * nenhum sinal do que havia sido escolhido e sem botão de confirmar. Era o
+   * "o botão de trocar não funciona".
+   *
+   * A resposta deixou de ser reidratar o formulário (o que impediria escolher
+   * um SEGUNDO alimento, porque a lista de resultados some quando há um
+   * selecionado) e passou a ser a lista do topo: o que foi escolhido fica
+   * visível, com o × de cada um, e o campo fica livre para o próximo.
+   */
+  it("reabrir uma linha trocada mostra a escolha e deixa o campo livre", async () => {
+    const user = userEvent.setup();
+    montar({
+      trocas: [
+        troca({
+          id: 91, item_id: 2, origem: "catalogo", nome: "Tapioca goma", porcao: "30 g",
+          kcal: 72, food_id: 1, qty_g: 30, measure_id: 1, medidas: 2,
+        }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+
+    // O que já foi escolhido, com o caminho para tirá-lo…
+    expect(await screen.findByText("Tapioca goma · 30 g · 72 kcal")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /remover tapioca goma/i })).toBeInTheDocument();
+    // …e o campo pronto para o próximo.
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    expect(screen.getByLabelText(/alimento/i)).toHaveValue("");
+  });
+});
+
+describe("SheetTrocas — mais de um alimento por linha", () => {
+  it("com uma escolha feita, o botão do catálogo passa a dizer Adicionar", async () => {
+    const user = userEvent.setup();
+    montar({
+      trocas: [troca({ id: 91, item_id: 2, nome: "Pão na chapa", kcal: 210 })],
+    });
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+
+    expect(await screen.findByRole("button", { name: /^adicionar tapioca goma$/i })).toBeInTheDocument();
+  });
+
+  it("escolher no catálogo ACRESCENTA, não substitui", async () => {
+    const user = userEvent.setup();
+    const { onAdicionar } = montar();
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+
+    expect(onAdicionar).toHaveBeenCalledWith(2, {
+      food_id: 1, qty_g: 15, measure_id: 1, medidas: 1, kcal: 36,
+    });
+  });
+
+  it("depois de adicionar, o formulário limpa para você buscar o próximo", async () => {
+    // Sem isto, "adicionar outro" exigia apagar o campo na mão: a lista de
+    // resultados só aparece quando não há alimento escolhido.
+    const user = userEvent.setup();
+    montar();
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+
+    await waitFor(() => expect(screen.getByLabelText(/alimento/i)).toHaveValue(""));
+    expect(screen.queryByLabelText(/quantidade/i)).not.toBeInTheDocument();
+  });
+
+  it("depois de escrever à mão, os campos também limpam", async () => {
+    const user = userEvent.setup();
+    montar();
+    await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
+    await user.click(screen.getByRole("tab", { name: "Escrever" }));
+    await user.type(screen.getByLabelText(/o que você comeu/i), "Pão da padaria");
+    await user.click(screen.getByRole("button", { name: /^trocar$/i }));
+
+    await waitFor(() => expect(screen.getByLabelText(/o que você comeu/i)).toHaveValue(""));
+  });
+
+  it("as escolhas já feitas aparecem na folha da linha, com o × de cada uma", async () => {
+    const user = userEvent.setup();
+    const { onRemoverUma } = montar({
+      trocas: [
+        troca({ id: 91, item_id: 2, nome: "Pão na chapa", kcal: 210 }),
+        troca({ id: 92, item_id: 2, nome: "Suco de laranja", kcal: 90 }),
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: /trocar 1 fatia de pão integral/i }));
+
+    await user.click(await screen.findByRole("button", { name: /remover suco de laranja/i }));
+    expect(onRemoverUma).toHaveBeenCalledWith(92);
+  });
+
+  it("a refeição empilha as N trocas sob o item riscado", () => {
+    montar({
+      trocas: [
+        troca({ id: 91, item_id: 2, nome: "Pão na chapa", kcal: 210 }),
+        troca({ id: 92, item_id: 2, nome: "Suco de laranja", kcal: 90 }),
+      ],
+    });
+    expect(screen.getByText("Pão na chapa · 210 kcal")).toBeInTheDocument();
+    expect(screen.getByText("Suco de laranja · 90 kcal")).toBeInTheDocument();
+  });
+
+  it("dispensar a linha avisa quem monta a tela", async () => {
+    const user = userEvent.setup();
+    const { onDispensar } = montar();
+    await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
+    await user.click(screen.getByRole("button", { name: /não comi esta linha/i }));
+    expect(onDispensar).toHaveBeenCalledWith(1);
+  });
+
+  it("linha dispensada aparece como tal, e dá para voltar ao plano", async () => {
+    const user = userEvent.setup();
+    const { onDesfazer } = montar({
+      trocas: [troca({ id: 93, item_id: 1, dispensado: true, nome: "" })],
+    });
+    expect(screen.getByText(/^dispensado$/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /trocar 3 ovos mexidos/i }));
+    await user.click(await screen.findByRole("button", { name: /voltar ao plano/i }));
+    expect(onDesfazer).toHaveBeenCalledWith(1);
+  });
+
+  it("confirmar não avança sozinho: a linha pode receber outro alimento", async () => {
+    const user = userEvent.setup();
+    montar();
+    await user.click(screen.getByRole("button", { name: /linha a linha/i }));
+    await user.click(screen.getByRole("tab", { name: "Catálogo" }));
+    await user.type(screen.getByLabelText(/alimento/i), "tapioca");
+    await user.click(await screen.findByRole("button", { name: /tapioca goma/i }));
+    const qtd = screen.getByLabelText(/quantidade/i);
+    await waitFor(() => expect(qtd).toHaveValue("1"));
+    await user.click(screen.getByRole("button", { name: /trocar por tapioca goma/i }));
+
+    // Continua no item 1, e o caminho para o próximo é explícito.
+    expect(screen.getByText(/item 1 de 3/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /próximo item/i })).toBeInTheDocument();
+  });
+});
+
+describe("SheetTrocas — trocar a refeição inteira", () => {
+  it("o rodapé oferece os dois caminhos", () => {
+    montar();
+    expect(screen.getByRole("button", { name: /linha a linha/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /refeição inteira/i })).toBeInTheDocument();
+  });
+
+  it("'Refeição inteira' abre a lista livre, não a primeira linha", async () => {
+    const user = userEvent.setup();
+    montar();
+    await user.click(screen.getByRole("button", { name: /refeição inteira/i }));
+
+    expect(screen.getByText(/monte o que você comeu/i)).toBeInTheDocument();
+    // Nada de "Item 1 de 3": não se está percorrendo coisa nenhuma.
+    expect(screen.queryByText(/item 1 de 3/i)).toBeNull();
+  });
+
+  it("dois alimentos do plano ACUMULAM, em vez de um corrigir o outro", async () => {
+    // É a diferença que justifica o nível: na linha, escolher de novo corrige;
+    // na refeição, escolher de novo acrescenta.
+    const user = userEvent.setup();
+    const { onTrocarRefeicao } = montar();
+    await user.click(screen.getByRole("button", { name: /refeição inteira/i }));
+
+    await user.click(screen.getByRole("button", { name: /ovos inteiros/i }));
+    await user.click(screen.getByRole("button", { name: /^tapioca/i }));
+
+    expect(onTrocarRefeicao).toHaveBeenCalledTimes(2);
+    expect(onTrocarRefeicao.mock.calls[0][0]).toEqual({ swap_id: 1 });
+    expect(onTrocarRefeicao.mock.calls[1][0]).toEqual({ swap_id: 3 });
+  });
+
+  it("mostra as substituições de TODAS as categorias do bloco", async () => {
+    // Não há categoria de linha para filtrar: a lista é do bloco inteiro.
+    const user = userEvent.setup();
+    montar();
+    await user.click(screen.getByRole("button", { name: /refeição inteira/i }));
+
+    expect(screen.getByRole("button", { name: /ovos inteiros/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /aveia/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /banana/i })).toBeInTheDocument();
+    // A da Janta não é deste bloco.
+    expect(screen.queryByRole("button", { name: /peixe branco/i })).toBeNull();
+  });
+
+  it("soma a caloria da lista contra a meta do bloco", async () => {
+    const user = userEvent.setup();
+    montar({ trocas: [trocaRef({ id: 1, nome: "Pizza", kcal: 480 })] });
+    await user.click(screen.getByRole("button", { name: /adicionar alimento/i }));
+
+    expect(screen.getByText(/480 kcal · meta ~400/)).toBeInTheDocument();
+  });
+
+  it("um alimento sem caloria marca a soma com '+'", async () => {
+    const user = userEvent.setup();
+    montar({
+      trocas: [
+        trocaRef({ id: 1, nome: "Pizza", kcal: 480 }),
+        trocaRef({ id: 2, nome: "Sorvete da esquina", kcal: null }),
+      ],
+    });
+    await user.click(screen.getByRole("button", { name: /adicionar alimento/i }));
+
+    expect(screen.getByText(/480\+ kcal/)).toBeInTheDocument();
+  });
+
+  it("cada alimento da lista pode sair sozinho", async () => {
+    const user = userEvent.setup();
+    const { onRemoverUma } = montar({
+      trocas: [trocaRef({ id: 7, nome: "Pizza", kcal: 480 })],
+    });
+    await user.click(screen.getByRole("button", { name: /adicionar alimento/i }));
+    await user.click(screen.getByRole("button", { name: /remover pizza/i }));
+
+    expect(onRemoverUma).toHaveBeenCalledWith(7);
+  });
+
+  it("'Voltar ao plano' desfaz a refeição inteira", async () => {
+    const user = userEvent.setup();
+    const { onDesfazerRefeicao } = montar({
+      trocas: [trocaRef({ id: 1, nome: "Pizza", kcal: 480 })],
+    });
+    await user.click(screen.getByRole("button", { name: /voltar ao plano/i }));
+
+    expect(onDesfazerRefeicao).toHaveBeenCalled();
+  });
+
+  it("com a refeição substituída, as linhas ficam riscadas e a lista aparece", () => {
+    montar({
+      trocas: [
+        trocaRef({ id: 1, nome: "Pizza", porcao: "3 fatias", kcal: 480 }),
+        trocaRef({ id: 2, nome: "Refrigerante", porcao: "350 ml", kcal: 140 }),
+      ],
+    });
+
+    expect(screen.getByText(/o plano previa/i)).toBeInTheDocument();
+    expect(screen.getByText("3 ovos mexidos")).toHaveClass("line-through");
+    expect(screen.getByText(/pizza · 3 fatias · 480 kcal/i)).toBeInTheDocument();
+    expect(screen.getByText(/refrigerante · 350 ml · 140 kcal/i)).toBeInTheDocument();
+  });
+
+  it("com a refeição substituída, a linha deixa de ser um alvo de troca", () => {
+    // Trocar uma linha aqui não quer dizer nada — e deixar tocável convidaria
+    // a perder a lista sem aviso. A saída é "Voltar ao plano".
+    montar({ trocas: [trocaRef({ id: 1, nome: "Pizza", kcal: 480 })] });
+
+    expect(screen.queryByRole("button", { name: /trocar 3 ovos mexidos/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /linha a linha/i })).toBeNull();
+  });
+
+  it("avisa o alimento que não entra no balanço", () => {
+    montar({ trocas: [trocaRef({ id: 1, nome: "Sorvete da esquina", kcal: null })] });
+    expect(screen.getByText(/não entra no balanço/i)).toBeInTheDocument();
   });
 });

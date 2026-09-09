@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Check, ChevronDown, Ellipsis, Minus, Pencil, Plus, Trophy, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Check, ChevronDown, Ellipsis, Minus, Pencil, Play, Plus, Trophy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SheetConfirmar } from "@/components/ui/confirmar";
 import { Label } from "@/components/ui/label";
 import { CronometroDescanso } from "@/components/treino/cronometro-descanso";
 import { ExercicioAutocomplete } from "@/components/treino/exercicio-autocomplete";
@@ -11,6 +12,7 @@ import { SheetEditarExercicio } from "@/components/treino/sheet-editar-exercicio
 import { SheetExercicio } from "@/components/treino/sheet-exercicio";
 import { useExercises } from "@/hooks/use-exercises";
 import { useProfile } from "@/hooks/use-profile";
+import { useTempoDecorrido } from "@/hooks/use-tempo-decorrido";
 import {
   useAdicionarAoPlano,
   useAdicionarSerie,
@@ -18,18 +20,21 @@ import {
   useMarcasAmrap,
   usePlano,
   useRegistrarCardio,
+  useDescartarSessao,
   useFinalizarSessao,
+  useIniciarTreino,
   useRegistrarSerie,
   useRemoverExercicioDaSessao,
   useRemoverSerie,
   useReordenarExerciciosDaSessao,
   useSessao,
-  useSessaoEmAndamento,
+  useSessaoAtiva,
   useTrocarExercicioDaSessao,
 } from "@/hooks/use-sessao";
 import { useHistoricoExercicio } from "@/hooks/use-workouts";
 import { e1RMDaSerie, ehRecorde, recordeNoPeso } from "@/domain/531";
 import { estimativaKcal, resumirSets } from "@/domain/treino";
+import { estadoDaSessao } from "@/domain/sessao-estado";
 import type { TipoSerie } from "@/domain/types";
 import { hoje } from "@/lib/date";
 import { cn } from "@/lib/utils";
@@ -57,22 +62,6 @@ function Bolinha({ ok }: { ok: boolean }) {
  * é verdadeiro depois de fechar o app, e não precisa ser guardado em lugar
  * nenhum. Só minutos — segundos aqui seriam um número piscando sem uso.
  */
-function TempoDeTreino({ desde }: { desde: string | undefined }) {
-  const [agora, setAgora] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setAgora(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-
-  if (!desde) return null;
-  const inicio = new Date(desde).getTime();
-  if (Number.isNaN(inicio)) return null;
-
-  const min = Math.max(0, Math.floor((agora - inicio) / 60_000));
-  return <>{min < 60 ? `${min} min` : `${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}`}</>;
-}
-
 /** "Última vez · 3×10 @ 40 kg" — o contexto que justifica a carga de hoje. */
 function UltimaVez({ exerciseId }: { exerciseId: number }) {
   const { data: hist = [], isPending } = useHistoricoExercicio(exerciseId, hoje(), 1);
@@ -379,7 +368,7 @@ export function TreinoSessao() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const idDaUrl = params.get("s");
-  const { data: emAndamento, isPending: carregandoSessao } = useSessaoEmAndamento(hoje());
+  const { data: emAndamento, isPending: carregandoSessao } = useSessaoAtiva();
   const sessionId = idDaUrl ? Number(idDaUrl) : (emAndamento?.session_id ?? undefined);
 
   const { data: sessao } = useSessao(sessionId);
@@ -397,6 +386,14 @@ export function TreinoSessao() {
   const { data: perfil } = useProfile();
   const { data: catalogo = [] } = useExercises();
 
+  const iniciarTreino = useIniciarTreino();
+  const descartar = useDescartarSessao();
+
+  // A sessão pode não ter carregado; até lá o rodapé não decide nada.
+  const estado = sessao ? estadoDaSessao(sessao) : null;
+  const decorrido = useTempoDecorrido(sessao?.iniciado_em ?? null);
+
+  const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
   const [iExercicio, setIExercicio] = useState(0);
   const [ajustando, setAjustando] = useState<PlanoSerie | null>(null);
   const [ajustandoCardio, setAjustandoCardio] = useState<PlanoSerie | null>(null);
@@ -489,8 +486,10 @@ export function TreinoSessao() {
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {sessao?.nome ?? "Treino"}
         </span>
+        {/* Desde `iniciado_em`, não desde `created_at`: um rascunho montado de
+            manhã e iniciado à noite anunciaria doze horas de treino. */}
         <span className="t-caption shrink-0 tabular-nums">
-          <TempoDeTreino desde={sessao?.created_at} /> · {feitas}/{plano.length}
+          {decorrido && `${decorrido} · `}{feitas}/{plano.length}
         </span>
       </header>
 
@@ -657,20 +656,66 @@ export function TreinoSessao() {
         </nav>
       )}
 
+      {/* O rodapé é função do estado. Antes ele oferecia "Finalizar" sempre —
+          inclusive numa sessão já fechada, onde era inócuo por idempotência e
+          mentiroso, e num rascunho, onde encerrava um treino que nem tinha
+          começado. */}
       <footer className="sticky bottom-0 border-t border-border bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-lg">
-        <Button
-          block
-          size="lg"
-          disabled={finalizar.isPending}
-          onClick={() =>
-            finalizar.mutate(sessionId, { onSuccess: () => navigate("/treino") })
-          }
-        >
-          {plano.length > 0 && feitas === plano.length
-            ? "Finalizar treino"
-            : `Finalizar (${feitas} de ${plano.length})`}
-        </Button>
+        {estado === "rascunho" ? (
+          <>
+            <Button
+              block
+              size="lg"
+              disabled={iniciarTreino.isPending}
+              onClick={() => iniciarTreino.mutate(sessionId)}
+            >
+              <Play className="size-4" />
+              Iniciar treino
+            </Button>
+            <button
+              type="button"
+              onClick={() => setConfirmandoDescarte(true)}
+              className="mt-1 flex min-h-11 w-full items-center justify-center text-[0.8125rem] font-medium text-muted-foreground"
+            >
+              Descartar
+            </button>
+          </>
+        ) : estado === "concluida" ? (
+          <div className="text-center">
+            <p className="t-caption">Treino concluído</p>
+            <Link
+              to={`/treino/sessao/${sessionId}`}
+              className="mt-1 inline-flex min-h-11 items-center text-[0.8125rem] font-medium text-primary"
+            >
+              Ver no histórico
+            </Link>
+          </div>
+        ) : (
+          <Button
+            block
+            size="lg"
+            disabled={finalizar.isPending}
+            onClick={() =>
+              finalizar.mutate(sessionId, { onSuccess: () => navigate("/treino") })
+            }
+          >
+            {plano.length > 0 && feitas === plano.length
+              ? "Finalizar treino"
+              : `Finalizar (${feitas} de ${plano.length})`}
+          </Button>
+        )}
       </footer>
+
+      <SheetConfirmar
+        aberto={confirmandoDescarte}
+        onFechar={() => setConfirmandoDescarte(false)}
+        titulo="Descartar este treino?"
+        descricao="A sessão e tudo que você já registrou nela somem. Não tem desfazer."
+        rotulo="Descartar"
+        onConfirmar={() =>
+          descartar.mutate(sessionId, { onSuccess: () => navigate("/treino") })
+        }
+      />
 
       {atual && (
         <SheetEditarExercicio

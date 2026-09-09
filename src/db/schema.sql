@@ -121,6 +121,11 @@ CREATE TABLE IF NOT EXISTS workout_sessions (
   data        TEXT NOT NULL,
   nome        TEXT,
   nota        TEXT,
+  -- O ciclo de vida da sessão. NULL/NULL = rascunho (criada, ainda não
+  -- começou); com iniciado_em = em andamento; com os dois = concluída. As duas
+  -- também vivem em ADDITIVE_COLUMNS, para os bancos que nasceram sem elas.
+  iniciado_em  TEXT,
+  concluida_em TEXT,
   created_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_wsessions_user_data ON workout_sessions (user_id, data);
@@ -329,12 +334,20 @@ CREATE INDEX IF NOT EXISTS idx_plan_checks_dia ON plan_checks (user_id, data);
 -- (`swap_id`), um alimento do catálogo (`food_id` + quantidade), ou texto
 -- livre. O CHECK é o que impede uma linha ambígua — e uma linha ambígua não
 -- teria como ser desenhada nem contada.
+-- Uma linha por ALIMENTO escolhido: a mesma linha do plano pode receber
+-- vários. Era UNIQUE (user_id, data, item_id) — uma troca por linha, e trocar
+-- de novo corrigia a anterior. É o desenho certo para "errei, quis dizer outra
+-- coisa" e o errado para "comi duas coisas no lugar dessa".
 CREATE TABLE IF NOT EXISTS plan_item_swaps (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id    INTEGER NOT NULL,
   data       TEXT    NOT NULL,             -- 'YYYY-MM-DD'
   block_id   INTEGER NOT NULL,
-  item_id    INTEGER NOT NULL,             -- plan_items.id: QUAL linha foi trocada
+  -- plan_items.id: QUAL linha foi trocada. NULL = a troca é da REFEIÇÃO
+  -- inteira: uma lista nova no lugar do bloco, sem relação com as linhas do
+  -- plano. Três alimentos no lugar de cinco linhas não precisa fingir que
+  -- cada um substituiu uma delas.
+  item_id    INTEGER,
   swap_id    INTEGER,                      -- plan_swaps.id  → prevista no plano
   food_id    INTEGER,                      -- foods.id       → alimento do catálogo
   texto      TEXT,                         -- o que você escreveu
@@ -343,11 +356,19 @@ CREATE TABLE IF NOT EXISTS plan_item_swaps (
   medidas    REAL,                         -- quantas medidas caseiras
   -- NULL = kcal desconhecida, e a tela DIZ isso em vez de contar zero.
   kcal       REAL,
+  -- Você não comeu esta linha, e não comeu outra coisa no lugar. É a terceira
+  -- resposta possível: sem ela, trocar a refeição inteira por dois alimentos
+  -- exigia inventar uma troca para cada linha restante.
+  dispensado INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
-  -- Uma troca por item por dia; trocar de novo é corrigir, não acumular.
-  UNIQUE (user_id, data, item_id),
   CHECK (
-    (swap_id IS NOT NULL) + (food_id IS NOT NULL) + (texto IS NOT NULL) = 1
+    -- A dispensa é sempre de uma LINHA: "não comi esta refeição" já tem
+    -- resposta no app, que é não marcar "Comi".
+    (dispensado = 1 AND item_id IS NOT NULL
+     AND swap_id IS NULL AND food_id IS NULL AND texto IS NULL)
+    OR
+    (dispensado = 0
+     AND (swap_id IS NOT NULL) + (food_id IS NOT NULL) + (texto IS NOT NULL) = 1)
   ),
   FOREIGN KEY (block_id)   REFERENCES plan_blocks (id)   ON DELETE CASCADE,
   FOREIGN KEY (item_id)    REFERENCES plan_items (id)    ON DELETE CASCADE,
@@ -356,6 +377,10 @@ CREATE TABLE IF NOT EXISTS plan_item_swaps (
   FOREIGN KEY (measure_id) REFERENCES food_measures (id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_plan_item_swaps_dia ON plan_item_swaps (user_id, data);
+-- O índice único parcial da dispensa NÃO fica aqui, pelo mesmo motivo que os de
+-- `exercises`: num banco legado esta tabela ainda é a antiga (o CREATE acima é
+-- no-op) e um índice sobre `dispensado` explodiria o schema inteiro antes de a
+-- reconstrução rodar. Ele vive em ADDITIVE_INDEXES.
 
 -- ═══════════════════════════════════════════════════════════════════
 -- DISPOSITIVOS

@@ -5,13 +5,22 @@ import { Card, CardRow } from "@/components/ui/card";
 import { SectionLabel } from "@/components/ui/page";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SheetConfirmar } from "@/components/ui/confirmar";
 import { SheetTreinoAvulso } from "@/components/treino/sheet-treino-avulso";
 import { SkeletonCard, SkeletonList } from "@/components/ui/skeleton";
 import { useDiasDaRotina, useRotinaAtiva } from "@/hooks/use-rotina";
-import { useIniciarSessao, usePlanoDoDia, useSessoesEmAndamento } from "@/hooks/use-sessao";
+import {
+  useCriarSessao,
+  useDescartarSessao,
+  useFinalizarSessao,
+  usePlanoDoDia,
+  useSessoesAbertas,
+} from "@/hooks/use-sessao";
+import { useTempoDecorrido } from "@/hooks/use-tempo-decorrido";
 import { useListSessions } from "@/hooks/use-workouts";
 import { proximoTreino, treinoDoDia } from "@/domain/prescricao";
-import type { ItemPlanejado } from "@/repositories/sessao";
+import { estadoDaSessao } from "@/domain/sessao-estado";
+import type { ItemPlanejado, SessaoAberta } from "@/repositories/sessao";
 import { dataRelativa, diaSemana, hoje } from "@/lib/date";
 import { DIAS_DA_SEMANA } from "./treino-rotina";
 
@@ -47,6 +56,70 @@ function resumoDoItem(item: ItemPlanejado): string {
 }
 
 /**
+ * Uma linha da lista de treinos abertos.
+ *
+ * Rascunho e em andamento moram na mesma lista de propósito: os dois são
+ * "coisas que você começou e não fechou", e separá-los em dois cards faria a
+ * tela perguntar duas vezes o que ela só precisa perguntar uma. O que os
+ * distingue são as AÇÕES — um se inicia, o outro se finaliza.
+ */
+function LinhaAberta({
+  sessao,
+  onFinalizar,
+  onDescartar,
+  pendente,
+}: {
+  sessao: SessaoAberta;
+  onFinalizar: (id: number) => void;
+  onDescartar: (id: number) => void;
+  pendente: boolean;
+}) {
+  const emCurso =
+    estadoDaSessao({ iniciado_em: sessao.iniciado_em, concluida_em: null }) === "andamento";
+  const decorrido = useTempoDecorrido(sessao.iniciado_em);
+
+  const progresso =
+    sessao.total === 0 ? "sem exercício ainda" : `${sessao.feitas} de ${sessao.total} séries`;
+
+  return (
+    <Card tone={emCurso ? "primary" : "default"}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="t-title min-w-0 truncate">{sessao.nome ?? "Treino"}</h2>
+        <span className="t-caption shrink-0">{emCurso ? "em andamento" : "não iniciado"}</span>
+      </div>
+      {/* A data é a do treino, não a de hoje: é ela que denuncia o treino de
+          ontem que ficou aberto — o caso que antes sumia na virada do dia. */}
+      <p className="t-caption mt-1 tabular-nums">
+        {dataRelativa(sessao.data)}
+        {emCurso && decorrido && ` · faz ${decorrido}`}
+        {` · ${progresso}`}
+      </p>
+
+      <div className="mt-4 flex gap-2">
+        <ButtonLink to={`/treino/sessao?s=${sessao.session_id}`} block>
+          <Play className="size-4" />
+          {emCurso ? "Retomar" : "Continuar montando"}
+        </ButtonLink>
+        {emCurso ? (
+          <Button
+            variant="outline"
+            block
+            disabled={pendente}
+            onClick={() => onFinalizar(sessao.session_id)}
+          >
+            Finalizar
+          </Button>
+        ) : (
+          <Button variant="outline" block onClick={() => onDescartar(sessao.session_id)}>
+            Descartar
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/**
  * O painel "Hoje": o que treinar agora, e nada mais.
  *
  * A lista de atalhos que morava no fim desta tela morreu com as abas — ela
@@ -64,13 +137,23 @@ export function Treino() {
   const proximo = proximoTreino(dias, hojeSemana);
 
   const { data: plano = [] } = usePlanoDoDia(dia?.id, data);
-  const { data: abertas = [] } = useSessoesEmAndamento(data);
+  const { data: abertas = [] } = useSessoesAbertas();
   const { data: recentes = [] } = useListSessions();
-  const iniciar = useIniciarSessao();
+  const criar = useCriarSessao();
+  const finalizar = useFinalizarSessao();
+  const descartar = useDescartarSessao();
   const [pedindoNome, setPedindoNome] = useState(false);
+  const [descartando, setDescartando] = useState<number | null>(null);
+
+  // Em andamento primeiro: o treino acontecendo é o que a pessoa abriu o app
+  // para ver. `sessoesAbertas` já entrega o mais recente na frente, e este
+  // `sort` é estável, então a ordem dentro de cada grupo se mantém.
+  const ordenadas = [...abertas].sort(
+    (a, b) => Number(b.iniciado_em !== null) - Number(a.iniciado_em !== null),
+  );
 
   function comecar(itens: ItemPlanejado[], nome: string) {
-    iniciar.mutate(
+    criar.mutate(
       { data, nome, itens },
       { onSuccess: (id) => navigate(`/treino/sessao?s=${id}`) },
     );
@@ -87,7 +170,7 @@ export function Treino() {
     <button
       type="button"
       onClick={() => setPedindoNome(true)}
-      disabled={iniciar.isPending}
+      disabled={criar.isPending}
       className="flex min-h-11 items-center gap-1.5 text-[0.8125rem] font-medium text-primary"
     >
       <Plus className="size-4" />
@@ -115,25 +198,19 @@ export function Treino() {
             action={<ButtonLink to="/treino/rotina">Montar rotina</ButtonLink>}
           />
         </Card>
-      ) : abertas.length > 0 ? (
+      ) : ordenadas.length > 0 ? (
         /* Uma linha por sessão aberta: com o treino da rotina e um avulso da
            noite ao mesmo tempo, oferecer só a mais recente escondia a outra
            sem dizer que ela existia. */
         <>
-          {abertas.map((s) => (
-            <Card key={s.session_id} tone="primary">
-              <p className="t-caption">Sessão em andamento</p>
-              <h2 className="t-title mt-0.5">{s.nome ?? "Treino"}</h2>
-              <p className="t-caption mt-1 tabular-nums">
-                {s.total === 0
-                  ? "sem exercício ainda"
-                  : `${s.feitas} de ${s.total} séries`}
-              </p>
-              <ButtonLink to={`/treino/sessao?s=${s.session_id}`} block className="mt-4">
-                <Play className="size-4" />
-                Retomar treino
-              </ButtonLink>
-            </Card>
+          {ordenadas.map((s) => (
+            <LinhaAberta
+              key={s.session_id}
+              sessao={s}
+              pendente={finalizar.isPending}
+              onFinalizar={(id) => finalizar.mutate(id)}
+              onDescartar={(id) => setDescartando(id)}
+            />
           ))}
           <div className="flex justify-center">{botaoAvulso}</div>
         </>
@@ -160,14 +237,18 @@ export function Treino() {
             </p>
           )}
 
+          {/* "Montar", não "Começar": o toque cria o rascunho e leva à tela,
+              onde "Iniciar treino" é que faz o relógio correr. Um caminho só
+              para rotina e avulso — duas semânticas de "começar" foi
+              exatamente o que produzia sessões nascendo no histórico. */}
           <Button
             block
             className="mt-4"
             onClick={() => comecar(plano, dia.nome)}
-            disabled={iniciar.isPending}
+            disabled={criar.isPending}
           >
             <Play className="size-4" />
-            Começar treino
+            Montar treino
           </Button>
           <div className="mt-1 flex justify-center">{botaoAvulso}</div>
         </Card>
@@ -189,8 +270,17 @@ export function Treino() {
       <SheetTreinoAvulso
         aberto={pedindoNome}
         onFechar={() => setPedindoNome(false)}
-        pendente={iniciar.isPending}
-        onComecar={(nome) => { setPedindoNome(false); comecar([], nome); }}
+        pendente={criar.isPending}
+        onCriar={(nome) => { setPedindoNome(false); comecar([], nome); }}
+      />
+
+      <SheetConfirmar
+        aberto={descartando !== null}
+        onFechar={() => setDescartando(null)}
+        titulo="Descartar este treino?"
+        descricao="A sessão e tudo que você já registrou nela somem. Não tem desfazer."
+        rotulo="Descartar"
+        onConfirmar={() => descartando !== null && descartar.mutate(descartando)}
       />
 
       {recentes.length > 0 && (

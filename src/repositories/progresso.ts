@@ -12,7 +12,6 @@ export interface SessaoResumida {
   id: number;
   data: string;
   nome: string | null;
-  concluida: boolean;
   /** Dia da rotina a que a sessão pertenceu, derivado do plano. */
   day_id: number | null;
   /** Séries efetivas — aquecimento fora. */
@@ -31,6 +30,11 @@ export interface SessaoResumida {
  * `aquecimento` existe para a tela conseguir dizer "só aquecimento" em vez de
  * não dizer nada — uma sessão em que só o aquecimento foi registrado aparecia
  * como nome e data, sem explicação.
+ *
+ * Só concluídas. Alimenta o histórico E a consistência (`treinosPorSemana`,
+ * `estadoDosDias`), então um treino não finalizado deixa de contar como treino
+ * do dia — que é a leitura certa, e a que o estado vazio da aba já prometia:
+ * "os treinos que você concluir aparecem aqui".
  */
 export async function sessoesComResumo(
   db: Client,
@@ -39,7 +43,7 @@ export async function sessoesComResumo(
 ): Promise<SessaoResumida[]> {
   const rs = await db.execute({
     sql: `
-      SELECT s.id, s.data, s.nome, s.concluida_em,
+      SELECT s.id, s.data, s.nome,
              (SELECT re.day_id
                 FROM session_plan_sets p
                 JOIN routine_exercises re ON re.id = p.routine_exercise_id
@@ -51,7 +55,7 @@ export async function sessoesComResumo(
                                THEN ws.peso_kg * ws.reps ELSE 0 END), 0) AS volume_kg
       FROM workout_sessions s
       LEFT JOIN workout_sets ws ON ws.session_id = s.id AND ws.user_id = s.user_id
-      WHERE s.user_id = ?
+      WHERE s.user_id = ? AND s.concluida_em IS NOT NULL
       GROUP BY s.id
       ORDER BY s.data DESC, s.created_at DESC
       LIMIT ?`,
@@ -84,7 +88,6 @@ export async function sessoesComResumo(
       id: r.id as number,
       data: r.data as string,
       nome: (r.nome as string | null) ?? null,
-      concluida: (r.concluida_em as string | null) != null,
       day_id: (r.day_id as number | null) ?? null,
       series: Number(r.series),
       aquecimento: Number(r.aquecimento),

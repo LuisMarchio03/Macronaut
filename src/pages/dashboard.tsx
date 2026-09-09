@@ -15,27 +15,35 @@ import { SheetTrocas } from "@/components/plano/sheet-trocas";
 import { useProfile } from "@/hooks/use-profile";
 import { useMeals } from "@/hooks/use-meals";
 import { useTodayEntries, useFoodsForEntries } from "@/hooks/use-today-entries";
+import { useFoodsByIds } from "@/hooks/use-foods";
 import { useWaterToday } from "@/hooks/use-water-today";
 import { useSessionByDate } from "@/hooks/use-workouts";
-import { useSessaoEmAndamento } from "@/hooks/use-sessao";
+import { useSessaoAtiva } from "@/hooks/use-sessao";
 import { useAiConfig } from "@/hooks/use-ai-config";
 import {
   useAddAgua,
+  useAdicionarTroca,
+  useAdicionarTrocaDaRefeicao,
+  useDispensarItem,
+  useLimparRefeicao,
+  useRemoverUmaTroca,
   useAguaPorBloco,
   useBlocos,
   useChecksDoDia,
   useItensDoPlano,
   useMarcarBloco,
   usePlanoAtivo,
+  useLimparTrocasDoItem,
   useSalvarTroca,
   useSubstituicoes,
   useTrocasDoDia,
 } from "@/hooks/use-plano";
-import { totaisDoDia, totaisPorRefeicao } from "@/domain/nutrition";
+import { macrosDoEntry, totaisDoDia, totaisPorRefeicao } from "@/domain/nutrition";
 import { aderenciaDoDia, blocoEmFoco, metaDeAgua, montarDia } from "@/domain/plano-dia";
 import { useDataAtiva } from "@/lib/data-context";
 import { minutosAgora } from "@/lib/date";
-import type { Macros } from "@/domain/types";
+import { estadoDaSessao } from "@/domain/sessao-estado";
+import type { Macros, WorkoutSession } from "@/domain/types";
 import type { PlanBlock } from "@/domain/plano-types";
 import type { SessaoAberta } from "@/repositories/sessao";
 
@@ -51,7 +59,7 @@ const ZERO: Macros = { kcal: 0, prot_g: 0, carb_g: 0, gord_g: 0 };
  */
 function cardDeTreino(
   emAndamento: SessaoAberta | null | undefined,
-  registrado: { nome: string | null } | null | undefined,
+  registrado: WorkoutSession | null | undefined,
 ): { to: string; titulo: string; legenda: string } {
   if (emAndamento) {
     return {
@@ -60,7 +68,11 @@ function cardDeTreino(
       legenda: `Em andamento · ${emAndamento.feitas} de ${emAndamento.total} séries`,
     };
   }
-  if (registrado) {
+  // Concluído, não "existe": `getSessionByDate` devolve a primeira sessão do
+  // dia seja qual for o estado dela, e um rascunho criado e nunca iniciado
+  // anunciava aqui um treino que não aconteceu. Rascunho tem lugar próprio —
+  // a lista de treinos abertos do hub.
+  if (registrado && estadoDaSessao(registrado) === "concluida") {
     return {
       to: "/treino",
       titulo: registrado.nome || "Treino registrado",
@@ -77,19 +89,54 @@ export function Dashboard() {
   const { data: foods } = useFoodsForEntries(entries);
   const { data: totalAgua = 0 } = useWaterToday(data);
   const { data: treinoHoje } = useSessionByDate(data);
-  const { data: sessaoAberta } = useSessaoEmAndamento(data);
+  const { data: sessaoAberta } = useSessaoAtiva();
   const { data: meals = [] } = useMeals();
   const { data: aiConfig } = useAiConfig();
 
   const { data: plano, isLoading: carregandoPlano } = usePlanoAtivo();
   const { data: blocos = [] } = useBlocos(plano?.id);
   const { data: itensPorBloco } = useItensDoPlano(plano?.id);
+
+  /**
+   * A caloria conhecida de cada linha INTACTA do plano.
+   *
+   * `PlanItem` guarda `food_id` e `qty_g`, não kcal, e `kcalDaRefeicao` é puro
+   * — não consulta banco. Então quem monta o mapa é aqui, com os alimentos que
+   * a tela carrega. Linha fora do mapa conta como desconhecida, e é o que faz
+   * o card dizer "380+" em vez de fechar um total que ele não sabe.
+   */
+  const idsDoPlano = useMemo(
+    () =>
+      [...(itensPorBloco?.values() ?? [])]
+        .flat()
+        .map((i) => i.food_id)
+        .filter((id): id is number => id !== null),
+    [itensPorBloco],
+  );
+  const { data: foodsDoPlano } = useFoodsByIds(idsDoPlano);
+  const kcalPorItem = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const itens of itensPorBloco?.values() ?? []) {
+      for (const i of itens) {
+        if (i.food_id === null || i.qty_g === null) continue;
+        const f = foodsDoPlano?.get(i.food_id);
+        if (f) m.set(i.id, macrosDoEntry(f, i.qty_g).kcal);
+      }
+    }
+    return m;
+  }, [itensPorBloco, foodsDoPlano]);
   const { data: swaps = [] } = useSubstituicoes(plano?.id);
   const { data: trocas = [] } = useTrocasDoDia(data);
   const { data: checks = [] } = useChecksDoDia(data);
   const { data: aguaPorBloco } = useAguaPorBloco(data);
   const marcar = useMarcarBloco(data);
   const salvarTroca = useSalvarTroca(data);
+  const limparTrocas = useLimparTrocasDoItem(data);
+  const adicionarTroca = useAdicionarTroca(data);
+  const removerUmaTroca = useRemoverUmaTroca(data);
+  const dispensarItem = useDispensarItem(data);
+  const trocarRefeicao = useAdicionarTrocaDaRefeicao(data);
+  const limparRefeicao = useLimparRefeicao(data);
   const addAgua = useAddAgua(data);
 
   const [trocando, setTrocando] = useState<PlanBlock | null>(null);
@@ -214,6 +261,7 @@ export function Dashboard() {
                 aguaNoBloco={aguaPorBloco?.get(item.bloco.id) ?? 0}
                 emFoco={item.bloco.id === foco?.bloco.id}
                 trocas={trocas.filter((t) => t.block_id === item.bloco.id)}
+                kcalPorItem={kcalPorItem}
                 onMarcar={(feito) =>
                   marcar.mutate({ planId: plano.id, blockId: item.bloco.id, feito })
                 }
@@ -299,11 +347,18 @@ export function Dashboard() {
           trocas={trocas.filter((t) => t.block_id === trocando.id)}
           feito={dia.find((b) => b.bloco.id === trocando.id)?.estado === "feito"}
           onTrocar={(itemId, e) =>
-            salvarTroca.mutate({
-              entrada: { data, block_id: trocando.id, item_id: itemId, ...e },
-            })
+            salvarTroca.mutate({ data, block_id: trocando.id, item_id: itemId, ...e })
           }
-          onDesfazer={(itemId) => salvarTroca.mutate({ itemId })}
+          onAdicionar={(itemId, e) =>
+            adicionarTroca.mutate({ data, block_id: trocando.id, item_id: itemId, ...e })
+          }
+          onRemoverUma={(trocaId) => removerUmaTroca.mutate(trocaId)}
+          onDispensar={(itemId) => dispensarItem.mutate({ blockId: trocando.id, itemId })}
+          onDesfazer={(itemId) => limparTrocas.mutate(itemId)}
+          onTrocarRefeicao={(e) =>
+            trocarRefeicao.mutate({ data, block_id: trocando.id, item_id: null, ...e })
+          }
+          onDesfazerRefeicao={() => limparRefeicao.mutate(trocando.id)}
           onMarcar={(feito) => marcar.mutate({ planId: plano.id, blockId: trocando.id, feito })}
           onClose={() => setTrocando(null)}
         />

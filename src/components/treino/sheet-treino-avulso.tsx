@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Play } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -8,22 +8,27 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 const PADRAO = "Treino avulso";
 
 /**
- * O nome de um treino fora da rotina, antes de ele começar.
+ * O nome de um treino fora da rotina, antes de ele existir.
  *
- * Pergunta o nome porque dois avulsos no mesmo dia — e agora eles podem
- * coexistir — seriam duas linhas idênticas no histórico, indistinguíveis a
- * partir do dia seguinte. Um campo, com padrão preenchido: quem não se importa
- * toca em "Começar" e segue.
+ * Pergunta o nome porque dois avulsos no mesmo dia — e eles podem coexistir —
+ * seriam duas linhas idênticas no histórico, indistinguíveis a partir do dia
+ * seguinte. Um campo, com padrão preenchido: quem não se importa toca em
+ * "Criar treino" e segue.
+ *
+ * Cria, não começa: a sessão nasce rascunho, você monta os exercícios com
+ * calma, e o relógio só corre quando você tocar em "Iniciar treino" na tela da
+ * academia. Enquanto ela era criada já começando, sair da tela deixava para
+ * trás um treino que o app considerava em curso.
  */
 export function SheetTreinoAvulso({
   aberto,
   onFechar,
-  onComecar,
+  onCriar,
   pendente = false,
 }: {
   aberto: boolean;
   onFechar: () => void;
-  onComecar: (nome: string) => void;
+  onCriar: (nome: string) => void;
   pendente?: boolean;
 }) {
   const [nome, setNome] = useState(PADRAO);
@@ -39,7 +44,8 @@ export function SheetTreinoAvulso({
         <SheetHeader>
           <SheetTitle>Treino avulso</SheetTitle>
           <SheetDescription>
-            Uma sessão vazia, fora da rotina. Você monta os exercícios na hora.
+            Uma sessão vazia, fora da rotina. Você monta os exercícios e decide
+            quando ela começa.
           </SheetDescription>
         </SheetHeader>
 
@@ -52,17 +58,17 @@ export function SheetTreinoAvulso({
               placeholder={PADRAO}
               onChange={(e) => setNome(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !pendente) onComecar(nome.trim() || PADRAO);
+                if (e.key === "Enter" && !pendente) onCriar(nome.trim() || PADRAO);
               }}
             />
           </div>
           <Button
             block
             disabled={pendente}
-            onClick={() => onComecar(nome.trim() || PADRAO)}
+            onClick={() => onCriar(nome.trim() || PADRAO)}
           >
-            <Play className="size-4" />
-            Começar
+            <Plus className="size-4" />
+            Criar treino
           </Button>
         </div>
       </SheetContent>

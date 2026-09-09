@@ -7,8 +7,9 @@ import { createTestDb } from "../../test/helpers/test-db";
 import { criarWrapper } from "../../test/helpers/query-wrapper";
 import { Treino } from "./treino";
 import { criarRotina, salvarDia, adicionarExercicio } from "../repositories/rotina";
-import { iniciarSessao } from "../repositories/sessao";
-import { diaSemana, hoje } from "../lib/date";
+import { sessaoEmCurso } from "../../test/helpers/sessao";
+import { criarSessao } from "../repositories/sessao";
+import { diasAtras, diaSemana, hoje } from "../lib/date";
 
 let db: Client;
 
@@ -70,7 +71,7 @@ describe("Treino — o hub", () => {
     expect(await screen.findByText("Peito e tríceps")).toBeInTheDocument();
     expect(await screen.findByText("Supino reto")).toBeInTheDocument();
     expect(await screen.findByText(/3 × 12 × 40 kg/)).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /começar treino/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /montar treino/i })).toBeInTheDocument();
   });
 
   it("em dia de descanso, mostra qual é o próximo treino", async () => {
@@ -89,7 +90,7 @@ describe("Treino — o hub", () => {
     await adicionarExercicio(db, 1, d.id, { ...DUPLA, exercise_id: await exercicio("Supino reto") });
     montar();
 
-    await userEvent.click(await screen.findByRole("button", { name: /começar treino/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /montar treino/i }));
 
     await waitFor(async () => {
       const rs = await db.execute("SELECT COUNT(*) AS n FROM session_plan_sets");
@@ -97,14 +98,14 @@ describe("Treino — o hub", () => {
     });
   });
 
-  it("com sessão em andamento, o card vira retomar", async () => {
+  it("montado o treino, o card vira o rascunho a continuar", async () => {
     const r = await criarRotina(db, 1, "R");
     const d = await salvarDia(db, 1, r.id, HOJE, "Peito");
     await adicionarExercicio(db, 1, d.id, { ...DUPLA, exercise_id: await exercicio("Supino reto") });
     montar();
 
-    await userEvent.click(await screen.findByRole("button", { name: /começar treino/i }));
-    expect(await screen.findByRole("link", { name: /retomar treino/i })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: /montar treino/i }));
+    expect(await screen.findByRole("link", { name: /continuar montando/i })).toBeInTheDocument();
     expect(await screen.findByText(/0 de 3 séries/i)).toBeInTheDocument();
   });
 
@@ -161,30 +162,30 @@ describe("treino avulso", () => {
     await adicionarExercicio(db, 1, d.id, { ...DUPLA, exercise_id: await exercicio("Supino reto") });
     montar();
 
-    expect(await screen.findByRole("button", { name: /começar treino/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /montar treino/i })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /treino avulso/i })).toBeInTheDocument();
   });
 
   it("continua oferecido com uma sessão já aberta", async () => {
     // Treinar duas vezes no mesmo dia acontece; o card só oferecia "retomar".
-    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
+    await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
     const r = await criarRotina(db, 1, "R");
     await salvarDia(db, 1, r.id, HOJE, "Peito");
     montar();
 
-    expect(await screen.findByRole("link", { name: /retomar treino/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /retomar/i })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /treino avulso/i })).toBeInTheDocument();
   });
 
   it("uma sessão SEM exercício continua listada para retomar", async () => {
     // O buraco que fazia cada tentativa vazar uma sessão órfã.
-    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Treino avulso", itens: [] });
+    await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Treino avulso", itens: [] });
     await criarRotina(db, 1, "R");
     montar();
 
     expect(await screen.findByRole("heading", { name: "Treino avulso" })).toBeInTheDocument();
     expect(await screen.findByText(/sem exercício ainda/i)).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: /retomar treino/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /retomar/i })).toBeInTheDocument();
   });
 
   it("pergunta o nome antes de criar a sessão", async () => {
@@ -196,7 +197,7 @@ describe("treino avulso", () => {
     expect(campo).toHaveValue("Treino avulso");
     await userEvent.clear(campo);
     await userEvent.type(campo, "Corrida no parque");
-    await userEvent.click(screen.getByRole("button", { name: /começar/i }));
+    await userEvent.click(screen.getByRole("button", { name: /criar treino/i }));
 
     await waitFor(async () => {
       const rs = await db.execute("SELECT nome FROM workout_sessions ORDER BY id DESC LIMIT 1");
@@ -205,12 +206,94 @@ describe("treino avulso", () => {
   });
 
   it("duas sessões abertas no mesmo dia aparecem as duas", async () => {
-    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
-    await iniciarSessao(db, 1, { data: HOJE_ISO, nome: "Noite", itens: [] });
+    await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Manhã", itens: [] });
+    await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Noite", itens: [] });
     await criarRotina(db, 1, "R");
     montar();
 
     expect(await screen.findByRole("heading", { name: "Manhã" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Noite" })).toBeInTheDocument();
+  });
+});
+
+describe("Treino — os treinos abertos", () => {
+  it("criar um avulso não põe nada no histórico", async () => {
+    await criarRotina(db, 1, "R");
+    montar();
+    await userEvent.click(await screen.findByRole("button", { name: /treino avulso/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /^criar treino$/i }));
+
+    // A sessão existe, e nasceu rascunho...
+    await waitFor(async () => {
+      const rs = await db.execute("SELECT id, iniciado_em FROM workout_sessions");
+      expect(rs.rows).toHaveLength(1);
+      expect(rs.rows[0].iniciado_em).toBeNull();
+    });
+    // ...e o histórico continua vazio.
+    expect(screen.queryByText(/últimas sessões/i)).not.toBeInTheDocument();
+  });
+
+  it("lista o rascunho com continuar e descartar", async () => {
+    await criarSessao(db, 1, { data: HOJE_ISO, nome: "Avulso da noite", itens: [] });
+    await criarRotina(db, 1, "R");
+    montar();
+
+    expect(await screen.findByRole("heading", { name: "Avulso da noite" })).toBeInTheDocument();
+    expect(await screen.findByText(/não iniciado/i)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /continuar montando/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /descartar/i })).toBeInTheDocument();
+  });
+
+  it("lista o treino de ontem que ficou aberto", async () => {
+    await sessaoEmCurso(db, 1, { data: diasAtras(HOJE_ISO, 1), nome: "Costas", itens: [] });
+    await criarRotina(db, 1, "R");
+    montar();
+
+    expect(await screen.findByRole("heading", { name: "Costas" })).toBeInTheDocument();
+    expect(await screen.findByText(/em andamento/i)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /retomar/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /finalizar/i })).toBeInTheDocument();
+  });
+
+  it("finalizar da lista encerra o treino de verdade", async () => {
+    const sid = await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Costas", itens: [] });
+    await criarRotina(db, 1, "R");
+    montar();
+
+    await userEvent.click(await screen.findByRole("button", { name: /finalizar/i }));
+
+    await waitFor(async () => {
+      const rs = await db.execute({
+        sql: "SELECT concluida_em FROM workout_sessions WHERE id = ?", args: [sid],
+      });
+      expect(rs.rows[0].concluida_em).not.toBeNull();
+    });
+  });
+
+  it("descartar da lista apaga o rascunho", async () => {
+    const sid = await criarSessao(db, 1, { data: HOJE_ISO, nome: "Enganei", itens: [] });
+    await criarRotina(db, 1, "R");
+    montar();
+
+    await userEvent.click(await screen.findByRole("button", { name: /descartar/i }));
+    const botoes = await screen.findAllByRole("button", { name: /^descartar$/i });
+    await userEvent.click(botoes[botoes.length - 1]);
+
+    await waitFor(async () => {
+      const rs = await db.execute({
+        sql: "SELECT id FROM workout_sessions WHERE id = ?", args: [sid],
+      });
+      expect(rs.rows).toHaveLength(0);
+    });
+  });
+
+  it("em andamento vem antes de rascunho", async () => {
+    await criarSessao(db, 1, { data: HOJE_ISO, nome: "Rascunho", itens: [] });
+    await sessaoEmCurso(db, 1, { data: HOJE_ISO, nome: "Acontecendo", itens: [] });
+    await criarRotina(db, 1, "R");
+    montar();
+
+    const titulos = await screen.findAllByRole("heading", { level: 2 });
+    expect(titulos.map((t) => t.textContent)).toEqual(["Acontecendo", "Rascunho"]);
   });
 });

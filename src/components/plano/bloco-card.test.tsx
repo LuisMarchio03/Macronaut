@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BlocoCard } from "./bloco-card";
 import type { BlocoDoDia, EstadoBloco } from "@/domain/plano-dia";
-import type { PlanBlock, PlanItem, TrocaDeItem } from "@/domain/plano-types";
+import type { PlanBlock, PlanItem, Troca } from "@/domain/plano-types";
 
 const bloco = (p: Partial<PlanBlock> = {}): PlanBlock => ({
   id: 1,
@@ -37,7 +37,8 @@ function montar(
     itens?: PlanItem[];
     aguaNoBloco?: number;
     emFoco?: boolean;
-    trocas?: TrocaDeItem[];
+    trocas?: Troca[];
+    kcalPorItem?: Map<number, number>;
     onMarcar?: (feito: boolean) => void;
     onTrocar?: () => void;
     onAgua?: (ml: number) => void;
@@ -51,6 +52,7 @@ function montar(
       aguaNoBloco={overrides.aguaNoBloco}
       emFoco={overrides.emFoco}
       trocas={overrides.trocas}
+      kcalPorItem={overrides.kcalPorItem}
       onMarcar={overrides.onMarcar ?? (() => {})}
       onTrocar={overrides.onTrocar}
       onAgua={overrides.onAgua}
@@ -133,9 +135,10 @@ describe("marcar e desmarcar", () => {
 });
 
 describe("trocar", () => {
-  const troca = (item_id: number, nome: string, kcal: number | null = null): TrocaDeItem => ({
+  const troca = (item_id: number, nome: string, kcal: number | null = null): Troca => ({
     id: item_id, data: "2026-08-31", block_id: 1, item_id, origem: "plano", swap_id: 1,
     nome, porcao: null, kcal, food_id: null, qty_g: null, measure_id: null, medidas: null,
+    dispensado: false,
   });
 
   it("oferece a troca no bloco da vez", async () => {
@@ -236,5 +239,90 @@ describe("bloco ancorado a evento", () => {
       },
     });
     expect(screen.getByText("Após almoço")).toBeInTheDocument();
+  });
+});
+
+describe("BlocoCard — a caloria depois da troca", () => {
+  const t = (item_id: number, nome: string, kcal: number | null): Troca => ({
+    id: item_id, data: "2026-08-31", block_id: 1, item_id, origem: "catalogo", swap_id: null,
+    nome, porcao: null, kcal, food_id: 9, qty_g: 100, measure_id: null, medidas: null,
+    dispensado: false,
+  });
+
+  it("sem troca, mostra só a meta do plano", () => {
+    montar("agora", { trocas: [] });
+    expect(screen.getByText("~500 kcal")).toBeInTheDocument();
+  });
+
+  it("com troca, mostra o realizado contra a meta", () => {
+    montar("agora", {
+      trocas: [t(1, "Pão", 380)],
+      kcalPorItem: new Map([[2, 100]]),
+    });
+    expect(screen.getByText("480 / ~500 kcal")).toBeInTheDocument();
+  });
+
+  it("estourando a meta, avisa", () => {
+    montar("agora", {
+      trocas: [t(1, "Lanche", 510)],
+      kcalPorItem: new Map([[2, 100]]),
+    });
+    const alvo = screen.getByText("610 / ~500 kcal");
+    expect(alvo.className).toContain("text-warning");
+  });
+
+  it("com parcela desconhecida, o número ganha o +", () => {
+    montar("agora", {
+      trocas: [t(1, "Pão", 380), t(2, "Pão da padaria", null)],
+    });
+    expect(screen.getByText("380+ / ~500 kcal")).toBeInTheDocument();
+  });
+
+  it("a linha dispensada aparece como tal", () => {
+    montar("agora", {
+      trocas: [{ ...t(1, "", null), dispensado: true }],
+      kcalPorItem: new Map([[2, 100]]),
+    });
+    expect(screen.getByText(/dispensado/i)).toBeInTheDocument();
+  });
+});
+
+describe("BlocoCard — a refeição substituída", () => {
+  /** Uma troca da REFEIÇÃO inteira — o `item_id` nulo é o que diz isso. */
+  const trocaRef = (id: number, nome: string, kcal: number | null, porcao: string | null = null): Troca => ({
+    id, data: "2026-09-09", block_id: 1, item_id: null, origem: "catalogo", swap_id: null,
+    nome, porcao, kcal, food_id: null, qty_g: null, measure_id: null, medidas: null,
+    dispensado: false,
+  });
+
+  it("desenha a lista nova sobre as linhas riscadas", () => {
+    montar("agora", {
+      trocas: [
+        trocaRef(1, "Pizza", 480, "3 fatias"),
+        trocaRef(2, "Refrigerante", 140),
+      ],
+    });
+
+    expect(screen.getByText("o plano previa")).toBeInTheDocument();
+    expect(screen.getByText("120g de frango")).toHaveClass("line-through");
+    expect(screen.getByText("arroz integral")).toHaveClass("line-through");
+    expect(screen.getByText(/pizza · 3 fatias · 480 kcal/i)).toBeInTheDocument();
+    expect(screen.getByText(/refrigerante · 140 kcal/i)).toBeInTheDocument();
+  });
+
+  it("a caloria do card é a da lista nova, não a do plano", () => {
+    // Somar as linhas junto contaria o almoço duas vezes.
+    montar("agora", {
+      trocas: [trocaRef(1, "Pizza", 480), trocaRef(2, "Refrigerante", 140)],
+      kcalPorItem: new Map([[1, 300], [2, 200]]),
+    });
+    expect(screen.getByText("620 / ~500 kcal")).toBeInTheDocument();
+  });
+
+  it("um alimento sem caloria marca o total com '+'", () => {
+    montar("agora", {
+      trocas: [trocaRef(1, "Pizza", 480), trocaRef(2, "Sorvete da esquina", null)],
+    });
+    expect(screen.getByText("480+ / ~500 kcal")).toBeInTheDocument();
   });
 });

@@ -76,6 +76,15 @@ continua o bloco de cima — é assim que uma refeição ganha vários alimentos
       **Calistenia** e **Exercícios** — as perguntas que se faz sobre treino
 - 📅 Rotina por dia da semana — segunda é peito, e o app sabe disso
 - 🎯 Sessão guiada: as séries já vêm com carga e reps; um toque registra
+- ▶️ **Iniciar e finalizar são explícitos.** O treino nasce rascunho, você monta
+      os exercícios com calma, e só entra no histórico quando você finaliza —
+      sair da tela ou fechar o app não termina nada. Registrar uma série inicia
+      sozinho, para "esqueci de apertar Iniciar" não custar a duração
+- 🔴 **Faixa do treino em curso** em qualquer tela, com o tempo correndo e as
+      séries feitas; um toque volta para a academia
+- 📂 **Treinos abertos** listados no "Hoje", de qualquer dia — o treino que
+      ficou aberto ontem à noite continua lá, retomável, finalizável ou
+      descartável. Nada fecha sozinho
 - 📈 Dupla progressão: bateu o topo da faixa em todas as séries, a carga sobe
 - 🏋️ 5/3/1 disponível como prescrição de qualquer exercício da rotina
 - ⏱️ Cronômetro de descanso sempre na tela: começa sozinho na série, vibra e

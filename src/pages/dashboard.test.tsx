@@ -8,7 +8,8 @@ import { DbProvider } from "../lib/db-context";
 import { criarApiLocal } from "@/../test/helpers/api-local";
 import { DataProvider } from "../lib/data-context";
 import { Dashboard } from "./dashboard";
-import { iniciarSessao } from "../repositories/sessao";
+import { sessaoEmCurso } from "../../test/helpers/sessao";
+import { criarSessao } from "../repositories/sessao";
 import { hoje } from "../lib/date";
 import { upsertProfile } from "../repositories/profile";
 
@@ -80,7 +81,7 @@ async function comPerfil() {
 
 it("com sessão em andamento, o card de treino mostra o progresso e leva para ela", async () => {
   await comPerfil();
-  const sessionId = await iniciarSessao(db, 1, {
+  const sessionId = await sessaoEmCurso(db, 1, {
     data: hoje(),
     nome: "Peito e tríceps",
     itens: [
@@ -99,4 +100,17 @@ it("com sessão em andamento, o card de treino mostra o progresso e leva para el
   expect(await screen.findByText(/0 de 3 séries/i)).toBeInTheDocument();
   const link = await screen.findByRole("link", { name: /peito e tríceps/i });
   expect(link).toHaveAttribute("href", `/treino/sessao?s=${sessionId}`);
+});
+
+it("um rascunho de hoje não vira 'treino registrado' no card", async () => {
+  // `getSessionByDate` devolve a primeira sessão do dia, concluída ou não —
+  // antes do estado explícito, um rascunho criado e nunca iniciado fazia o
+  // dashboard anunciar um treino que não aconteceu.
+  await comPerfil();
+  await criarSessao(db, 1, { data: hoje(), nome: "Só pensei em treinar", itens: [] });
+
+  renderPage();
+
+  expect(await screen.findByText(/nenhum treino hoje/i)).toBeInTheDocument();
+  expect(screen.queryByText(/só pensei em treinar/i)).not.toBeInTheDocument();
 });

@@ -2,9 +2,15 @@ import { Check, Clock, Droplets, Pill, UtensilsCrossed, Repeat, AlertCircle } fr
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { janelaHoraria } from "@/lib/date";
-import { descreverTroca, trocaDoItem } from "@/domain/plano-dia";
+import {
+  descreverTroca,
+  itemDispensado,
+  kcalDaRefeicao,
+  trocasDaRefeicao,
+  trocasDoItem,
+} from "@/domain/plano-dia";
 import type { BlocoDoDia } from "@/domain/plano-dia";
-import type { PlanItem, TipoBloco, TrocaDeItem } from "@/domain/plano-types";
+import type { PlanItem, TipoBloco, Troca } from "@/domain/plano-types";
 
 const ICONE: Record<TipoBloco, typeof UtensilsCrossed> = {
   refeicao: UtensilsCrossed,
@@ -33,6 +39,7 @@ export function BlocoCard({
   item: { bloco, estado },
   itens,
   trocas = [],
+  kcalPorItem,
   aguaNoBloco = 0,
   emFoco = false,
   onMarcar,
@@ -42,7 +49,9 @@ export function BlocoCard({
   item: BlocoDoDia;
   itens: PlanItem[];
   /** As trocas do dia. O card desenha o item trocado no lugar do original. */
-  trocas?: TrocaDeItem[];
+  trocas?: Troca[];
+  /** A caloria conhecida de cada linha INTACTA. Ver `kcalDaRefeicao`. */
+  kcalPorItem?: Map<number, number>;
   aguaNoBloco?: number;
   /** Marca o passo atual para leitores de tela. Só um bloco por dia o recebe. */
   emFoco?: boolean;
@@ -62,6 +71,24 @@ export function BlocoCard({
   // é uma coisa que se faz, e corrigir a troca de uma refeição já marcada
   // também — antes as duas exigiam desmarcar ou esperar a janela abrir.
   const podeTrocar = onTrocar !== undefined && !ehAgua && itens.length > 0;
+  /**
+   * A caloria do card conta o que você VAI comer, não o que o plano previa.
+   *
+   * Era sempre `kcal_alvo` — a meta da planilha —, então trocar 400 kcal de
+   * café da manhã por um lanche de 700 não mudava nada na tela, justamente no
+   * momento em que mudar importa.
+   *
+   * Sem troca nenhuma a meta continua sozinha: ela é uma afirmação melhor
+   * sobre um dia intacto do que a soma parcial das linhas que o importador
+   * conseguiu casar com o catálogo.
+   */
+  const mexida = trocas.some((t) => t.block_id === bloco.id);
+  const daRefeicao = trocasDaRefeicao(trocas, bloco.id);
+  const substituida = daRefeicao.length > 0;
+  const realizado = mexida ? kcalDaRefeicao(itens, trocas, kcalPorItem ?? new Map(), bloco.id) : null;
+  const estourou =
+    realizado !== null && bloco.kcal_alvo != null && realizado.total > bloco.kcal_alvo;
+
   const metaAgua = bloco.ml_alvo ?? 0;
   const aguaCompleta = ehAgua && metaAgua > 0 && aguaNoBloco >= metaAgua;
 
@@ -106,8 +133,11 @@ export function BlocoCard({
             >
               {bloco.nome}
             </h3>
-            <span className="t-caption shrink-0 tabular-nums">
-              {bloco.kcal_alvo != null && `~${bloco.kcal_alvo} kcal`}
+            <span className={cn("t-caption shrink-0 tabular-nums", estourou && "text-warning")}>
+              {bloco.kcal_alvo != null &&
+                (realizado !== null
+                  ? `${realizado.total}${realizado.incompleto ? "+" : ""} / ~${bloco.kcal_alvo} kcal`
+                  : `~${bloco.kcal_alvo} kcal`)}
               {ehAgua && metaAgua > 0 && `${aguaNoBloco} / ${metaAgua} ml`}
             </span>
           </div>
@@ -143,10 +173,39 @@ export function BlocoCard({
             <p className="t-caption mt-2 italic">{bloco.observacao}</p>
           )}
 
-          {aberto && !ehAgua && itens.length > 0 && (
+          {aberto && !ehAgua && itens.length > 0 && substituida && (
+            /* A refeição inteira saiu, e é assim que o card diz isso: o plano
+               riscado em bloco, e embaixo o que de fato foi comido. Desenhar
+               a lista pendurada nas linhas fingiria uma correspondência que
+               não existe. */
+            <div className="mt-3 space-y-2">
+              <div>
+                <p className="t-caption">o plano previa</p>
+                <ul className="mt-1 space-y-0.5">
+                  {itens.map((i) => (
+                    <li key={i.id} className="text-sm text-muted-foreground line-through">
+                      {i.texto}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <ul className="space-y-1">
+                {daRefeicao.map((t) => (
+                  <li key={t.id} className="flex gap-2 text-sm">
+                    <span aria-hidden className="mt-1.5 size-1 shrink-0 rounded-full bg-primary" />
+                    <span className="min-w-0 font-medium text-primary">{descreverTroca(t)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {aberto && !ehAgua && itens.length > 0 && !substituida && (
             <ul className="mt-3 space-y-1.5">
               {itens.map((i) => {
-                const troca = trocaDoItem(trocas, i.id);
+                const doItem = trocasDoItem(trocas, i.id);
+                const dispensado = itemDispensado(trocas, i.id);
+                const trocada = doItem.length > 0 || dispensado;
                 return (
                   <li key={i.id} className="flex gap-2 text-sm">
                     <span
@@ -154,17 +213,18 @@ export function BlocoCard({
                       className="mt-1.5 size-1 shrink-0 rounded-full bg-muted-foreground"
                     />
                     {/* O original riscado continua visível: a troca só faz
-                        sentido contra o que ela substituiu, e some-lo apagaria
+                        sentido contra o que ela substituiu, e sumi-lo apagaria
                         o que o plano manda. */}
                     <span className="min-w-0">
-                      <span className={troca ? "text-muted-foreground line-through" : undefined}>
+                      <span className={trocada ? "text-muted-foreground line-through" : undefined}>
                         {i.texto}
                       </span>
-                      {troca && (
-                        <span className="block font-medium text-primary">
-                          {descreverTroca(troca)}
+                      {doItem.map((t) => (
+                        <span key={t.id} className="block font-medium text-primary">
+                          {descreverTroca(t)}
                         </span>
-                      )}
+                      ))}
+                      {dispensado && <span className="t-caption block">dispensado</span>}
                     </span>
                   </li>
                 );

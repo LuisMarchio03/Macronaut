@@ -6,6 +6,7 @@ import {
   adicionarSerie,
   desfazerSerie,
   getPlano,
+  criarSessao,
   iniciarSessao,
   finalizarSessao,
   marcasAmrap,
@@ -16,14 +17,15 @@ import {
   removerExercicioDaSessao,
   removerSerie,
   reordenarExerciciosDaSessao,
-  sessaoEmAndamento,
-  sessoesEmAndamento,
+  sessaoAtiva,
+  sessoesAbertas,
   trocarExercicioDaSessao,
   type ItemPlanejado,
 } from "./sessao";
-import { addSet, createSession, listSetsBySession } from "./workouts";
+import { addSet, createSession, getSession, listSetsBySession } from "./workouts";
 import { adicionarExercicio, criarRotina, salvarDia } from "./rotina";
 import { planejar } from "../domain/prescricao";
+import { sessaoEmCurso } from "../../test/helpers/sessao";
 import { listActivitySessionsByRange } from "./activities";
 import { balancoEnergetico } from "../domain/analise-balanco";
 import { kcalGastaPorDia } from "../domain/analise-atividade";
@@ -62,7 +64,7 @@ describe("iniciarSessao", () => {
   it("materializa o plano com ordem global contínua e serie_ordem por exercício", async () => {
     const supino = await exercicio("Supino");
     const crucifixo = await exercicio("Crucifixo");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17",
       nome: "Peito",
       itens: [item(supino), item(crucifixo, 15)],
@@ -84,7 +86,7 @@ describe("iniciarSessao", () => {
   // O ponto do desenho: enquanto nada foi confirmado, o registro está vazio.
   it("não escreve nada em workout_sets ao materializar", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     expect(await listSetsBySession(db, USER, sid)).toHaveLength(0);
@@ -92,7 +94,7 @@ describe("iniciarSessao", () => {
 
   it("o plano de um usuário não vaza para outro", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     expect(await getPlano(db, OUTRO, sid)).toHaveLength(0);
@@ -102,7 +104,7 @@ describe("iniciarSessao", () => {
 describe("registrarSerie", () => {
   it("cria a série em workout_sets e liga o plano a ela", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -127,7 +129,7 @@ describe("registrarSerie", () => {
 
   it("registra o que foi feito, não o que foi planejado", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -149,7 +151,7 @@ describe("registrarSerie", () => {
 
   it("guarda percentual e AMRAP quando a série é de 5/3/1", async () => {
     const agacho = await exercicio("Agachamento");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17",
       nome: "Perna",
       itens: [{
@@ -172,7 +174,7 @@ describe("registrarSerie", () => {
 
   it("um usuário não registra série no plano do outro", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -186,7 +188,7 @@ describe("registrarSerie", () => {
 describe("desfazerSerie", () => {
   it("apaga a série e desfaz o elo", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -202,7 +204,7 @@ describe("desfazerSerie", () => {
 
   it("desfazer uma série nunca registrada não faz nada", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -215,7 +217,7 @@ describe("adicionarAoPlano", () => {
   it("acrescenta um exercício avulso no fim, sem routine_exercise_id", async () => {
     const supino = await exercicio("Supino");
     const rosca = await exercicio("Rosca direta");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
 
@@ -230,14 +232,14 @@ describe("adicionarAoPlano", () => {
   });
 });
 
-describe("sessaoEmAndamento", () => {
-  it("não há sessão num dia sem sessão", async () => {
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).toBeNull();
+describe("sessaoAtiva", () => {
+  it("não há treino acontecendo quando nada está aberto", async () => {
+    expect(await sessaoAtiva(db, USER)).toBeNull();
   });
 
   it("conta quantas séries do plano já foram feitas", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -245,54 +247,88 @@ describe("sessaoEmAndamento", () => {
       reps: 12, peso_kg: 40, tipo: "valida", rir: null, nota: null,
     });
 
-    const em = await sessaoEmAndamento(db, USER, "2026-08-17");
-    expect(em).toEqual({ session_id: sid, nome: "Peito", total: 3, feitas: 1 });
+    expect(await sessaoAtiva(db, USER)).toMatchObject({
+      session_id: sid, nome: "Peito", data: "2026-08-17", total: 3, feitas: 1,
+    });
   });
 
   it("uma sessão SEM exercício nenhum continua existindo", async () => {
     // O `JOIN` com `session_plan_sets` a fazia sumir — e é assim que todo
     // treino avulso nasce. Sair da tela perdia o treino, e a tentativa
     // seguinte criava outra sessão órfã.
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Treino avulso", itens: [],
     });
 
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).toEqual({
+    expect(await sessaoAtiva(db, USER)).toMatchObject({
       session_id: sid, nome: "Treino avulso", total: 0, feitas: 0,
     });
   });
+
+  it("ignora rascunho: um treino que não começou não está acontecendo", async () => {
+    await criarSessao(db, USER, { data: "2026-08-17", nome: "Rascunho", itens: [] });
+    expect(await sessaoAtiva(db, USER)).toBeNull();
+  });
+
+  it("devolve a mais recente em andamento", async () => {
+    const antiga = await sessaoEmCurso(db, USER, { data: "2026-08-16", nome: "Costas", itens: [] });
+    await new Promise((r) => setTimeout(r, 5));
+    const nova = await sessaoEmCurso(db, USER, { data: "2026-08-17", nome: "Peito", itens: [] });
+
+    expect((await sessaoAtiva(db, USER))!.session_id).toBe(nova);
+    expect(antiga).not.toBe(nova);
+  });
 });
 
-describe("sessoesEmAndamento", () => {
-  it("devolve TODAS as sessões abertas do dia, da mais recente para a mais antiga", async () => {
+describe("sessoesAbertas", () => {
+  it("devolve TODAS as sessões abertas, da mais recente para a mais antiga", async () => {
     // Treinar duas vezes no mesmo dia é uma coisa que acontece; o hub só
     // sabia oferecer a última.
     const supino = await exercicio("Supino");
-    const primeira = await iniciarSessao(db, USER, {
+    const primeira = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Manhã", itens: [item(supino)],
     });
-    const segunda = await iniciarSessao(db, USER, {
+    const segunda = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Noite", itens: [],
     });
 
-    const abertas = await sessoesEmAndamento(db, USER, "2026-08-17");
+    const abertas = await sessoesAbertas(db, USER);
     expect(abertas.map((s) => s.session_id)).toEqual([segunda, primeira]);
     expect(abertas[0]).toMatchObject({ nome: "Noite", total: 0, feitas: 0 });
     expect(abertas[1]).toMatchObject({ nome: "Manhã", total: 3 });
   });
 
+  it("o treino aberto ONTEM continua aberto hoje", async () => {
+    // O filtro por data fazia o treino das 22h desaparecer na virada da
+    // meia-noite: irretomável, infinalizável, e fantasma no histórico.
+    const sid = await sessaoEmCurso(db, USER, { data: "2026-08-16", nome: "Costas", itens: [] });
+
+    const abertas = await sessoesAbertas(db, USER);
+
+    expect(abertas.map((s) => s.session_id)).toContain(sid);
+    expect(abertas[0].data).toBe("2026-08-16");
+  });
+
+  it("inclui o rascunho, com iniciado_em nulo", async () => {
+    const sid = await criarSessao(db, USER, { data: "2026-08-17", nome: "Avulso", itens: [] });
+    const abertas = await sessoesAbertas(db, USER);
+    expect(abertas).toHaveLength(1);
+    expect(abertas[0].session_id).toBe(sid);
+    expect(abertas[0].iniciado_em).toBeNull();
+  });
+
   it("a encerrada sai da lista, as outras ficam", async () => {
-    const a = await iniciarSessao(db, USER, { data: "2026-08-17", nome: "A", itens: [] });
-    const b = await iniciarSessao(db, USER, { data: "2026-08-17", nome: "B", itens: [] });
+    const a = await sessaoEmCurso(db, USER, { data: "2026-08-17", nome: "A", itens: [] });
+    const b = await sessaoEmCurso(db, USER, { data: "2026-08-17", nome: "B", itens: [] });
 
     await finalizarSessao(db, USER, b);
 
-    expect((await sessoesEmAndamento(db, USER, "2026-08-17")).map((s) => s.session_id)).toEqual([a]);
+    expect((await sessoesAbertas(db, USER)).map((s) => s.session_id)).toEqual([a]);
   });
 
   it("não enxerga sessão de outro usuário", async () => {
-    await iniciarSessao(db, OUTRO, { data: "2026-08-17", nome: "Alheia", itens: [] });
-    expect(await sessoesEmAndamento(db, USER, "2026-08-17")).toEqual([]);
+    await sessaoEmCurso(db, OUTRO, { data: "2026-08-17", nome: "Alheia", itens: [] });
+    expect(await sessoesAbertas(db, USER)).toEqual([]);
   });
 });
 
@@ -301,26 +337,26 @@ describe("finalizarSessao", () => {
   // não havia como uma sessão acabar.
   it("encerrada, a sessão some do 'em andamento' mesmo com séries pendentes", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).not.toBeNull();
+    expect(await sessaoAtiva(db, USER)).not.toBeNull();
 
     await finalizarSessao(db, USER, sid);
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).toBeNull();
+    expect(await sessaoAtiva(db, USER)).toBeNull();
   });
 
   it("um usuário não encerra a sessão do outro", async () => {
     const supino = await exercicio("Supino");
-    await iniciarSessao(db, USER, { data: "2026-08-17", nome: "Peito", itens: [item(supino)] });
-    const alvo = (await sessaoEmAndamento(db, USER, "2026-08-17"))!.session_id;
+    await sessaoEmCurso(db, USER, { data: "2026-08-17", nome: "Peito", itens: [item(supino)] });
+    const alvo = (await sessaoAtiva(db, USER))!.session_id;
     await finalizarSessao(db, OUTRO, alvo);
-    expect(await sessaoEmAndamento(db, USER, "2026-08-17")).not.toBeNull();
+    expect(await sessaoAtiva(db, USER)).not.toBeNull();
   });
 
   it("encerrar duas vezes não muda a hora do encerramento", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     await finalizarSessao(db, USER, sid);
@@ -394,7 +430,7 @@ describe("cardio dentro da sessão", () => {
   async function comCardio() {
     const bike = await exercicio("Bicicleta");
     await db.execute({ sql: "UPDATE exercises SET met = 7.5, equipamento = 'cardio' WHERE id = ?", args: [bike] });
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17",
       nome: "Cardio",
       itens: [{
@@ -474,11 +510,11 @@ describe("cardio dentro da sessão", () => {
   it("cardio conta no progresso da sessão em andamento", async () => {
     const { sid } = await comCardio();
     const [linha] = await getPlano(db, USER, sid);
-    expect((await sessaoEmAndamento(db, USER, "2026-08-17"))).toEqual({
+    expect((await sessaoAtiva(db, USER))).toMatchObject({
       session_id: sid, nome: "Cardio", total: 1, feitas: 0,
     });
     await registrarCardio(db, USER, linha.id, { duracao_min: 30, kcal: 308 });
-    expect((await sessaoEmAndamento(db, USER, "2026-08-17"))!.feitas).toBe(1);
+    expect((await sessaoAtiva(db, USER))!.feitas).toBe(1);
   });
 
   it("um usuário não registra cardio no plano do outro", async () => {
@@ -519,7 +555,7 @@ describe("removerExercicioDaSessao", () => {
   it("tira o bloco inteiro e renumera a ordem do que sobrou", async () => {
     const supino = await exercicio("Supino");
     const rosca = await exercicio("Rosca direta");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
     });
 
@@ -533,7 +569,7 @@ describe("removerExercicioDaSessao", () => {
 
   it("apaga também as séries já registradas do exercício removido", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -554,7 +590,7 @@ describe("removerExercicioDaSessao", () => {
       sql: "UPDATE exercises SET met = 7.5, equipamento = 'cardio' WHERE id = ?",
       args: [bike],
     });
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17",
       nome: "Cardio",
       itens: [{
@@ -572,7 +608,7 @@ describe("removerExercicioDaSessao", () => {
 
   it("um usuário não remove exercício da sessão do outro", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     await removerExercicioDaSessao(db, OUTRO, sid, supino);
@@ -585,7 +621,7 @@ describe("trocarExercicioDaSessao", () => {
     const supino = await exercicio("Supino");
     const rosca = await exercicio("Rosca direta");
     const inclinado = await exercicio("Supino inclinado");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
     });
 
@@ -604,7 +640,7 @@ describe("trocarExercicioDaSessao", () => {
   it("as séries já registradas passam a ser do exercício novo", async () => {
     const supino = await exercicio("Supino");
     const inclinado = await exercicio("Supino inclinado");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -632,7 +668,7 @@ describe("trocarExercicioDaSessao", () => {
       duracao_min: null,
     });
     const itens = await montarPlanoDoDia(db, USER, d.id, "2026-08-17");
-    const sid = await iniciarSessao(db, USER, { data: "2026-08-17", nome: "Peito", itens });
+    const sid = await sessaoEmCurso(db, USER, { data: "2026-08-17", nome: "Peito", itens });
     expect((await getPlano(db, USER, sid))[0].routine_exercise_id).not.toBeNull();
 
     await trocarExercicioDaSessao(db, USER, sid, supino, inclinado);
@@ -645,7 +681,7 @@ describe("reordenarExerciciosDaSessao", () => {
   it("põe os blocos na ordem pedida, cada um com suas séries", async () => {
     const supino = await exercicio("Supino");
     const rosca = await exercicio("Rosca direta");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
     });
 
@@ -663,7 +699,7 @@ describe("reordenarExerciciosDaSessao", () => {
   it("exercício de fora da lista vai para o fim, sem sumir", async () => {
     const supino = await exercicio("Supino");
     const rosca = await exercicio("Rosca direta");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
     });
 
@@ -680,7 +716,7 @@ describe("adicionarSerie", () => {
   it("a série nova entra no fim do bloco, copiando peso e reps da última", async () => {
     const supino = await exercicio("Supino");
     const rosca = await exercicio("Rosca direta");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino), item(rosca, 12)],
     });
 
@@ -700,7 +736,7 @@ describe("adicionarSerie", () => {
 
   it("a série nova nasce por fazer", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     await adicionarSerie(db, USER, sid, supino);
@@ -711,7 +747,7 @@ describe("adicionarSerie", () => {
 describe("removerSerie", () => {
   it("tira a linha do plano e renumera as séries do bloco", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -726,7 +762,7 @@ describe("removerSerie", () => {
 
   it("apaga junto a série que já tinha sido registrada", async () => {
     const supino = await exercicio("Supino");
-    const sid = await iniciarSessao(db, USER, {
+    const sid = await sessaoEmCurso(db, USER, {
       data: "2026-08-17", nome: "Peito", itens: [item(supino)],
     });
     const plano = await getPlano(db, USER, sid);
@@ -739,3 +775,64 @@ describe("removerSerie", () => {
     expect(await listSetsBySession(db, USER, sid)).toHaveLength(0);
   });
 });
+
+describe("o ciclo de vida da sessão", () => {
+  it("criarSessao nasce rascunho: sem início e sem fim", async () => {
+    const sid = await criarSessao(db, USER, { data: "2026-09-01", nome: "Avulso", itens: [] });
+    const s = await getSession(db, USER, sid);
+    expect(s!.iniciado_em).toBeNull();
+    expect(s!.concluida_em).toBeNull();
+  });
+
+  it("iniciarSessao marca o começo", async () => {
+    const sid = await criarSessao(db, USER, { data: "2026-09-01", nome: "Avulso", itens: [] });
+    await iniciarSessao(db, USER, sid);
+    const s = await getSession(db, USER, sid);
+    expect(s!.iniciado_em).not.toBeNull();
+    expect(s!.concluida_em).toBeNull();
+  });
+
+  it("iniciar duas vezes não move o começo", async () => {
+    const sid = await criarSessao(db, USER, { data: "2026-09-01", nome: "Avulso", itens: [] });
+    await iniciarSessao(db, USER, sid);
+    const primeiro = (await getSession(db, USER, sid))!.iniciado_em;
+    await new Promise((r) => setTimeout(r, 5));
+    await iniciarSessao(db, USER, sid);
+    expect((await getSession(db, USER, sid))!.iniciado_em).toBe(primeiro);
+  });
+
+  it("iniciar a sessão de outro dono não faz nada", async () => {
+    const sid = await criarSessao(db, USER, { data: "2026-09-01", nome: "Avulso", itens: [] });
+    await iniciarSessao(db, OUTRO, sid);
+    expect((await getSession(db, USER, sid))!.iniciado_em).toBeNull();
+  });
+
+  it("registrar uma série num rascunho inicia o treino", async () => {
+    const ex = await exercicio("Supino");
+    const sid = await criarSessao(db, USER, { data: "2026-09-01", nome: "Peito", itens: [item(ex)] });
+    const plano = await getPlano(db, USER, sid);
+
+    await registrarSerie(db, USER, plano[0].id, {
+      reps: 10, peso_kg: 40, tipo: "valida", rir: null, nota: null,
+    });
+
+    expect((await getSession(db, USER, sid))!.iniciado_em).not.toBeNull();
+  });
+
+  it("finalizar um rascunho preenche início e fim — nunca fim sem início", async () => {
+    const sid = await criarSessao(db, USER, { data: "2026-09-01", nome: "Avulso", itens: [] });
+    await finalizarSessao(db, USER, sid);
+    const s = await getSession(db, USER, sid);
+    expect(s!.iniciado_em).not.toBeNull();
+    expect(s!.concluida_em).not.toBeNull();
+  });
+
+  it("finalizar não move o início de quem já tinha um", async () => {
+    const sid = await criarSessao(db, USER, { data: "2026-09-01", nome: "Avulso", itens: [] });
+    await iniciarSessao(db, USER, sid);
+    const inicio = (await getSession(db, USER, sid))!.iniciado_em;
+    await finalizarSessao(db, USER, sid);
+    expect((await getSession(db, USER, sid))!.iniciado_em).toBe(inicio);
+  });
+});
+

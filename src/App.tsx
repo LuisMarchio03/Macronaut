@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AvisosDeFalha } from "./components/avisos-de-falha";
 import { BottomNav } from "./components/bottom-nav";
+import { FaixaTreinoAtivo } from "./components/faixa-treino-ativo";
 import { QuickAdd } from "./components/quick-add";
 import { RequireAuth } from "./components/require-auth";
 import { DataProvider } from "./lib/data-context";
@@ -36,18 +37,24 @@ function ProtectedLayout() {
   return (
     <RequireAuth>
       <DataProvider>
-        {/* A folga inferior cobre a barra de navegação e, quando existe, também
-            o botão flutuante — sem ela o botão fica por cima do último card e
-            esconde o que está debaixo dele. */}
+        {/* A folga inferior cobre a barra de navegação e o que flutua sobre
+            ela — o botão de registro rápido, a faixa do treino em curso, ou os
+            dois. Sem ela o último card fica escondido debaixo de alguma coisa.
+
+            A faixa entra na conta sempre, mesmo quando não há treino aberto:
+            medir a presença dela aqui exigiria subir o estado do treino para o
+            layout, e 3,5rem de folga a mais não custam nada numa tela que
+            rola. */}
         <div
           className={
             comRegistroRapido
-              ? "mx-auto min-h-dvh max-w-lg pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
-              : "mx-auto min-h-dvh max-w-lg pb-[calc(4rem+env(safe-area-inset-bottom))]"
+              ? "mx-auto min-h-dvh max-w-lg pb-[calc(11rem+env(safe-area-inset-bottom))]"
+              : "mx-auto min-h-dvh max-w-lg pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
           }
         >
           <Outlet />
           {comRegistroRapido && <QuickAdd />}
+          <FaixaTreinoAtivo />
           <BottomNav />
         </div>
       </DataProvider>

@@ -13,26 +13,28 @@ export function useSessao(sessionId: number | undefined) {
   });
 }
 
-export function useSessaoEmAndamento(data: string) {
+/**
+ * Todos os treinos não concluídos, de qualquer dia.
+ *
+ * Sem chave de data, de propósito: a lista muda quando uma sessão abre ou
+ * fecha, não quando o relógio vira — e uma chave por dia deixava o treino de
+ * ontem num cache que ninguém mais consultava, que é a versão em memória do
+ * mesmo bug que `sessoesAbertas` corrigiu no SQL.
+ */
+export function useSessoesAbertas() {
   const api = useApi();
   return useQuery({
-    queryKey: ["sessao", "andamento", data],
-    queryFn: () => api["sessao"].sessaoEmAndamento(data),
+    queryKey: ["sessao", "abertas"],
+    queryFn: () => api["sessao"].sessoesAbertas(),
   });
 }
 
-/**
- * Todas as sessões abertas do dia.
- *
- * O hub lista uma linha por sessão: com duas abertas — o treino da rotina e um
- * avulso da noite — oferecer só a mais recente escondia a outra sem dizer que
- * ela existia.
- */
-export function useSessoesEmAndamento(data: string) {
+/** O treino acontecendo agora — rascunho não conta. */
+export function useSessaoAtiva() {
   const api = useApi();
   return useQuery({
-    queryKey: ["sessao", "abertas", data],
-    queryFn: () => api["sessao"].sessoesEmAndamento(data),
+    queryKey: ["sessao", "ativa"],
+    queryFn: () => api["sessao"].sessaoAtiva(),
   });
 }
 
@@ -86,12 +88,31 @@ function useEscritaNaSessao<TVars, TDados>(fn: (v: TVars) => Promise<TDados>) {
   });
 }
 
-export function useIniciarSessao() {
+/** Cria o rascunho — a rotina com o plano do dia, o avulso vazio. */
+export function useCriarSessao() {
   const api = useApi();
   return useEscritaNaSessao(
     (v: { data: string; nome: string | null; itens: ItemPlanejado[] }) =>
-      api["sessao"].iniciarSessao(v),
+      api["sessao"].criarSessao(v),
   );
+}
+
+/** Rascunho → em andamento. É o "Iniciar treino" da tela da academia. */
+export function useIniciarTreino() {
+  const api = useApi();
+  return useEscritaNaSessao((sessionId: number) => api["sessao"].iniciarSessao(sessionId));
+}
+
+/**
+ * Descartar um rascunho, ou um treino aberto que não vai ser terminado.
+ *
+ * `workouts.deleteSession` já leva plano, séries e o cardio de
+ * `activity_sessions` junto — não havia função nova a escrever, só uma tela
+ * que ainda não a chamava.
+ */
+export function useDescartarSessao() {
+  const api = useApi();
+  return useEscritaNaSessao((sessionId: number) => api["workouts"].deleteSession(sessionId));
 }
 
 export function useRegistrarSerie() {

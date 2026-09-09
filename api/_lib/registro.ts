@@ -57,6 +57,7 @@ export const REGISTRO: Registro = {
   /* ── sessao ── */
   "sessao.adicionarAoPlano": { escopo: "usuario", fn: sessao.adicionarAoPlano },
   "sessao.adicionarSerie": { escopo: "usuario", fn: sessao.adicionarSerie },
+  "sessao.criarSessao": { escopo: "usuario", fn: sessao.criarSessao },
   "sessao.desfazerSerie": { escopo: "usuario", fn: sessao.desfazerSerie },
   "sessao.finalizarSessao": { escopo: "usuario", fn: sessao.finalizarSessao },
   "sessao.getPlano": { escopo: "usuario", fn: sessao.getPlano },
@@ -69,8 +70,8 @@ export const REGISTRO: Registro = {
   "sessao.removerExercicioDaSessao": { escopo: "usuario", fn: sessao.removerExercicioDaSessao },
   "sessao.removerSerie": { escopo: "usuario", fn: sessao.removerSerie },
   "sessao.reordenarExerciciosDaSessao": { escopo: "usuario", fn: sessao.reordenarExerciciosDaSessao },
-  "sessao.sessaoEmAndamento": { escopo: "usuario", fn: sessao.sessaoEmAndamento },
-  "sessao.sessoesEmAndamento": { escopo: "usuario", fn: sessao.sessoesEmAndamento },
+  "sessao.sessaoAtiva": { escopo: "usuario", fn: sessao.sessaoAtiva },
+  "sessao.sessoesAbertas": { escopo: "usuario", fn: sessao.sessoesAbertas },
   "sessao.trocarExercicioDaSessao": { escopo: "usuario", fn: sessao.trocarExercicioDaSessao },
 
   /* ── workouts ── */
@@ -97,11 +98,15 @@ export const REGISTRO: Registro = {
 
   /* ── plano ── */
   "plano.addAguaNoBloco": { escopo: "usuario", fn: plano.addAguaNoBloco },
+  "plano.adicionarTroca": { escopo: "usuario", fn: plano.adicionarTroca },
+  "plano.adicionarTrocaDaRefeicao": { escopo: "usuario", fn: plano.adicionarTrocaDaRefeicao },
   "plano.aguaPorBloco": { escopo: "usuario", fn: plano.aguaPorBloco },
   "plano.ativarPlano": { escopo: "usuario", fn: plano.ativarPlano },
   "plano.deletarPlano": { escopo: "usuario", fn: plano.deletarPlano },
+  "plano.dispensarItem": { escopo: "usuario", fn: plano.dispensarItem },
   "plano.getPlanoAtivo": { escopo: "usuario", fn: plano.getPlanoAtivo },
   "plano.importarPlano": { escopo: "usuario", fn: plano.importarPlano },
+  "plano.limparRefeicao": { escopo: "usuario", fn: plano.limparRefeicao },
   "plano.listBlocos": { escopo: "usuario", fn: plano.listBlocos },
   "plano.listChecksDoDia": { escopo: "usuario", fn: plano.listChecksDoDia },
   "plano.listItensPorBloco": { escopo: "usuario", fn: plano.listItensPorBloco },
@@ -111,6 +116,7 @@ export const REGISTRO: Registro = {
   "plano.listTrocasDoDia": { escopo: "usuario", fn: plano.listTrocasDoDia },
   "plano.marcarBloco": { escopo: "usuario", fn: plano.marcarBloco },
   "plano.removerTroca": { escopo: "usuario", fn: plano.removerTroca },
+  "plano.removerUmaTroca": { escopo: "usuario", fn: plano.removerUmaTroca },
   "plano.salvarTroca": { escopo: "usuario", fn: plano.salvarTroca },
 
   /* ── entries ── */
