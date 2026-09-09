@@ -23,7 +23,9 @@ import { useAiConfig } from "@/hooks/use-ai-config";
 import {
   useAddAgua,
   useAdicionarTroca,
+  useAdicionarTrocaDaRefeicao,
   useDispensarItem,
+  useLimparRefeicao,
   useRemoverUmaTroca,
   useAguaPorBloco,
   useBlocos,
@@ -133,6 +135,8 @@ export function Dashboard() {
   const adicionarTroca = useAdicionarTroca(data);
   const removerUmaTroca = useRemoverUmaTroca(data);
   const dispensarItem = useDispensarItem(data);
+  const trocarRefeicao = useAdicionarTrocaDaRefeicao(data);
+  const limparRefeicao = useLimparRefeicao(data);
   const addAgua = useAddAgua(data);
 
   const [trocando, setTrocando] = useState<PlanBlock | null>(null);
@@ -351,6 +355,10 @@ export function Dashboard() {
           onRemoverUma={(trocaId) => removerUmaTroca.mutate(trocaId)}
           onDispensar={(itemId) => dispensarItem.mutate({ blockId: trocando.id, itemId })}
           onDesfazer={(itemId) => limparTrocas.mutate(itemId)}
+          onTrocarRefeicao={(e) =>
+            trocarRefeicao.mutate({ data, block_id: trocando.id, item_id: null, ...e })
+          }
+          onDesfazerRefeicao={() => limparRefeicao.mutate(trocando.id)}
           onMarcar={(feito) => marcar.mutate({ planId: plano.id, blockId: trocando.id, feito })}
           onClose={() => setTrocando(null)}
         />

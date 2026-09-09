@@ -8,23 +8,30 @@ import {
   descreverTroca,
   itemDispensado,
   refeicaoResolvida,
+  trocasDaRefeicao,
   trocasDoItem,
 } from "@/domain/plano-dia";
 import type { PlanBlock, PlanItem, PlanSwap, Troca } from "@/domain/plano-types";
 import { ROTULO } from "./escolher-alimento";
 import type { Aba, Escolha } from "./escolher-alimento";
 import { TrocarItem } from "./trocar-item";
+import { TrocarRefeicao } from "./trocar-refeicao";
 
 /* ══════════════════════════════════════════════════════════════════
    NÍVEL 1 — a refeição
    ══════════════════════════════════════════════════════════════════ */
 
 /**
- * A refeição de hoje, linha a linha, com a troca de cada uma.
+ * A refeição de hoje, e os dois jeitos de mexer nela.
  *
- * Era uma lista chapada de todas as substituições do bloco, e escolher uma
- * marcava a refeição inteira — o que tornava impossível trocar a segunda
- * linha. A refeição é a unidade que se vê; o ITEM é a unidade que se troca.
+ * Tocar numa linha troca só ela (nível 2). "Refeição inteira" a substitui por
+ * uma lista nova (nível 3), de quantos alimentos você quiser e sem relação com
+ * as linhas — o caminho de quem comeu uma pizza no lugar do almoço.
+ *
+ * Os dois não convivem no mesmo bloco no mesmo dia: com a refeição substituída
+ * as linhas ficam riscadas em bloco e deixam de ser tocáveis, e a saída é
+ * "Voltar ao plano". É o que impede um toque errado numa linha de custar a
+ * lista inteira.
  */
 export function SheetTrocas({
   bloco,
@@ -37,6 +44,8 @@ export function SheetTrocas({
   onRemoverUma,
   onDispensar,
   onDesfazer,
+  onTrocarRefeicao,
+  onDesfazerRefeicao,
   onMarcar,
   onClose,
 }: {
@@ -53,6 +62,10 @@ export function SheetTrocas({
   onDispensar: (itemId: number) => void;
   /** Devolve a linha ao plano: apaga trocas e dispensa. */
   onDesfazer: (itemId: number) => void;
+  /** Acrescenta um alimento à lista que substitui a refeição inteira. */
+  onTrocarRefeicao: (e: Escolha) => void;
+  /** "Voltar ao plano": apaga os dois escopos do bloco. */
+  onDesfazerRefeicao: () => void;
   onMarcar: (feito: boolean) => void;
   onClose: () => void;
 }) {
@@ -70,13 +83,19 @@ export function SheetTrocas({
    * o alimento é dado do item.
    */
   const [abaPreferida, setAbaPreferida] = useState<Aba>("plano");
+  /** O nível 3 está aberto? */
+  const [refeicaoAberta, setRefeicaoAberta] = useState(false);
 
   const aberto = itens.find((i) => i.id === abertoId) ?? null;
+  const daRefeicao = trocasDaRefeicao(trocas, bloco.id);
+  const substituida = daRefeicao.length > 0;
 
-  // Quais linhas o "Comi" não consegue lançar no diário. Dizer isso é o que
-  // torna honesto não contá-las: o app não sabe a caloria daquele item, e
+  // O que o "Comi" não consegue lançar no diário, nos dois escopos. Dizer isso
+  // é o que torna honesto não contar: o app não sabe aquela caloria, e o
   // silêncio pareceria zero.
-  const foraDoBalanco = new Set(refeicaoResolvida(itens, trocas, bloco.id).semAlimento.map((i) => i.id));
+  const resolvida = refeicaoResolvida(itens, trocas, bloco.id);
+  const foraDoBalanco = new Set(resolvida.semAlimento.map((i) => i.id));
+  const naoContadas = new Set(resolvida.naoContadas.map((t) => t.id));
 
   /**
    * Confirmar NÃO avança mais sozinho.
@@ -134,12 +153,29 @@ export function SheetTrocas({
             onVoltarAoPlano={() => onDesfazer(aberto.id)}
             onProximo={avancar}
           />
+        ) : refeicaoAberta ? (
+          <TrocarRefeicao
+            bloco={bloco}
+            swaps={swaps}
+            escolhidas={daRefeicao}
+            aba={abaPreferida}
+            onAba={setAbaPreferida}
+            onEscolher={onTrocarRefeicao}
+            onRemoverUma={onRemoverUma}
+            onVoltar={() => setRefeicaoAberta(false)}
+            onVoltarAoPlano={() => {
+              onDesfazerRefeicao();
+              setRefeicaoAberta(false);
+            }}
+          />
         ) : (
           <>
             <SheetHeader>
               <SheetTitle>{bloco.nome}</SheetTitle>
               <SheetDescription>
-                Toque numa linha para trocar. Trocar todas é trocar a refeição inteira.
+                {substituida
+                  ? "Você trocou a refeição inteira."
+                  : "Toque numa linha para trocar só ela, ou troque a refeição inteira por uma lista nova."}
               </SheetDescription>
             </SheetHeader>
 
@@ -148,6 +184,47 @@ export function SheetTrocas({
                 <p className="t-caption py-6 text-center">
                   Esta refeição não tem itens no seu plano.
                 </p>
+              ) : substituida ? (
+                <div className="space-y-3">
+                  {/* O plano continua visível: a troca só faz sentido contra o
+                      que ela substituiu, e sumi-lo apagaria o que o
+                      nutricionista mandou. Riscado em BLOCO, porque foi a
+                      refeição que saiu, não cada linha. */}
+                  <div>
+                    <p className="t-caption">o plano previa</p>
+                    <ul className="mt-1 space-y-0.5">
+                      {itens.map((item) => (
+                        <li key={item.id} className="text-sm text-muted-foreground line-through">
+                          {item.texto}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+                    {daRefeicao.map((t) => (
+                      <li key={t.id} className="flex items-center gap-1 pr-2">
+                        <span className="min-w-0 flex-1 py-2.5 pl-4">
+                          <span className="block truncate text-sm font-medium text-primary">
+                            {descreverTroca(t)}
+                          </span>
+                          {naoContadas.has(t.id) && (
+                            <span className="t-caption block">
+                              não entra no balanço — escolha pelo catálogo
+                            </span>
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onRemoverUma(t.id)}
+                          aria-label={`Remover ${t.nome}`}
+                          className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-tint-danger hover:text-destructive"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : (
                 <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
                   {itens.map((item) => {
@@ -213,18 +290,48 @@ export function SheetTrocas({
               )}
             </div>
 
-            <div className="flex gap-2 border-t border-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <div className="space-y-2 border-t border-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {itens.length > 0 && (
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => { setPercorrendo(0); setAbertoId(itens[0].id); }}
-                >
-                  <Repeat className="size-4" />
-                  Trocar tudo
-                </Button>
+                <div className="flex gap-2">
+                  {substituida ? (
+                    <>
+                      <Button variant="outline" className="flex-1" onClick={onDesfazerRefeicao}>
+                        Voltar ao plano
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setRefeicaoAberta(true)}
+                      >
+                        Adicionar alimento
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Dois verbos, porque são duas perguntas diferentes:
+                          "quero corrigir cada linha" e "comi outra coisa no
+                          lugar dessa refeição". Um botão só, chamado "trocar
+                          tudo", respondia a segunda com a primeira. */}
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => { setPercorrendo(0); setAbertoId(itens[0].id); }}
+                      >
+                        <Repeat className="size-4" />
+                        Linha a linha
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setRefeicaoAberta(true)}
+                      >
+                        Refeição inteira
+                      </Button>
+                    </>
+                  )}
+                </div>
               )}
-              <Button className="flex-1" onClick={() => { onMarcar(!feito); onClose(); }}>
+              <Button block onClick={() => { onMarcar(!feito); onClose(); }}>
                 {feito ? "Desmarcar" : "Comi"}
               </Button>
             </div>
