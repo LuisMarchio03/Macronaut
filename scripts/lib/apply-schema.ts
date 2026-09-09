@@ -168,6 +168,57 @@ const REBUILDS: { table: string; obsoleto: RegExp; passos: string[] }[] = [
          ON plan_item_swaps (user_id, data, item_id) WHERE dispensado = 1`,
     ],
   },
+  {
+    // A troca era sempre de uma LINHA (`item_id NOT NULL`), e a lista nova de
+    // uma refeição inteira não cabia: três alimentos no lugar de cinco linhas
+    // exigia pendurar os três numa linha e dispensar as outras quatro, o que
+    // afirma que a pizza substituiu o arroz quando ela substituiu o almoço.
+    // `item_id NULL` passa a dizer "esta troca substitui o bloco".
+    //
+    // Vem DEPOIS da entrada acima de propósito: `aplicarReconstrucoes` relê o
+    // `sqlite_master` a cada entrada, então num banco antigo a primeira tira o
+    // `UNIQUE` e produz exatamente o `item_id INTEGER NOT NULL` que esta
+    // reconhece — as duas numa passada só.
+    table: "plan_item_swaps",
+    obsoleto: /item_id\s+INTEGER\s+NOT\s+NULL/i,
+    passos: [
+      `CREATE TABLE plan_item_swaps_nova (
+         id INTEGER PRIMARY KEY AUTOINCREMENT,
+         user_id INTEGER NOT NULL, data TEXT NOT NULL,
+         block_id INTEGER NOT NULL, item_id INTEGER,
+         swap_id INTEGER, food_id INTEGER, texto TEXT,
+         qty_g REAL, measure_id INTEGER, medidas REAL, kcal REAL,
+         dispensado INTEGER NOT NULL DEFAULT 0,
+         created_at TEXT NOT NULL,
+         CHECK (
+           (dispensado = 1 AND item_id IS NOT NULL
+            AND swap_id IS NULL AND food_id IS NULL AND texto IS NULL)
+           OR
+           (dispensado = 0
+            AND (swap_id IS NOT NULL) + (food_id IS NOT NULL) + (texto IS NOT NULL) = 1)
+         ),
+         FOREIGN KEY (block_id)   REFERENCES plan_blocks (id)   ON DELETE CASCADE,
+         FOREIGN KEY (item_id)    REFERENCES plan_items (id)    ON DELETE CASCADE,
+         FOREIGN KEY (swap_id)    REFERENCES plan_swaps (id)    ON DELETE SET NULL,
+         FOREIGN KEY (food_id)    REFERENCES foods (id)         ON DELETE SET NULL,
+         FOREIGN KEY (measure_id) REFERENCES food_measures (id) ON DELETE SET NULL
+       )`,
+      // Toda linha já gravada tinha `item_id`, e continua tendo: nenhuma troca
+      // muda de sentido ao atravessar.
+      `INSERT INTO plan_item_swaps_nova
+         (id, user_id, data, block_id, item_id, swap_id, food_id, texto,
+          qty_g, measure_id, medidas, kcal, dispensado, created_at)
+       SELECT id, user_id, data, block_id, item_id, swap_id, food_id, texto,
+              qty_g, measure_id, medidas, kcal, dispensado, created_at
+         FROM plan_item_swaps`,
+      `DROP TABLE plan_item_swaps`,
+      `ALTER TABLE plan_item_swaps_nova RENAME TO plan_item_swaps`,
+      `CREATE INDEX IF NOT EXISTS idx_plan_item_swaps_dia
+         ON plan_item_swaps (user_id, data)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_item_swaps_dispensa
+         ON plan_item_swaps (user_id, data, item_id) WHERE dispensado = 1`,
+    ],
+  },
 ];
 
 /**

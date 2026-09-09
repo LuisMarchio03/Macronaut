@@ -163,3 +163,79 @@ describe("applyAdditiveColumns — plan_item_swaps reconstruída", () => {
     expect(Number(rs.rows[0].n)).toBe(1);
   });
 });
+
+describe("applyAdditiveColumns — plan_item_swaps com troca da refeição", () => {
+  it("aceita uma troca sem item: ela substitui a refeição inteira", async () => {
+    const db = await bancoComTrocasAntigas();
+    await applyAdditiveColumns(db);
+
+    await db.execute(`INSERT INTO plan_item_swaps
+      (user_id, data, block_id, item_id, food_id, qty_g, kcal, created_at, dispensado)
+      VALUES (1, '2026-08-31', 10, NULL, 77, 300, 480, 't', 0)`);
+
+    const rs = await db.execute(
+      "SELECT COUNT(*) AS n FROM plan_item_swaps WHERE item_id IS NULL",
+    );
+    expect(Number(rs.rows[0].n)).toBe(1);
+  });
+
+  it("aceita várias trocas da mesma refeição — é uma lista, não uma correção", async () => {
+    const db = await bancoComTrocasAntigas();
+    await applyAdditiveColumns(db);
+
+    await db.executeMultiple(`
+      INSERT INTO plan_item_swaps
+        (user_id, data, block_id, item_id, food_id, qty_g, kcal, created_at, dispensado)
+        VALUES (1, '2026-08-31', 10, NULL, 77, 300, 480, 't', 0);
+      INSERT INTO plan_item_swaps
+        (user_id, data, block_id, item_id, texto, kcal, created_at, dispensado)
+        VALUES (1, '2026-08-31', 10, NULL, 'Sorvete da esquina', NULL, 't', 0);
+    `);
+
+    const rs = await db.execute(
+      "SELECT COUNT(*) AS n FROM plan_item_swaps WHERE item_id IS NULL",
+    );
+    expect(Number(rs.rows[0].n)).toBe(2);
+  });
+
+  it("recusa dispensa sem item: não se dispensa uma refeição, só uma linha", async () => {
+    // "Não comi esta refeição" já tem resposta: é não marcar "Comi". Uma
+    // dispensa de bloco seria uma segunda maneira de dizer o mesmo, e as duas
+    // discordariam no dia em que alguém usasse só uma.
+    const db = await bancoComTrocasAntigas();
+    await applyAdditiveColumns(db);
+
+    await expect(db.execute(`INSERT INTO plan_item_swaps
+      (user_id, data, block_id, item_id, created_at, dispensado)
+      VALUES (1, '2026-08-31', 10, NULL, 't', 1)`)).rejects.toThrow();
+  });
+
+  it("um banco no formato mais antigo atravessa as duas reconstruções", async () => {
+    // A primeira tira o UNIQUE e produz `item_id INTEGER NOT NULL`, que é
+    // exatamente o que a segunda reconhece. A ordem no array é o que faz isso
+    // funcionar numa passada só.
+    const db = await bancoComTrocasAntigas();
+    await applyAdditiveColumns(db);
+
+    const rs = await db.execute(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='plan_item_swaps'",
+    );
+    const ddl = rs.rows[0].sql as string;
+    expect(ddl).not.toMatch(/UNIQUE\s*\(\s*user_id/i);
+    expect(ddl).not.toMatch(/item_id\s+INTEGER\s+NOT\s+NULL/i);
+    expect(ddl).toMatch(/dispensado/i);
+  });
+
+  it("rodar de novo depois das duas não mexe em nada", async () => {
+    const db = await bancoComTrocasAntigas();
+    await applyAdditiveColumns(db);
+    await db.execute(`INSERT INTO plan_item_swaps
+      (user_id, data, block_id, item_id, food_id, qty_g, kcal, created_at, dispensado)
+      VALUES (1, '2026-08-31', 10, NULL, 77, 300, 480, 't', 0)`);
+
+    await applyAdditiveColumns(db);
+
+    const rs = await db.execute("SELECT COUNT(*) AS n FROM plan_item_swaps");
+    expect(Number(rs.rows[0].n)).toBe(2);
+  });
+});

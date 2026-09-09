@@ -343,7 +343,11 @@ CREATE TABLE IF NOT EXISTS plan_item_swaps (
   user_id    INTEGER NOT NULL,
   data       TEXT    NOT NULL,             -- 'YYYY-MM-DD'
   block_id   INTEGER NOT NULL,
-  item_id    INTEGER NOT NULL,             -- plan_items.id: QUAL linha foi trocada
+  -- plan_items.id: QUAL linha foi trocada. NULL = a troca é da REFEIÇÃO
+  -- inteira: uma lista nova no lugar do bloco, sem relação com as linhas do
+  -- plano. Três alimentos no lugar de cinco linhas não precisa fingir que
+  -- cada um substituiu uma delas.
+  item_id    INTEGER,
   swap_id    INTEGER,                      -- plan_swaps.id  → prevista no plano
   food_id    INTEGER,                      -- foods.id       → alimento do catálogo
   texto      TEXT,                         -- o que você escreveu
@@ -358,7 +362,10 @@ CREATE TABLE IF NOT EXISTS plan_item_swaps (
   dispensado INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   CHECK (
-    (dispensado = 1 AND swap_id IS NULL AND food_id IS NULL AND texto IS NULL)
+    -- A dispensa é sempre de uma LINHA: "não comi esta refeição" já tem
+    -- resposta no app, que é não marcar "Comi".
+    (dispensado = 1 AND item_id IS NOT NULL
+     AND swap_id IS NULL AND food_id IS NULL AND texto IS NULL)
     OR
     (dispensado = 0
      AND (swap_id IS NOT NULL) + (food_id IS NOT NULL) + (texto IS NOT NULL) = 1)
