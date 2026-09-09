@@ -3,7 +3,7 @@ import type { Client, Row } from "@libsql/client";
 // das trocas de bloco), que roda no Node com --experimental-strip-types, e lá o
 // import extensionless não resolve. Vite e Vitest resolvem os dois, então a
 // falha só apareceria no `db:setup`.
-import { itensResolvidos } from "../domain/plano-dia.ts";
+import { refeicaoResolvida } from "../domain/plano-dia.ts";
 import { normalizar } from "../domain/texto.ts";
 import type {
   CategoriaItem,
@@ -15,7 +15,7 @@ import type {
   PlanSwap,
   RascunhoPlano,
   TipoBloco,
-  TrocaDeItem,
+  Troca,
 } from "../domain/plano-types";
 
 /* ── mapeamento ─────────────────────────────────────────────────── */
@@ -363,14 +363,14 @@ export async function deletarPlano(db: Client, userId: number, planId: number): 
  * catálogo, na própria linha quando foi escrita à mão. O join sai daqui uma
  * vez, e não de cada tela que desenha uma troca.
  */
-function mapTroca(r: Row): TrocaDeItem {
+function mapTroca(r: Row): Troca {
   const swapId = (r.swap_id as number | null) ?? null;
   const foodProprio = (r.food_id as number | null) ?? null;
   const texto = (r.texto as string | null) ?? null;
 
   // Uma dispensa não tem origem: "texto" é o valor inerte que o tipo exige, e
   // as telas testam `dispensado` antes de olhar para `origem`.
-  const origem: TrocaDeItem["origem"] =
+  const origem: Troca["origem"] =
     swapId !== null ? "plano" : foodProprio !== null ? "catalogo" : "texto";
 
   const qty_g = (r.qty_g as number | null) ?? (r.swap_qty_g as number | null) ?? null;
@@ -394,7 +394,7 @@ function mapTroca(r: Row): TrocaDeItem {
     kcal: (r.kcal as number | null) ?? (r.swap_kcal as number | null) ?? null,
     // O alimento efetivo: o do catálogo que você escolheu, ou o que o
     // importador conseguiu casar com a substituição do plano. Sem um dos dois
-    // a troca é só texto na tela, e `itensResolvidos` a mantém fora do diário.
+    // a troca é só texto na tela, e `refeicaoResolvida` a mantém fora do diário.
     food_id: foodProprio ?? (r.swap_food_id as number | null) ?? null,
     qty_g,
     measure_id: (r.measure_id as number | null) ?? null,
@@ -417,7 +417,7 @@ export async function listTrocasDoDia(
   db: Client,
   userId: number,
   data: string,
-): Promise<TrocaDeItem[]> {
+): Promise<Troca[]> {
   const rs = await db.execute({ sql: SELECT_TROCAS, args: [userId, data] });
   return rs.rows.map(mapTroca);
 }
@@ -425,7 +425,8 @@ export async function listTrocasDoDia(
 export interface TrocaEntrada {
   data: string;
   block_id: number;
-  item_id: number;
+  /** `null` = a troca é da REFEIÇÃO inteira, não de uma linha. */
+  item_id: number | null;
   /** Exatamente um dos três: o CHECK da tabela recusa uma linha ambígua. */
   swap_id?: number | null;
   food_id?: number | null;
@@ -503,6 +504,65 @@ export async function salvarTroca(
       ] as (number | string | null)[],
     },
   ], "write");
+}
+
+/**
+ * Acrescenta um alimento à lista que substitui a REFEIÇÃO inteira.
+ *
+ * O `DELETE` é a regra do escopo escrita uma vez só: uma refeição está num
+ * modo ou no outro — ou você ajusta linha a linha, ou você a substituiu. Somar
+ * os dois seria "substituir tudo" que na verdade acrescenta, que é a confusão
+ * que esta lista veio resolver.
+ *
+ * O caminho inverso não existe de propósito. Gravar uma troca de LINHA não
+ * apaga a lista da refeição, porque a folha não deixa tocar numa linha
+ * enquanto ela está substituída — você volta ao plano primeiro. Fazer o
+ * `DELETE` simétrico transformaria um toque errado numa linha em perder uma
+ * lista de cinco alimentos, sem aviso.
+ */
+export async function adicionarTrocaDaRefeicao(
+  db: Client,
+  userId: number,
+  e: TrocaEntrada,
+): Promise<void> {
+  await db.batch([
+    {
+      sql: `DELETE FROM plan_item_swaps
+            WHERE user_id=? AND data=? AND block_id=? AND item_id IS NOT NULL`,
+      args: [userId, e.data, e.block_id] as (number | string | null)[],
+    },
+    {
+      sql: `INSERT INTO plan_item_swaps
+              (user_id, data, block_id, item_id, swap_id, food_id, texto,
+               qty_g, measure_id, medidas, kcal, dispensado, created_at)
+            VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+      args: [
+        userId, e.data, e.block_id,
+        e.swap_id ?? null, e.food_id ?? null, e.texto ?? null,
+        e.qty_g ?? null, e.measure_id ?? null, e.medidas ?? null, e.kcal ?? null,
+        new Date().toISOString(),
+      ] as (number | string | null)[],
+    },
+  ], "write");
+}
+
+/**
+ * "Voltar ao plano": apaga os DOIS escopos do bloco naquele dia.
+ *
+ * É a única saída de uma refeição substituída, e por isso não pode deixar
+ * resto: uma troca de linha sobrevivente reapareceria sozinha quando a lista
+ * nova sumisse.
+ */
+export async function limparRefeicao(
+  db: Client,
+  userId: number,
+  data: string,
+  blockId: number,
+): Promise<void> {
+  await db.execute({
+    sql: "DELETE FROM plan_item_swaps WHERE user_id=? AND data=? AND block_id=?",
+    args: [userId, data, blockId],
+  });
 }
 
 /** Tira UM alimento da linha, deixando os outros. */
@@ -644,7 +704,7 @@ async function refeicaoDoBloco(db: Client, userId: number, bloco: PlanBlock): Pr
  * O lançamento é o que faz o plano encontrar o balanço energético: até aqui
  * marcar as quatro refeições do dia deixava o consumo em zero, porque o
  * consumo só olha `food_entries`. Só entra o item que resolve para um alimento
- * de verdade (ver `itensResolvidos`) — o resto o app não sabe contar, e não
+ * de verdade (ver `refeicaoResolvida`) — o resto o app não sabe contar, e não
  * inventa.
  *
  * `plan_block_id` é o que permite desmarcar sem tocar no que você digitou à
@@ -690,7 +750,7 @@ export async function marcarBloco(
     args: [blockId],
   });
   const itens = rsItens.rows.map(mapItem);
-  const { lancaveis } = itensResolvidos(itens, await listTrocasDoDia(db, userId, data));
+  const { lancaveis } = refeicaoResolvida(itens, await listTrocasDoDia(db, userId, data), blockId);
   if (lancaveis.length === 0) return;
 
   const mealId = await refeicaoDoBloco(db, userId, bloco);

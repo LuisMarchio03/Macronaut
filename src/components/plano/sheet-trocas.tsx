@@ -12,7 +12,7 @@ import { useMeasures } from "@/hooks/use-food-measures";
 import {
   descreverTroca,
   itemDispensado,
-  itensResolvidos,
+  refeicaoResolvida,
   trocasDoItem,
   trocasDoBloco,
   trocasPara,
@@ -20,7 +20,7 @@ import {
 import { macrosDoEntry } from "@/domain/nutrition";
 import { sugerirPorcao } from "@/domain/medida-default";
 import { formatarNumero, resolverQtdBase } from "@/domain/medidas";
-import type { PlanBlock, PlanItem, PlanSwap, TrocaDeItem } from "@/domain/plano-types";
+import type { PlanBlock, PlanItem, PlanSwap, Troca } from "@/domain/plano-types";
 import type { Food } from "@/domain/types";
 import type { TrocaEntrada } from "@/repositories/plano";
 
@@ -74,7 +74,7 @@ function TrocarItem({
   item: PlanItem;
   bloco: PlanBlock;
   swaps: PlanSwap[];
-  trocaAtual: TrocaDeItem | null;
+  trocaAtual: Troca | null;
   onEscolher: (e: Omit<TrocaEntrada, "data" | "block_id" | "item_id">) => void;
   onVoltar: () => void;
   /** "2 de 5" quando se está percorrendo a refeição inteira. */
@@ -83,7 +83,7 @@ function TrocarItem({
   abaInicial: Aba;
   onAba: (a: Aba) => void;
   /** O que já foi escolhido para ESTA linha. */
-  escolhidas: TrocaDeItem[];
+  escolhidas: Troca[];
   dispensado: boolean;
   onRemoverUma: (trocaId: number) => void;
   onDispensar: () => void;
@@ -432,7 +432,7 @@ export function SheetTrocas({
   bloco: PlanBlock;
   itens: PlanItem[];
   swaps: PlanSwap[];
-  trocas: TrocaDeItem[];
+  trocas: Troca[];
   feito: boolean;
   /** Substitui tudo na linha — o que a aba "Do plano" faz. */
   onTrocar: (itemId: number, e: Omit<TrocaEntrada, "data" | "block_id" | "item_id">) => void;
@@ -465,7 +465,7 @@ export function SheetTrocas({
   // Quais linhas o "Comi" não consegue lançar no diário. Dizer isso é o que
   // torna honesto não contá-las: o app não sabe a caloria daquele item, e
   // silêncio pareceria zero.
-  const foraDoBalanco = new Set(itensResolvidos(itens, trocas).semAlimento.map((i) => i.id));
+  const foraDoBalanco = new Set(refeicaoResolvida(itens, trocas, bloco.id).semAlimento.map((i) => i.id));
 
   /**
    * Confirmar NÃO avança mais sozinho.

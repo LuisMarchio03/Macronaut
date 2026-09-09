@@ -5,7 +5,7 @@ import type { Client } from "@libsql/client";
 import { createTestDb } from "../../../test/helpers/test-db";
 import { criarWrapper } from "../../../test/helpers/query-wrapper";
 import { SheetTrocas } from "./sheet-trocas";
-import type { PlanBlock, PlanItem, PlanSwap, TrocaDeItem } from "@/domain/plano-types";
+import type { PlanBlock, PlanItem, PlanSwap, Troca } from "@/domain/plano-types";
 
 let db: Client;
 
@@ -50,7 +50,7 @@ const SWAPS = [
   swap({ id: 6, block_nome: "Janta", categoria: "proteina", alimento: "Peixe branco", kcal: 110 }),
 ];
 
-const troca = (p: Partial<TrocaDeItem> & { item_id: number }): TrocaDeItem => ({
+const troca = (p: Partial<Troca> & { item_id: number }): Troca => ({
   id: p.item_id, data: "2026-08-31", block_id: 10, origem: "plano", swap_id: null,
   nome: "Tapioca", porcao: null, kcal: null,
   food_id: null, qty_g: null, measure_id: null, medidas: null, dispensado: false, ...p,

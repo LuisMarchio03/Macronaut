@@ -191,6 +191,28 @@ export function useSalvarTroca(data: string) {
   return useEscritaDeTroca(data, (e: TrocaEntrada) => api["plano"].salvarTroca(e));
 }
 
+/**
+ * Acrescenta um alimento à lista que substitui a refeição inteira.
+ *
+ * Separada de `useAdicionarTroca` porque a escrita não é a mesma: esta apaga
+ * as trocas de LINHA do bloco antes de gravar, e é isso que mantém a refeição
+ * num modo ou no outro.
+ */
+export function useAdicionarTrocaDaRefeicao(data: string) {
+  const api = useApi();
+  return useEscritaDeTroca(data, (e: TrocaEntrada) =>
+    api["plano"].adicionarTrocaDaRefeicao(e),
+  );
+}
+
+/** "Voltar ao plano": apaga as trocas dos dois escopos do bloco. */
+export function useLimparRefeicao(data: string) {
+  const api = useApi();
+  return useEscritaDeTroca(data, (blockId: number) =>
+    api["plano"].limparRefeicao(data, blockId),
+  );
+}
+
 /** Tira um alimento só, deixando os outros da linha. */
 export function useRemoverUmaTroca(data: string) {
   const api = useApi();

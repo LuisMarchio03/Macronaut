@@ -7,7 +7,7 @@ import type {
   PlanCheck,
   PlanItem,
   PlanSwap,
-  TrocaDeItem,
+  Troca,
 } from "./plano-types";
 
 /**
@@ -150,12 +150,16 @@ export function trocasDoBloco(swaps: PlanSwap[], blockNome: string): Map<string,
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   TROCA POR ITEM
+   TROCA, NOS DOIS ESCOPOS
 
-   A troca é por LINHA da refeição, não por refeição. Uma refeição de cinco
-   linhas tem até cinco trocas, e trocar a refeição inteira é trocar cada uma
-   delas — que é o que `plan_checks.swap_id`, com sua coluna única, nunca
-   permitiu.
+   Uma troca é de uma LINHA (`item_id` preenchido) ou da REFEIÇÃO inteira
+   (`item_id` nulo). A da linha ajusta o que o plano manda; a da refeição
+   substitui o bloco por uma lista nova, de quantos alimentos você quiser e sem
+   relação com o que o nutricionista escreveu.
+
+   As duas convivem na mesma tabela e NÃO convivem no mesmo bloco no mesmo dia:
+   gravar a primeira troca da refeição apaga as trocas de linha (ver
+   `adicionarTrocaDaRefeicao`). Uma refeição está num modo ou no outro.
    ══════════════════════════════════════════════════════════════════ */
 
 /** A troca vigente de um item, ou `null` se ele está como o plano manda. */
@@ -169,13 +173,33 @@ export function trocasDoBloco(swaps: PlanSwap[], blockNome: string): Map<string,
  *
  * A dispensa fica de fora: mora na mesma tabela, mas não é uma troca.
  */
-export function trocasDoItem(trocas: TrocaDeItem[], itemId: number): TrocaDeItem[] {
+export function trocasDoItem(trocas: Troca[], itemId: number): Troca[] {
   return trocas.filter((t) => t.item_id === itemId && !t.dispensado);
 }
 
 /** A linha que você marcou como não comida. */
-export function itemDispensado(trocas: TrocaDeItem[], itemId: number): boolean {
+export function itemDispensado(trocas: Troca[], itemId: number): boolean {
   return trocas.some((t) => t.item_id === itemId && t.dispensado);
+}
+
+/**
+ * Os alimentos que substituíram a REFEIÇÃO inteira, na ordem em que entraram.
+ *
+ * `item_id` nulo é o que diz o escopo: a troca não está no lugar de uma linha,
+ * está no lugar do bloco. É o caso de quem comeu uma pizza no lugar de um
+ * almoço de quatro linhas — a lista nova não tem por que ter o tamanho do que
+ * o nutricionista escreveu.
+ *
+ * `trocasDoItem` e `itemDispensado` não precisam saber deste escopo: elas
+ * comparam `item_id` com um número, e `null` nunca é igual a um número.
+ */
+export function trocasDaRefeicao(trocas: Troca[], blockId: number): Troca[] {
+  return trocas.filter((t) => t.block_id === blockId && t.item_id === null && !t.dispensado);
+}
+
+/** A refeição foi substituída inteira? */
+export function refeicaoSubstituida(trocas: Troca[], blockId: number): boolean {
+  return trocasDaRefeicao(trocas, blockId).length > 0;
 }
 
 /**
@@ -185,7 +209,7 @@ export function itemDispensado(trocas: TrocaDeItem[], itemId: number): boolean {
  * para uma troca sem número mentiria duas vezes: na tela, e para quem lesse
  * aquilo como um valor medido.
  */
-export function descreverTroca(t: TrocaDeItem): string {
+export function descreverTroca(t: Troca): string {
   return [t.nome, t.porcao, t.kcal !== null ? `${Math.round(t.kcal)} kcal` : null]
     .filter((p): p is string => p !== null && p !== "")
     .join(" · ");
@@ -202,11 +226,46 @@ export function descreverTroca(t: TrocaDeItem): string {
  * de volta no alimento original porque a troca não casou com o catálogo
  * registraria uma refeição que não aconteceu — e é justamente no dia em que
  * você trocou que o diário precisa estar certo.
+ *
+ * `naoContadas` é a mesma honestidade um nível acima: um alimento da lista da
+ * refeição que o app não sabe contar aparece na tela, e não some do balanço
+ * em silêncio.
  */
-export function itensResolvidos(
+export function refeicaoResolvida(
   itens: PlanItem[],
-  trocas: TrocaDeItem[],
-): { lancaveis: LancamentoDoPlano[]; semAlimento: PlanItem[]; dispensados: PlanItem[] } {
+  trocas: Troca[],
+  blockId: number,
+): {
+  lancaveis: LancamentoDoPlano[];
+  semAlimento: PlanItem[];
+  dispensados: PlanItem[];
+  naoContadas: Troca[];
+} {
+  // A refeição foi substituída inteira: as linhas do plano não são mais o que
+  // se comeu, então nenhuma delas entra — nem como lançável, nem como aviso,
+  // nem como dispensada. Quem responde pelo dia é a lista nova. É a regra do
+  // item trocado, aplicada ao bloco.
+  const daRefeicao = trocasDaRefeicao(trocas, blockId);
+  if (daRefeicao.length > 0) {
+    const lancaveis: LancamentoDoPlano[] = [];
+    const naoContadas: Troca[] = [];
+    for (const t of daRefeicao) {
+      if (t.food_id === null || t.qty_g === null || t.qty_g <= 0) {
+        naoContadas.push(t);
+        continue;
+      }
+      lancaveis.push({
+        item_id: null,
+        food_id: t.food_id,
+        qty_g: t.qty_g,
+        measure_id: t.measure_id,
+        medidas: t.medidas,
+        label: t.nome,
+      });
+    }
+    return { lancaveis, semAlimento: [], dispensados: [], naoContadas };
+  }
+
   const lancaveis: LancamentoDoPlano[] = [];
   const semAlimento: PlanItem[] = [];
   const dispensados: PlanItem[] = [];
@@ -247,7 +306,7 @@ export function itensResolvidos(
     if (!algumaEntrou) semAlimento.push(item);
   }
 
-  return { lancaveis, semAlimento, dispensados };
+  return { lancaveis, semAlimento, dispensados, naoContadas: [] };
 }
 
 /**
@@ -264,9 +323,23 @@ export function itensResolvidos(
  */
 export function kcalDaRefeicao(
   itens: PlanItem[],
-  trocas: TrocaDeItem[],
+  trocas: Troca[],
   kcalPorItem: Map<number, number>,
+  blockId: number,
 ): { total: number; incompleto: boolean } {
+  // Substituída, a conta é só a da lista nova: as linhas do plano deixaram de
+  // ser o que se vai comer, e somá-las contaria o almoço duas vezes.
+  const daRefeicao = trocasDaRefeicao(trocas, blockId);
+  if (daRefeicao.length > 0) {
+    let total = 0;
+    let incompleto = false;
+    for (const t of daRefeicao) {
+      if (t.kcal === null) incompleto = true;
+      else total += t.kcal;
+    }
+    return { total: Math.round(total), incompleto };
+  }
+
   let total = 0;
   let incompleto = false;
 

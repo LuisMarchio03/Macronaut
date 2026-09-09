@@ -68,17 +68,25 @@ export interface PlanSwap {
 }
 
 /**
- * A troca de UM item da refeição, num dia, já resolvida para a tela.
+ * Uma troca de um dia, já resolvida para a tela.
  *
  * Denormalizada de propósito: `plan_item_swaps` guarda só a referência, e
  * `nome`/`porcao` moram em três tabelas diferentes conforme a origem. Sem isto
  * toda tela que desenha uma troca precisaria saber fazer o mesmo join.
  */
-export interface TrocaDeItem {
+export interface Troca {
   id: number;
   data: string;
   block_id: number;
-  item_id: number;
+  /**
+   * A linha que ela substitui — ou `null`, e aí ela substitui a REFEIÇÃO.
+   *
+   * As duas moram na mesma tabela porque são a mesma afirmação ("no lugar
+   * disto, comi aquilo") em escopos diferentes. O que muda é o que ela apaga:
+   * uma lista de refeição varre as trocas de linha do bloco, porque uma
+   * refeição está num modo ou no outro.
+   */
+  item_id: number | null;
   /** De onde a troca veio — é o que a folha usa para reabrir na aba certa. */
   origem: "plano" | "catalogo" | "texto";
   /** `plan_swaps.id` quando a origem é o plano; identifica a opção escolhida. */
@@ -109,7 +117,8 @@ export interface TrocaDeItem {
 
 /** O que "Comi" vai gravar em `food_entries` por um item do plano. */
 export interface LancamentoDoPlano {
-  item_id: number;
+  /** `null` quando o lançamento veio da lista que substituiu a refeição. */
+  item_id: number | null;
   food_id: number;
   qty_g: number;
   measure_id: number | null;

@@ -25,7 +25,9 @@ import {
   migrarTrocasDeBloco,
   removerTroca,
   adicionarTroca,
+  adicionarTrocaDaRefeicao,
   dispensarItem,
+  limparRefeicao,
   removerUmaTroca,
   salvarTroca,
 } from "./plano";
@@ -678,5 +680,103 @@ describe("trocas: N por linha e a dispensa", () => {
     const lancadas = rs.rows.map((r) => r.label as string);
     expect(lancadas).toContain("Pão na chapa");
     expect(lancadas).toContain("Suco de laranja");
+  });
+});
+
+describe("troca da refeição inteira", () => {
+  it("acrescenta alimentos sem se pendurar em linha nenhuma", async () => {
+    const { cafe } = await cenario(db);
+    const pizza = await criarAlimento(db, "Pizza mussarela");
+
+    await adicionarTrocaDaRefeicao(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: null,
+      food_id: pizza, qty_g: 300, kcal: 480,
+    });
+    await adicionarTrocaDaRefeicao(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: null,
+      texto: "Sorvete da esquina", kcal: null,
+    });
+
+    const trocas = await listTrocasDoDia(db, USER, DIA_T);
+    expect(trocas.map((t) => t.item_id)).toEqual([null, null]);
+    expect(trocas.map((t) => t.nome)).toEqual(["Pizza mussarela", "Sorvete da esquina"]);
+  });
+
+  it("substituir a refeição apaga as trocas de linha do bloco", async () => {
+    // Uma refeição está num modo ou no outro: ou você ajusta linha a linha,
+    // ou você a substituiu inteira.
+    const { cafe, itens } = await cenario(db);
+    const pao = await criarAlimento(db, "Pão integral");
+    const pizza = await criarAlimento(db, "Pizza mussarela");
+
+    await adicionarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: itens[0].id, food_id: pao, qty_g: 50, kcal: 120,
+    });
+    await dispensarItem(db, USER, DIA_T, cafe.id, itens[1].id);
+
+    await adicionarTrocaDaRefeicao(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: null, food_id: pizza, qty_g: 300, kcal: 480,
+    });
+
+    const trocas = await listTrocasDoDia(db, USER, DIA_T);
+    expect(trocas.filter((t) => t.item_id !== null)).toEqual([]);
+    expect(trocas).toHaveLength(1);
+  });
+
+  it("não mexe nas trocas de OUTRO bloco", async () => {
+    const { plano, cafe, itens } = await cenario(db);
+    const blocos = await listBlocos(db, USER, plano.id);
+    const outro = blocos.find((b) => b.tipo === "refeicao" && b.id !== cafe.id)!;
+    const outrosItens = (await listItensPorBloco(db, USER, plano.id)).get(outro.id)!;
+    const pao = await criarAlimento(db, "Pão integral");
+    const pizza = await criarAlimento(db, "Pizza mussarela");
+
+    await adicionarTroca(db, USER, {
+      data: DIA_T, block_id: outro.id, item_id: outrosItens[0].id,
+      food_id: pao, qty_g: 50, kcal: 120,
+    });
+    await adicionarTrocaDaRefeicao(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: null, food_id: pizza, qty_g: 300, kcal: 480,
+    });
+
+    const trocas = await listTrocasDoDia(db, USER, DIA_T);
+    expect(trocas.filter((t) => t.block_id === outro.id)).toHaveLength(1);
+    expect(itens.length).toBeGreaterThan(0);
+  });
+
+  it("limparRefeicao devolve o bloco ao plano, nos dois escopos", async () => {
+    const { cafe, itens } = await cenario(db);
+    const pao = await criarAlimento(db, "Pão integral");
+    const pizza = await criarAlimento(db, "Pizza mussarela");
+
+    await adicionarTroca(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: itens[0].id, food_id: pao, qty_g: 50, kcal: 120,
+    });
+    await adicionarTrocaDaRefeicao(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: null, food_id: pizza, qty_g: 300, kcal: 480,
+    });
+
+    await limparRefeicao(db, USER, DIA_T, cafe.id);
+
+    expect(await listTrocasDoDia(db, USER, DIA_T)).toEqual([]);
+  });
+
+  it("marcar 'Comi' lança a lista nova, e nenhuma linha do plano", async () => {
+    const { plano, cafe, itens } = await cenario(db);
+    const original = await criarAlimento(db, "Ovo de galinha");
+    const pizza = await criarAlimento(db, "Pizza mussarela");
+    await db.execute({
+      sql: "UPDATE plan_items SET food_id=?, qty_g=? WHERE id=?",
+      args: [original, 150, itens[0].id],
+    });
+
+    await adicionarTrocaDaRefeicao(db, USER, {
+      data: DIA_T, block_id: cafe.id, item_id: null, food_id: pizza, qty_g: 300, kcal: 480,
+    });
+    await marcarBloco(db, USER, plano.id, DIA_T, cafe.id, true);
+
+    const entries = await listEntriesByDate(db, USER, DIA_T);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ food_id: pizza, qty_g: 300 });
   });
 });

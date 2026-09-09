@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BlocoCard } from "./bloco-card";
 import type { BlocoDoDia, EstadoBloco } from "@/domain/plano-dia";
-import type { PlanBlock, PlanItem, TrocaDeItem } from "@/domain/plano-types";
+import type { PlanBlock, PlanItem, Troca } from "@/domain/plano-types";
 
 const bloco = (p: Partial<PlanBlock> = {}): PlanBlock => ({
   id: 1,
@@ -37,7 +37,7 @@ function montar(
     itens?: PlanItem[];
     aguaNoBloco?: number;
     emFoco?: boolean;
-    trocas?: TrocaDeItem[];
+    trocas?: Troca[];
     kcalPorItem?: Map<number, number>;
     onMarcar?: (feito: boolean) => void;
     onTrocar?: () => void;
@@ -135,7 +135,7 @@ describe("marcar e desmarcar", () => {
 });
 
 describe("trocar", () => {
-  const troca = (item_id: number, nome: string, kcal: number | null = null): TrocaDeItem => ({
+  const troca = (item_id: number, nome: string, kcal: number | null = null): Troca => ({
     id: item_id, data: "2026-08-31", block_id: 1, item_id, origem: "plano", swap_id: 1,
     nome, porcao: null, kcal, food_id: null, qty_g: null, measure_id: null, medidas: null,
     dispensado: false,
@@ -243,7 +243,7 @@ describe("bloco ancorado a evento", () => {
 });
 
 describe("BlocoCard — a caloria depois da troca", () => {
-  const t = (item_id: number, nome: string, kcal: number | null): TrocaDeItem => ({
+  const t = (item_id: number, nome: string, kcal: number | null): Troca => ({
     id: item_id, data: "2026-08-31", block_id: 1, item_id, origem: "catalogo", swap_id: null,
     nome, porcao: null, kcal, food_id: 9, qty_g: 100, measure_id: null, medidas: null,
     dispensado: false,

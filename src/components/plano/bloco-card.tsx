@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { janelaHoraria } from "@/lib/date";
 import { descreverTroca, itemDispensado, kcalDaRefeicao, trocasDoItem } from "@/domain/plano-dia";
 import type { BlocoDoDia } from "@/domain/plano-dia";
-import type { PlanItem, TipoBloco, TrocaDeItem } from "@/domain/plano-types";
+import type { PlanItem, TipoBloco, Troca } from "@/domain/plano-types";
 
 const ICONE: Record<TipoBloco, typeof UtensilsCrossed> = {
   refeicao: UtensilsCrossed,
@@ -43,7 +43,7 @@ export function BlocoCard({
   item: BlocoDoDia;
   itens: PlanItem[];
   /** As trocas do dia. O card desenha o item trocado no lugar do original. */
-  trocas?: TrocaDeItem[];
+  trocas?: Troca[];
   /** A caloria conhecida de cada linha INTACTA. Ver `kcalDaRefeicao`. */
   kcalPorItem?: Map<number, number>;
   aguaNoBloco?: number;
@@ -77,7 +77,7 @@ export function BlocoCard({
    * conseguiu casar com o catálogo.
    */
   const mexida = trocas.some((t) => t.block_id === bloco.id);
-  const realizado = mexida ? kcalDaRefeicao(itens, trocas, kcalPorItem ?? new Map()) : null;
+  const realizado = mexida ? kcalDaRefeicao(itens, trocas, kcalPorItem ?? new Map(), bloco.id) : null;
   const estourou =
     realizado !== null && bloco.kcal_alvo != null && realizado.total > bloco.kcal_alvo;
 
