@@ -1,10 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
-import {
-  apagarMeta, apagarSerie, exerciciosDeCalistenia, listarMetas, registrarSerie,
-  salvarMeta, seriesDoDia, seriesPorRange, usadosRecentemente,
-  type RegistroCalistenia,
-} from "../repositories/calistenia";
+import { useApi } from "../lib/db-context";
+import type { RegistroCalistenia } from "../repositories/calistenia";
 
 /** Quantos exercícios viram chip no card, e por quanto tempo para trás olhar
  *  para decidir o que virou hábito. */
@@ -12,47 +8,42 @@ export const CHIPS_NO_CARD = 6;
 export const JANELA_DE_HABITO_DIAS = 30;
 
 export function useSeriesDoDia(data: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: ["calistenia", "dia", data],
-    queryFn: () => seriesDoDia(db, userId, data),
+    queryFn: () => api["calistenia"].seriesDoDia(data),
   });
 }
 
 export function useSeriesPorRange(inicio: string, fim: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: ["calistenia", "range", inicio, fim],
-    queryFn: () => seriesPorRange(db, userId, inicio, fim),
+    queryFn: () => api["calistenia"].seriesPorRange(inicio, fim),
   });
 }
 
 export function useExerciciosDeCalistenia() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: ["calistenia", "exercicios"],
-    queryFn: () => exerciciosDeCalistenia(db, userId),
+    queryFn: () => api["calistenia"].exerciciosDeCalistenia(),
   });
 }
 
 export function useUsadosRecentemente(desde: string) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: ["calistenia", "usados", desde],
-    queryFn: () => usadosRecentemente(db, userId, desde, CHIPS_NO_CARD),
+    queryFn: () => api["calistenia"].usadosRecentemente(desde, CHIPS_NO_CARD),
   });
 }
 
 export function useMetasCalistenia() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: ["calistenia", "metas"],
-    queryFn: () => listarMetas(db, userId),
+    queryFn: () => api["calistenia"].listarMetas(),
   });
 }
 
@@ -76,27 +67,23 @@ function useEscritaNaCalistenia<TVars, TDados>(fn: (v: TVars) => Promise<TDados>
 }
 
 export function useRegistrarCalistenia() {
-  const db = useDb();
-  const userId = useUserId();
-  return useEscritaNaCalistenia((r: RegistroCalistenia) => registrarSerie(db, userId, r));
+  const api = useApi();
+  return useEscritaNaCalistenia((r: RegistroCalistenia) => api["calistenia"].registrarSerie(r));
 }
 
 export function useApagarSerieCalistenia() {
-  const db = useDb();
-  const userId = useUserId();
-  return useEscritaNaCalistenia((id: number) => apagarSerie(db, userId, id));
+  const api = useApi();
+  return useEscritaNaCalistenia((id: number) => api["calistenia"].apagarSerie(id));
 }
 
 export function useSalvarMetaCalistenia() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useEscritaNaCalistenia((v: { exerciseId: number; alvoDia: number }) =>
-    salvarMeta(db, userId, v.exerciseId, v.alvoDia),
+    api["calistenia"].salvarMeta(v.exerciseId, v.alvoDia),
   );
 }
 
 export function useApagarMetaCalistenia() {
-  const db = useDb();
-  const userId = useUserId();
-  return useEscritaNaCalistenia((exerciseId: number) => apagarMeta(db, userId, exerciseId));
+  const api = useApi();
+  return useEscritaNaCalistenia((exerciseId: number) => api["calistenia"].apagarMeta(exerciseId));
 }

@@ -6,6 +6,7 @@ import type { Client } from "@libsql/client";
 import { MemoryRouter } from "react-router-dom";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { AuthProvider } from "../lib/auth-context";
 import { Onboarding } from "./onboarding";
 import { getProfile } from "../repositories/profile";
@@ -17,7 +18,7 @@ function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <DbProvider client={db}>
+      <DbProvider api={criarApiLocal(db, 1)}>
         <AuthProvider>
           <MemoryRouter><Onboarding /></MemoryRouter>
         </AuthProvider>

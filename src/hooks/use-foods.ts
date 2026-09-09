@@ -1,39 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDb } from "../lib/db-context";
-import {
-  searchFoods, getFoodsByIds, createFood, updateFood, deleteFood, listCustomFoods,
-  listCategorias, listFoods,
-} from "../repositories/foods";
+import { useApi } from "../lib/db-context";
+
 import type { Food } from "../domain/types";
 
 type FoodInput = Omit<Food, "id" | "source" | "created_at">;
 
 export function useFoods(termo: string) {
-  const db = useDb();
+  const api = useApi();
   return useQuery({
     queryKey: ["foods", termo],
-    queryFn: () => searchFoods(db, termo),
+    queryFn: () => api["foods"].searchFoods(termo),
     enabled: termo.trim().length > 0,
   });
 }
 
 /** A base inteira, filtrada — a lista que a tela de alimentos folheia. */
 export function useCatalogoFoods(filtro: { termo?: string; categoria?: string; apenasMeus?: boolean }) {
-  const db = useDb();
+  const api = useApi();
   return useQuery({
     queryKey: ["foods-catalogo", filtro.termo ?? "", filtro.categoria ?? "", filtro.apenasMeus ?? false],
-    queryFn: () => listFoods(db, filtro),
+    queryFn: () => api["foods"].listFoods(filtro),
   });
 }
 
 export function useCategoriasFood() {
-  const db = useDb();
-  return useQuery({ queryKey: ["foods-categorias"], queryFn: () => listCategorias(db) });
+  const api = useApi();
+  return useQuery({ queryKey: ["foods-categorias"], queryFn: () => api["foods"].listCategorias() });
 }
 
 export function useCustomFoods() {
-  const db = useDb();
-  return useQuery({ queryKey: ["custom-foods"], queryFn: () => listCustomFoods(db) });
+  const api = useApi();
+  return useQuery({ queryKey: ["custom-foods"], queryFn: () => api["foods"].listCustomFoods() });
 }
 
 /**
@@ -41,20 +38,20 @@ export function useCustomFoods() {
  * de propósito: as duas leem o mesmo dado e compartilham cache.
  */
 export function useFoodsByIds(ids: number[]) {
-  const db = useDb();
+  const api = useApi();
   const chaves = [...new Set(ids)].sort((a, b) => a - b);
   return useQuery({
     queryKey: ["foods-by-ids", chaves],
-    queryFn: () => getFoodsByIds(db, chaves),
+    queryFn: () => api["foods"].getFoodsByIds(chaves),
     enabled: chaves.length > 0,
   });
 }
 
 export function useCreateFood() {
-  const db = useDb();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (f: FoodInput) => createFood(db, f),
+    mutationFn: (f: FoodInput) => api["foods"].createFood(f),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["custom-foods"] });
       qc.invalidateQueries({ queryKey: ["foods"] });
@@ -65,10 +62,10 @@ export function useCreateFood() {
 }
 
 export function useUpdateFood() {
-  const db = useDb();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, f }: { id: number; f: FoodInput }) => updateFood(db, id, f),
+    mutationFn: ({ id, f }: { id: number; f: FoodInput }) => api["foods"].updateFood(id, f),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["custom-foods"] });
       qc.invalidateQueries({ queryKey: ["foods"] });
@@ -80,10 +77,10 @@ export function useUpdateFood() {
 }
 
 export function useDeleteFood() {
-  const db = useDb();
+  const api = useApi();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => deleteFood(db, id),
+    mutationFn: (id: number) => api["foods"].deleteFood(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["custom-foods"] });
       qc.invalidateQueries({ queryKey: ["foods"] });

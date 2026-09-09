@@ -30,7 +30,7 @@ it("criarDeEntries tira snapshot da intenção (medida), não só da grama", asy
   const t = await criarDeEntries(db, 1, "Café padrão", 1, [
     entry({}), entry({ id: 2, food_id: 2, qty_g: 2, measure_id: null, measure_count: null }),
   ]);
-  const itens = await listTemplateItems(db, t.id);
+  const itens = await listTemplateItems(db, 1, t.id);
   expect(itens).toHaveLength(2);
   expect(itens[0].measure_id).toBe(1);
   expect(itens[0].measure_count).toBe(2);
@@ -111,4 +111,18 @@ it("não deleta template de outro usuário", async () => {
   const t = await criarDeEntries(db, 1, "Café padrão", 1, [entry({})]);
   await deleteTemplate(db, 999, t.id);
   expect(await listTemplates(db, 1)).toHaveLength(1);
+});
+
+it("os itens da favorita são do dono, mesmo com o id na mão", async () => {
+  // Sem o `JOIN meal_templates`, o `template_id` do cliente bastava.
+  await db.execute({
+    sql: "INSERT INTO food_entries (user_id, data, meal_id, food_id, qty_g, created_at) VALUES (1,'2026-08-31',1,1,100,'t')",
+    args: [],
+  });
+  const t = await criarDeEntries(
+    db, 1, "Café", 1, await listEntriesByDate(db, 1, "2026-08-31"),
+  );
+
+  expect(await listTemplateItems(db, 1, t.id)).toHaveLength(1);
+  expect(await listTemplateItems(db, 99, t.id)).toEqual([]);
 });

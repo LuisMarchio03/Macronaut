@@ -358,6 +358,46 @@ CREATE TABLE IF NOT EXISTS plan_item_swaps (
 CREATE INDEX IF NOT EXISTS idx_plan_item_swaps_dia ON plan_item_swaps (user_id, data);
 
 -- ═══════════════════════════════════════════════════════════════════
+-- DISPOSITIVOS
+--
+-- Um celular que sincroniza sozinho não pode carregar a senha nem um bilhete
+-- de sessão: sessão expira em 30 dias e não dá para pedir a senha a um worker
+-- que roda de madrugada. Ele carrega um token de DISPOSITIVO — que não expira
+-- por tempo, vale só em `/api/ingest` (nunca em `/api/db`) e morre quando o
+-- dispositivo é apagado aqui.
+-- ═══════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS devices (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  nome          TEXT NOT NULL,          -- 'Galaxy S24', como o próprio aparelho se chama
+  plataforma    TEXT NOT NULL,          -- 'android'
+  created_at    TEXT NOT NULL,
+  -- Quando ele mandou dados pela última vez. É o que responde "está
+  -- sincronizando?" sem precisar abrir o celular.
+  visto_em      TEXT,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_devices_user ON devices (user_id);
+
+-- O código que aparece numa tela e é digitado na outra.
+--
+-- Guarda o HASH, nunca o código: ele é curto o bastante para ser digitado,
+-- logo curto o bastante para ser adivinhado. O que o protege é durar cinco
+-- minutos e valer uma vez só — e o hash garante que ler esta tabela não
+-- entregue códigos ainda válidos.
+CREATE TABLE IF NOT EXISTS pairing_codes (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL,
+  codigo_hash TEXT NOT NULL UNIQUE,
+  expira_em   TEXT NOT NULL,
+  usado_em    TEXT,
+  created_at  TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_pairing_hash ON pairing_codes (codigo_hash);
+
+-- ═══════════════════════════════════════════════════════════════════
 -- ROTINA DE TREINO
 --
 -- A espinha do módulo. Sete dias da semana; dia sem entrada é

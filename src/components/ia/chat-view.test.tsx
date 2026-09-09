@@ -6,6 +6,7 @@ import { createTestDb } from "../../../test/helpers/test-db";
 import { insertMessage } from "../../repositories/ai";
 import * as aiRepo from "../../repositories/ai";
 import { DbProvider } from "../../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { AuthProvider } from "../../lib/auth-context";
 import { ChatView } from "./chat-view";
 
@@ -20,7 +21,7 @@ function tela() {
   return render(
     <QueryClientProvider client={qc}>
       <AuthProvider>
-        <DbProvider client={db} userId={1}>
+        <DbProvider api={criarApiLocal(db, 1)} userId={1}>
           <ChatView config={{ aloy_enabled: false, gemini_enabled: true, has_gemini_key: true }} />
         </DbProvider>
       </AuthProvider>

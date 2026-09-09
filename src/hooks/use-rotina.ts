@@ -1,20 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
-import {
-  adicionarExercicio,
-  atualizarExercicio,
-  criarRotina,
-  getRotinaAtiva,
-  listDias,
-  listExercicios,
-  listExerciciosDaRotina,
-  removerDia,
-  removerExercicio,
-  reordenarExercicios,
-  salvarDia,
-  type ExercicioRotinaInput,
-  type Rotina,
-} from "../repositories/rotina";
+import { useApi } from "../lib/db-context";
+import type { ExercicioRotinaInput, Rotina } from "../repositories/rotina";
+
+/**
+ * Primeiro módulo a falar por `/api/rpc` em vez de `/api/db`.
+ *
+ * A diferença que se vê aqui é o que sumiu: `db` e `userId`. O `user_id` passa
+ * a vir do token, no servidor — este arquivo não tem mais como dizer de quem é
+ * a rotina que está pedindo, nem por engano.
+ */
 
 const CHAVE = {
   raiz: ["rotina"] as const,
@@ -25,37 +19,33 @@ const CHAVE = {
 };
 
 export function useRotinaAtiva() {
-  const db = useDb();
-  const userId = useUserId();
-  return useQuery({ queryKey: CHAVE.ativa, queryFn: () => getRotinaAtiva(db, userId) });
+  const api = useApi();
+  return useQuery({ queryKey: CHAVE.ativa, queryFn: () => api.rotina.getRotinaAtiva() });
 }
 
 export function useDiasDaRotina(rotina: Rotina | null | undefined) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.dias(rotina?.id),
-    queryFn: () => listDias(db, userId, rotina!.id),
+    queryFn: () => api.rotina.listDias(rotina!.id),
     enabled: rotina != null,
   });
 }
 
 export function useExerciciosDoDia(dayId: number | undefined) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.exercicios(dayId),
-    queryFn: () => listExercicios(db, userId, dayId!),
+    queryFn: () => api.rotina.listExercicios(dayId!),
     enabled: dayId != null,
   });
 }
 
 export function useExerciciosDaRotina(rotina: Rotina | null | undefined) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useQuery({
     queryKey: CHAVE.todos(rotina?.id),
-    queryFn: () => listExerciciosDaRotina(db, userId, rotina!.id),
+    queryFn: () => api.rotina.listExerciciosDaRotina(rotina!.id),
     enabled: rotina != null,
   });
 }
@@ -79,51 +69,44 @@ function useEscritaNaRotina<TVars, TDados>(fn: (v: TVars) => Promise<TDados>) {
 }
 
 export function useCriarRotina() {
-  const db = useDb();
-  const userId = useUserId();
-  return useEscritaNaRotina((nome: string) => criarRotina(db, userId, nome));
+  const api = useApi();
+  return useEscritaNaRotina((nome: string) => api.rotina.criarRotina(nome));
 }
 
 export function useSalvarDia() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useEscritaNaRotina((v: { routineId: number; dia_semana: number; nome: string }) =>
-    salvarDia(db, userId, v.routineId, v.dia_semana, v.nome),
+    api.rotina.salvarDia(v.routineId, v.dia_semana, v.nome),
   );
 }
 
 export function useRemoverDia() {
-  const db = useDb();
-  const userId = useUserId();
-  return useEscritaNaRotina((dayId: number) => removerDia(db, userId, dayId));
+  const api = useApi();
+  return useEscritaNaRotina((dayId: number) => api.rotina.removerDia(dayId));
 }
 
 export function useAdicionarExercicio() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useEscritaNaRotina((v: { dayId: number; entrada: ExercicioRotinaInput }) =>
-    adicionarExercicio(db, userId, v.dayId, v.entrada),
+    api.rotina.adicionarExercicio(v.dayId, v.entrada),
   );
 }
 
 export function useAtualizarExercicio() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useEscritaNaRotina((v: { id: number; entrada: ExercicioRotinaInput }) =>
-    atualizarExercicio(db, userId, v.id, v.entrada),
+    api.rotina.atualizarExercicio(v.id, v.entrada),
   );
 }
 
 export function useRemoverExercicio() {
-  const db = useDb();
-  const userId = useUserId();
-  return useEscritaNaRotina((id: number) => removerExercicio(db, userId, id));
+  const api = useApi();
+  return useEscritaNaRotina((id: number) => api.rotina.removerExercicio(id));
 }
 
 export function useReordenarExercicios() {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   return useEscritaNaRotina((v: { dayId: number; ids: number[] }) =>
-    reordenarExercicios(db, userId, v.dayId, v.ids),
+    api.rotina.reordenarExercicios(v.dayId, v.ids),
   );
 }

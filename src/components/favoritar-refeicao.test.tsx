@@ -49,7 +49,7 @@ it("favoritar grava um snapshot com os itens da refeição", async () => {
     expect(ts.map((t) => t.nome)).toEqual(["Meu café"]);
   });
   const ts = await listTemplates(db, 1);
-  const itens = await listTemplateItems(db, ts[0].id);
+  const itens = await listTemplateItems(db, 1, ts[0].id);
   expect(itens).toHaveLength(1);
   expect(itens[0].food_id).toBe(1);
   expect(itens[0].measure_count).toBe(2); // snapshot preservou a intenção

@@ -73,10 +73,21 @@ export async function listTemplatesWithKcal(
   }));
 }
 
-export async function listTemplateItems(db: Client, templateId: number): Promise<MealTemplateItem[]> {
+/**
+ * `JOIN meal_templates` para o `template_id` do cliente não bastar: sem o dono
+ * na consulta, qualquer sessão lia os itens da favorita de qualquer um pelo id.
+ */
+export async function listTemplateItems(
+  db: Client,
+  userId: number,
+  templateId: number,
+): Promise<MealTemplateItem[]> {
   const rs = await db.execute({
-    sql: "SELECT * FROM meal_template_items WHERE template_id=? ORDER BY ordem",
-    args: [templateId],
+    sql: `SELECT i.* FROM meal_template_items i
+          JOIN meal_templates t ON t.id = i.template_id
+          WHERE i.template_id=? AND t.user_id=?
+          ORDER BY i.ordem`,
+    args: [templateId, userId],
   });
   return rs.rows.map(mapItem);
 }
@@ -131,7 +142,7 @@ export async function aplicar(
   data: string,
   mealId: number | null,
 ): Promise<number> {
-  const itens = await listTemplateItems(db, templateId);
+  const itens = await listTemplateItems(db, userId, templateId);
   if (itens.length === 0) return 0;
 
   const measureIds = [...new Set(itens.map((i) => i.measure_id).filter((x): x is number => x != null))];

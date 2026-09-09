@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useDb, useUserId } from "../lib/db-context";
-import { listEntriesByRange } from "../repositories/entries";
+import { useApi } from "../lib/db-context";
+
 import { frequentesDaRefeicao, recentes, ultimaRefeicao } from "../domain/frequentes";
 
 /** Formata Date → "YYYY-MM-DD" em UTC, igual ao resto do app. */
@@ -13,13 +13,12 @@ function iso(d: Date): string {
  * query barata — o app fala com o Turso por HTTP a cada leitura.
  */
 export function useHistorico(dias = 60) {
-  const db = useDb();
-  const userId = useUserId();
+  const api = useApi();
   const fim = iso(new Date());
   const inicio = iso(new Date(Date.now() - dias * 86_400_000));
   return useQuery({
     queryKey: ["historico", inicio, fim],
-    queryFn: () => listEntriesByRange(db, userId, inicio, fim),
+    queryFn: () => api["entries"].listEntriesByRange(inicio, fim),
   });
 }
 

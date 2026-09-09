@@ -4,6 +4,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { createTestDb } from "../../test/helpers/test-db";
 import { DbProvider } from "../lib/db-context";
+import { criarApiLocal } from "@/../test/helpers/api-local";
 import { upsertWeighIn, getWeighInsByRange } from "../repositories/weighins";
 import { hoje } from "../lib/date";
 import { useAnalisePeso, useRegistrarPeso } from "./use-analise-peso";
@@ -11,7 +12,7 @@ import { useAnalisePeso, useRegistrarPeso } from "./use-analise-peso";
 function makeWrapper(db: Awaited<ReturnType<typeof createTestDb>>) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={qc}><DbProvider client={db}>{children}</DbProvider></QueryClientProvider>
+    <QueryClientProvider client={qc}><DbProvider api={criarApiLocal(db, 1)}>{children}</DbProvider></QueryClientProvider>
   );
 }
 
