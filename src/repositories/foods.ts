@@ -1,9 +1,6 @@
 import type { Client, Row } from "@libsql/client";
-// Com extensão: este módulo é alcançado por `scripts/setup-db.ts`, que roda no
-// Node com --experimental-strip-types, e lá o import extensionless não resolve.
-// O Vite e o Vitest resolvem os dois, então a falha só aparece no `db:setup`.
-import { normalizar } from "../domain/texto.ts";
-import type { Food } from "../domain/types";
+import { normalizar } from "../domain/texto.js";
+import type { Food } from "../domain/types.js";
 
 function mapRow(r: Row): Food {
   return {

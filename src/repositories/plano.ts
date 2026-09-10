@@ -1,10 +1,6 @@
 import type { Client, Row } from "@libsql/client";
-// Com extensão: este módulo é alcançado por `scripts/setup-db.ts` (a migração
-// das trocas de bloco), que roda no Node com --experimental-strip-types, e lá o
-// import extensionless não resolve. Vite e Vitest resolvem os dois, então a
-// falha só apareceria no `db:setup`.
-import { refeicaoResolvida } from "../domain/plano-dia.ts";
-import { normalizar } from "../domain/texto.ts";
+import { refeicaoResolvida } from "../domain/plano-dia.js";
+import { normalizar } from "../domain/texto.js";
 import type {
   CategoriaItem,
   DietPlan,
@@ -16,7 +12,7 @@ import type {
   RascunhoPlano,
   TipoBloco,
   Troca,
-} from "../domain/plano-types";
+} from "../domain/plano-types.js";
 
 /* ── mapeamento ─────────────────────────────────────────────────── */
 

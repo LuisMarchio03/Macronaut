@@ -1,6 +1,6 @@
 import type { Client, Row } from "@libsql/client";
-import type { Medida, SerieAvulsa } from "../domain/calistenia";
-import type { ExerciseSource } from "../domain/types";
+import type { Medida, SerieAvulsa } from "../domain/calistenia.js";
+import type { ExerciseSource } from "../domain/types.js";
 
 /**
  * O SQL da calistenia.

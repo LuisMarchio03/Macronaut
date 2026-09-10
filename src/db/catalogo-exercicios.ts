@@ -1,4 +1,4 @@
-import type { Cadeia, Equipamento, Regiao, TipoExercicio } from "../domain/types";
+import type { Cadeia, Equipamento, Regiao, TipoExercicio } from "../domain/types.js";
 
 export interface GrupoSeed {
   nome: string;

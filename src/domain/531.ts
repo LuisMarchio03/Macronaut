@@ -1,4 +1,4 @@
-import { e1RM } from "./treino";
+import { e1RM } from "./treino.js";
 
 /**
  * A matemática do 5/3/1 (Jim Wendler).

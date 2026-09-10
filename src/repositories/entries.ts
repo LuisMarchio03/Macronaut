@@ -1,5 +1,5 @@
 import type { Client, Row } from "@libsql/client";
-import type { FoodEntry } from "../domain/types";
+import type { FoodEntry } from "../domain/types.js";
 
 function mapRow(r: Row): FoodEntry {
   return {

@@ -1,6 +1,4 @@
-// Com extensão pelo mesmo motivo de `repositories/plano.ts`: este módulo entrou
-// na cadeia de imports do `scripts/setup-db.ts`.
-import { horaParaMinutos } from "../lib/date.ts";
+import { horaParaMinutos } from "../lib/date.js";
 import type {
   LancamentoDoPlano,
   PlanBlock,
@@ -8,7 +6,7 @@ import type {
   PlanItem,
   PlanSwap,
   Troca,
-} from "./plano-types";
+} from "./plano-types.js";
 
 /**
  * Estado de um bloco no dia que está sendo visto.

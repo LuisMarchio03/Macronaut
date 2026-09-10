@@ -1,5 +1,5 @@
 import type { Client } from "@libsql/client";
-import type { Pesagem } from "../domain/analise-peso";
+import type { Pesagem } from "../domain/analise-peso.js";
 
 export async function upsertWeighIn(
   db: Client,

@@ -1,5 +1,5 @@
-import { normalizar } from "./texto";
-import type { ProgressoPonto, TipoSerie } from "./types";
+import { normalizar } from "./texto.js";
+import type { ProgressoPonto, TipoSerie } from "./types.js";
 
 export function estimativaKcal(met: number, peso_kg: number, duracao_min: number): number {
   return met * peso_kg * (duracao_min / 60);

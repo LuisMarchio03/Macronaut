@@ -1,4 +1,4 @@
-import { estimativaKcal } from "./treino";
+import { estimativaKcal } from "./treino.js";
 
 /**
  * CALISTENIA — a série que acontece fora da sessão.

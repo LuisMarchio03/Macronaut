@@ -1,5 +1,5 @@
 import type { Client, Row } from "@libsql/client";
-import type { ActivityType, ActivitySession } from "../domain/types";
+import type { ActivityType, ActivitySession } from "../domain/types.js";
 
 const MET_PADRAO: { nome: string; met: number }[] = [
   { nome: "Caminhada", met: 3.5 },

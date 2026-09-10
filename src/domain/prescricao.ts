@@ -1,5 +1,5 @@
-import type { TipoSerie } from "./types";
-import { arredondarCarga, sessaoPrescrita, tmVigente, type Parte, type Semana } from "./531";
+import type { TipoSerie } from "./types.js";
+import { arredondarCarga, sessaoPrescrita, tmVigente, type Parte, type Semana } from "./531.js";
 
 /**
  * Como a carga de hoje é decidida.
