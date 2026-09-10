@@ -1,5 +1,5 @@
 import type { Client, Row } from "@libsql/client";
-import type { Meal } from "../domain/types";
+import type { Meal } from "../domain/types.js";
 
 const PADRAO: Omit<Meal, "id">[] = [
   { nome: "Café da manhã", horario: "07:00", ordem: 1 },

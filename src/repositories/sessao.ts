@@ -1,8 +1,8 @@
 import type { Client, Row } from "@libsql/client";
-import { planejar, type Prescricao, type SeriePlanejada } from "../domain/prescricao";
-import type { TipoSerie } from "../domain/types";
-import { listExercicios, type ExercicioRotina } from "./rotina";
-import { createSession, historicoExercicio } from "./workouts";
+import { planejar, type Prescricao, type SeriePlanejada } from "../domain/prescricao.js";
+import type { TipoSerie } from "../domain/types.js";
+import { listExercicios, type ExercicioRotina } from "./rotina.js";
+import { createSession, historicoExercicio } from "./workouts.js";
 
 /**
  * Os padrões de um exercício escolhido no meio do treino.

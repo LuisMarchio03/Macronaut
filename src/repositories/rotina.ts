@@ -1,6 +1,6 @@
 import type { Client, Row } from "@libsql/client";
-import type { Parte } from "../domain/531";
-import type { TipoPrescricao } from "../domain/prescricao";
+import type { Parte } from "../domain/531.js";
+import type { TipoPrescricao } from "../domain/prescricao.js";
 
 export interface Rotina {
   id: number;

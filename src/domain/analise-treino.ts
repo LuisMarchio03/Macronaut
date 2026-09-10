@@ -1,5 +1,5 @@
-import { seriesEfetivas, volumeSet } from "./treino";
-import type { TipoSerie } from "./types";
+import { seriesEfetivas, volumeSet } from "./treino.js";
+import type { TipoSerie } from "./types.js";
 
 export type SetAnalise = {
   data: string;

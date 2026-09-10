@@ -1,5 +1,5 @@
 import type { Client, Row } from "@libsql/client";
-import type { FoodEntry, MealTemplate, MealTemplateItem, MealTemplateWithKcal } from "../domain/types";
+import type { FoodEntry, MealTemplate, MealTemplateItem, MealTemplateWithKcal } from "../domain/types.js";
 
 function mapTemplate(r: Row): MealTemplate {
   return {

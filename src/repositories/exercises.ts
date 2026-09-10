@@ -1,7 +1,7 @@
 import type { Client, Row } from "@libsql/client";
-import type { Equipamento, Exercise, ExerciseSource, TipoExercicio } from "../domain/types";
-import { CATALOGO, GRUPOS, RENOMEADOS } from "../db/catalogo-exercicios.ts";
-import { normalizar } from "../domain/texto.ts";
+import type { Equipamento, Exercise, ExerciseSource, TipoExercicio } from "../domain/types.js";
+import { CATALOGO, GRUPOS, RENOMEADOS } from "../db/catalogo-exercicios.js";
+import { normalizar } from "../domain/texto.js";
 
 export type ResultadoEx = { ok: true } | { ok: false; reason: "em_uso" | "catalogo" };
 

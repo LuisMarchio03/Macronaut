@@ -1,7 +1,7 @@
 import type { Client, Row } from "@libsql/client";
-import type { TipoSerie, WorkoutSession, WorkoutSet } from "../domain/types";
-import type { SetAnalise } from "../domain/analise-treino";
-import type { SessaoAnterior } from "../domain/prescricao";
+import type { TipoSerie, WorkoutSession, WorkoutSet } from "../domain/types.js";
+import type { SetAnalise } from "../domain/analise-treino.js";
+import type { SessaoAnterior } from "../domain/prescricao.js";
 
 function mapSession(r: Row): WorkoutSession {
   return {
