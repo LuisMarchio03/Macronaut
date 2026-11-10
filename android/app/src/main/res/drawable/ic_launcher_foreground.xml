@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Capacete do public/favicon.svg (viewBox 512), escalado 0.7 no centro como o maskable: fica dentro da zona segura de 66dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.14765625" android:scaleY="0.14765625"
+        android:translateX="16.2" android:translateY="16.2">
+        <path android:strokeColor="#78A6FF" android:strokeWidth="34" android:strokeLineJoin="round" android:fillColor="#00000000"
+            android:pathData="M160,392A152,152 0 1,1 352,392Z" />
+        <path android:fillColor="#78A6FF"
+            android:pathData="M220,180H292A64,64 0 0,1 356,244V248A64,64 0 0,1 292,312H220A64,64 0 0,1 156,248V244A64,64 0 0,1 220,180Z" />
+    </group>
+</vector>

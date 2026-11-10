@@ -71,9 +71,11 @@ de URL à mostra e sem parecer um app — e não há mensagem de erro nenhuma.
 > vale é o que o Play Console mostra em *Setup → App integrity*, não o da sua
 > chave local. Usar o errado dá o mesmo silêncio.
 
-**3. Ícone.** O manifesto aponta para `@mipmap/ic_launcher`, que ainda não
-existe neste projeto — o Android Studio gera pelo *New → Image Asset*, ou
-copie de `public/` do site.
+**3. Ícone.** `@mipmap/ic_launcher` é um adaptive icon
+(`res/mipmap-anydpi-v26/ic_launcher.xml`): fundo `@color/fundo_icone`
+(`#0b1020`), e o capacete de `public/favicon.svg` em vetor
+(`res/drawable/ic_launcher_foreground.xml`), que serve também de monochrome.
+Mudou o símbolo no site? Atualize o `pathData` desse vetor junto.
 
 ## Compilar e rodar
 
