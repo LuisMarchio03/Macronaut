@@ -4,13 +4,12 @@ import { createClient } from "@libsql/client";
 import { handleChat, checkHealth, GatewayError, type ChatInput } from "./ai-core.ts";
 import { buildUserContext } from "./context.ts";
 import { callGemini, geminiHealth } from "./gemini.ts";
-import { callAloy, aloyHealth } from "./aloy.ts";
 import type { AiProvider } from "../src/repositories/ai.ts";
 
 export type RequestDeps = {
   authToken: string;
   chat: (input: ChatInput) => Promise<{ message: string; sessionId: string; provider: AiProvider; degraded: boolean }>;
-  health: (userId: number) => Promise<{ gemini: { up: boolean }; aloy: { up: boolean; detail?: string } }>;
+  health: (userId: number) => Promise<{ gemini: { up: boolean } }>;
 };
 
 function bearerOk(expected: string, authorization: string | undefined): boolean {
@@ -50,7 +49,7 @@ async function route(
 
   if (req.method === "POST" && req.path === "/ai/chat") {
     const b = req.body as Partial<ChatInput> | null;
-    if (!b || typeof b.userId !== "number" || (b.provider !== "gemini" && b.provider !== "aloy") || typeof b.message !== "string" || !b.message) {
+    if (!b || typeof b.userId !== "number" || b.provider !== "gemini" || typeof b.message !== "string" || !b.message) {
       return { status: 400, json: { error: "corpo inválido" } };
     }
     try {
@@ -82,8 +81,6 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
 function main() {
   const dbUrl = process.env.DB_URL;
   const dbToken = process.env.DB_TOKEN;
-  const aloyUrl = process.env.ALOY_URL ?? "http://127.0.0.1:8080";
-  const aloyToken = process.env.ALOY_MACRONAUT_APP_TOKEN ?? "";
   const geminiModel = process.env.GEMINI_MODEL ?? "gemini-flash-latest";
   const port = Number(process.env.PORT ?? 8787);
   if (!dbUrl || !dbToken) throw new Error("DB_URL e DB_TOKEN são obrigatórios");
@@ -96,12 +93,11 @@ function main() {
         {
           db, geminiModel, newId: randomUUID, hoje: () => new Date().toISOString().slice(0, 10),
           buildContext: buildUserContext, callGemini,
-          callAloy: (message, sessionId) => callAloy(aloyUrl, aloyToken, message, sessionId),
         },
         input,
       ),
     health: (userId) =>
-      checkHealth({ db, geminiModel, geminiHealth, aloyHealth: () => aloyHealth(aloyUrl, aloyToken) }, userId),
+      checkHealth({ db, geminiModel, geminiHealth }, userId),
   };
 
   createServer((req: IncomingMessage, res: ServerResponse) => {

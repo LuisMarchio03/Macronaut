@@ -13,7 +13,7 @@ export function Ia() {
         <SkeletonCard />
       </Page>
     );
-  if (!config || (!config.aloy_enabled && !config.gemini_enabled)) return <Navigate to="/ajustes" replace />;
+  if (!config || !config.gemini_enabled) return <Navigate to="/ajustes" replace />;
   return (
     <Page>
       <PageHeader eyebrow={<BackLink to="/mais">Mais</BackLink>} title="Assistente" />

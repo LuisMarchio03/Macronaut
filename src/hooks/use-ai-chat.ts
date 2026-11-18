@@ -8,7 +8,7 @@ export function useAiChat() {
   const { session } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { provider: "gemini" | "aloy"; message: string; sessionId?: string }): Promise<ChatRes> =>
+    mutationFn: (input: { provider: "gemini"; message: string; sessionId?: string }): Promise<ChatRes> =>
       postChat(session!.token, { userId, ...input }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-messages"] }),
   });

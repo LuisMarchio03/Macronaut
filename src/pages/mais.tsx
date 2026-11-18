@@ -63,7 +63,7 @@ export function Mais() {
   const { data: config } = useAiConfig();
   const { data: plano } = usePlanoAtivo();
 
-  const iaHabilitada = config && (config.aloy_enabled || config.gemini_enabled);
+  const iaHabilitada = config?.gemini_enabled;
 
   function handleSair() {
     qc.clear();
@@ -108,11 +108,7 @@ export function Mais() {
               to="/ia"
               icone={Bot}
               label="Assistente"
-              sub={
-                [config?.gemini_enabled && "Gemini", config?.aloy_enabled && "Aloy"]
-                  .filter(Boolean)
-                  .join(" · ") || "Configurado"
-              }
+              sub="Gemini"
             />
           )}
           <ItemLista

@@ -27,5 +27,5 @@ function wrap(children: React.ReactNode) {
 it("lê as flags do usuário", async () => {
   const { result } = renderHook(() => useAiConfig(), { wrapper: ({ children }) => wrap(children) });
   await waitFor(() => expect(result.current.data).toBeDefined());
-  expect(result.current.data).toMatchObject({ gemini_enabled: true, aloy_enabled: false });
+  expect(result.current.data).toEqual({ gemini_enabled: true, has_gemini_key: false });
 });
