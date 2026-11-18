@@ -1,6 +1,6 @@
 import type { Client, Row } from "@libsql/client";
 
-export type AiProvider = "gemini" | "aloy";
+export type AiProvider = "gemini";
 
 export type AiMessage = {
   id: number;
@@ -27,17 +27,16 @@ function mapMsg(r: Row): AiMessage {
 export async function getAiConfig(
   db: Client,
   userId: number,
-): Promise<{ aloy_enabled: boolean; gemini_enabled: boolean; has_gemini_key: boolean }> {
+): Promise<{ gemini_enabled: boolean; has_gemini_key: boolean }> {
   const rs = await db.execute({
-    sql: `SELECT aloy_enabled, gemini_enabled,
+    sql: `SELECT gemini_enabled,
                  (gemini_api_key IS NOT NULL AND gemini_api_key <> '') AS has_key
           FROM users WHERE id = ?`,
     args: [userId],
   });
   const r = rs.rows[0];
-  if (!r) return { aloy_enabled: false, gemini_enabled: false, has_gemini_key: false };
+  if (!r) return { gemini_enabled: false, has_gemini_key: false };
   return {
-    aloy_enabled: Number(r.aloy_enabled) === 1,
     gemini_enabled: Number(r.gemini_enabled) === 1,
     has_gemini_key: Number(r.has_key) === 1,
   };
@@ -56,11 +55,10 @@ export async function setGeminiKey(db: Client, userId: number, key: string): Pro
 export async function setAiFlags(
   db: Client,
   email: string,
-  flags: { aloy_enabled?: boolean; gemini_enabled?: boolean },
+  flags: { gemini_enabled?: boolean },
 ): Promise<boolean> {
   const sets: string[] = [];
   const args: (number | string)[] = [];
-  if (flags.aloy_enabled !== undefined) { sets.push("aloy_enabled = ?"); args.push(flags.aloy_enabled ? 1 : 0); }
   if (flags.gemini_enabled !== undefined) { sets.push("gemini_enabled = ?"); args.push(flags.gemini_enabled ? 1 : 0); }
   if (sets.length === 0) return true;
   args.push(email.trim().toLowerCase());

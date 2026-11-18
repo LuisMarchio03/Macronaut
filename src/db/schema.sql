@@ -178,8 +178,8 @@ CREATE INDEX IF NOT EXISTS idx_weighins_user_data ON weigh_ins (user_id, data);
 CREATE TABLE IF NOT EXISTS ai_messages (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL,
-  provider    TEXT NOT NULL,          -- 'gemini' | 'aloy'
-  session_id  TEXT NOT NULL,          -- gemini: uuid nosso; aloy: id devolvido pela ALOY
+  provider    TEXT NOT NULL,          -- 'gemini'
+  session_id  TEXT NOT NULL,          -- uuid gerado pelo gateway
   role        TEXT NOT NULL,          -- 'user' | 'assistant'
   content     TEXT NOT NULL,
   created_at  TEXT NOT NULL

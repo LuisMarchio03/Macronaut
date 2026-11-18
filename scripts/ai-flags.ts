@@ -14,10 +14,9 @@ function onOff(v: string | undefined, nome: string): boolean | undefined {
 }
 
 const email = (arg("--email") ?? "").trim().toLowerCase();
-if (!email) throw new Error("uso: npm run ai:flags -- --email voce@x.com [--aloy on|off] [--gemini on|off]");
+if (!email) throw new Error("uso: npm run ai:flags -- --email voce@x.com [--gemini on|off]");
 
 const flags = {
-  aloy_enabled: onOff(arg("--aloy"), "--aloy"),
   gemini_enabled: onOff(arg("--gemini"), "--gemini"),
 };
 

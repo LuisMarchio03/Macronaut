@@ -65,7 +65,7 @@ it("gemini habilitado: salva a chave no banco", async () => {
 });
 
 it("apenas gemini habilitado: existe o label da chave", async () => {
-  await setAiFlags(db, "a@x.com", { gemini_enabled: true, aloy_enabled: false });
+  await setAiFlags(db, "a@x.com", { gemini_enabled: true });
   tela();
   expect(await screen.findByLabelText(/api key/i)).toBeInTheDocument();
 });

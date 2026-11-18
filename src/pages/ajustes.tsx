@@ -57,17 +57,13 @@ export function Ajustes() {
           <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
             <dt className="t-caption shrink-0">Assistente de IA</dt>
             <dd className="text-sm font-medium">
-              {config?.gemini_enabled || config?.aloy_enabled
-                ? [config?.gemini_enabled && "Gemini", config?.aloy_enabled && "Aloy"]
-                    .filter(Boolean)
-                    .join(" · ")
-                : "Desligado"}
+              {config?.gemini_enabled ? "Gemini" : "Desligado"}
             </dd>
           </div>
         </dl>
       </Card>
 
-      {!config?.gemini_enabled && !config?.aloy_enabled && (
+      {!config?.gemini_enabled && (
         <Card>
           <p className="t-caption">
             O assistente é ligado por fora do app, com{" "}

@@ -2,7 +2,6 @@ import { createClient, type Client } from "@libsql/client";
 import { readFileSync } from "node:fs";
 
 const ADDITIVE_COLUMNS: { table: string; column: string; ddl: string }[] = [
-  { table: "users", column: "aloy_enabled",   ddl: "ALTER TABLE users ADD COLUMN aloy_enabled INTEGER NOT NULL DEFAULT 0" },
   { table: "users", column: "gemini_enabled", ddl: "ALTER TABLE users ADD COLUMN gemini_enabled INTEGER NOT NULL DEFAULT 0" },
   { table: "users", column: "gemini_api_key", ddl: "ALTER TABLE users ADD COLUMN gemini_api_key TEXT" },
   { table: "foods", column: "base_unit",          ddl: "ALTER TABLE foods ADD COLUMN base_unit TEXT NOT NULL DEFAULT 'g'" },

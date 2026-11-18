@@ -141,7 +141,7 @@ export function Dashboard() {
 
   const [trocando, setTrocando] = useState<PlanBlock | null>(null);
 
-  const iaDisponivel = aiConfig?.aloy_enabled || aiConfig?.gemini_enabled;
+  const iaDisponivel = aiConfig?.gemini_enabled;
   const treino = cardDeTreino(sessaoAberta, treinoHoje);
 
   const meta: Macros = perfil.data

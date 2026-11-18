@@ -13,7 +13,6 @@ function deps(over: Partial<ChatDeps> = {}): ChatDeps {
     hoje: () => "2026-07-09",
     buildContext: async () => "CTX",
     callGemini: vi.fn(async () => "resposta-gemini"),
-    callAloy: vi.fn(async (_m, sid) => ({ message: "resposta-aloy", sessionId: sid ?? "aloy-sess", degraded: false })),
     ...over,
   };
 }
@@ -48,22 +47,16 @@ it("gemini feliz: injeta contexto como system, persiste user+assistant, devolve 
   expect(msgs.map((m) => [m.role, m.content])).toEqual([["user", "oi"], ["assistant", "resposta-gemini"]]);
 });
 
-it("aloy feliz: prefixa contexto na message e usa o session_id devolvido", async () => {
-  await setAiFlags(db, "a@x.com", { aloy_enabled: true });
-  const d = deps();
-  const out = await handleChat(d, { userId: 1, provider: "aloy", message: "oi" });
-  expect(out.sessionId).toBe("aloy-sess");
-  expect((d.callAloy as any).mock.calls[0][0]).toBe("CTX\n\noi");
-  const msgs = await listMessages(db, 1, "aloy", "aloy-sess");
-  expect(msgs.map((m) => m.role)).toEqual(["user", "assistant"]);
+it("checkHealth: gemini desabilitado não é consultado e fica down", async () => {
+  const geminiHealth = vi.fn(async () => true);
+  const res = await checkHealth({ db, geminiModel: "m", geminiHealth }, 1);
+  expect(res).toEqual({ gemini: { up: false } });
+  expect(geminiHealth).not.toHaveBeenCalled();
 });
 
-it("checkHealth: só reporta up para provider habilitado", async () => {
-  await setAiFlags(db, "a@x.com", { aloy_enabled: true });
-  const res = await checkHealth(
-    { db, geminiModel: "m", geminiHealth: async () => true, aloyHealth: async () => ({ up: true }) },
-    1,
-  );
-  expect(res.gemini.up).toBe(false); // gemini desabilitado
-  expect(res.aloy.up).toBe(true);
+it("checkHealth: gemini habilitado com chave reflete o health do Gemini", async () => {
+  await setAiFlags(db, "a@x.com", { gemini_enabled: true });
+  await setGeminiKey(db, 1, "k");
+  const res = await checkHealth({ db, geminiModel: "m", geminiHealth: async () => true }, 1);
+  expect(res).toEqual({ gemini: { up: true } });
 });

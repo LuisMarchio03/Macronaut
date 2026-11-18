@@ -38,7 +38,7 @@ it("carrega a conversa mais recente do provider, em ordem cronológica", async (
 });
 
 it("retorna null sem histórico", async () => {
-  const { result } = renderHook(() => useAiConversation("aloy"), { wrapper: ({ children }) => wrap(children) });
+  const { result } = renderHook(() => useAiConversation("gemini"), { wrapper: ({ children }) => wrap(children) });
   await waitFor(() => expect(result.current.isFetched).toBe(true));
   expect(result.current.data).toBeNull();
 });

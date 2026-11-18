@@ -20,12 +20,11 @@ export function AiStatusBadges({
   enabled,
 }: {
   health: HealthRes | undefined;
-  enabled: { gemini: boolean; aloy: boolean };
+  enabled: { gemini: boolean };
 }) {
   return (
     <div className="flex gap-4">
       {enabled.gemini && <Badge nome="Gemini" id="gemini" up={!!health?.gemini.up} />}
-      {enabled.aloy && <Badge nome="ALOY" id="aloy" up={!!health?.aloy.up} />}
     </div>
   );
 }

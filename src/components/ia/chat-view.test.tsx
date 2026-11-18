@@ -22,7 +22,7 @@ function tela() {
     <QueryClientProvider client={qc}>
       <AuthProvider>
         <DbProvider api={criarApiLocal(db, 1)} userId={1}>
-          <ChatView config={{ aloy_enabled: false, gemini_enabled: true, has_gemini_key: true }} />
+          <ChatView config={{ gemini_enabled: true, has_gemini_key: true }} />
         </DbProvider>
       </AuthProvider>
     </QueryClientProvider>,

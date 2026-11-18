@@ -14,7 +14,7 @@ let db: Client;
 beforeEach(async () => {
   db = await createTestDb();
   await db.execute({ sql: "INSERT INTO users (email,password_hash,created_at) VALUES ('a@x.com','h','2026-07-09')", args: [] });
-  await setAiFlags(db, "a@x.com", { aloy_enabled: true });
+  await setAiFlags(db, "a@x.com", { gemini_enabled: true });
 });
 
 it("renderiza o console quando há provedor habilitado", async () => {
@@ -29,5 +29,5 @@ it("renderiza o console quando há provedor habilitado", async () => {
     </QueryClientProvider>,
   );
   await waitFor(() => expect(screen.getByText("Assistente")).toBeInTheDocument());
-  expect(screen.getByRole("button", { name: /aloy/i })).toBeInTheDocument();
+  expect(screen.getByTestId("status-gemini")).toBeInTheDocument();
 });
